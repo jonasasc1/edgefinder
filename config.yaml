@@ -1,0 +1,242 @@
+# edgefinder – zentrale Konfiguration
+# Assets, Datenquellen, Zeitpläne, Profile und Gewichtungen. Secrets stehen in .env.
+# Prüfen mit: uv run edgefinder check-config
+
+server:
+  host: 0.0.0.0        # Zugriff wird per Firewall auf cloudflared (10.10.20.20) begrenzt
+  port: 8420
+
+storage:
+  database: data/edgefinder.db
+  raw_dir: data/raw      # Rohantworten der Quellen (je Quelle/Datum)
+
+# ---------------------------------------------------------------------------
+# Datenquellen
+# schedule: systemd-OnCalendar-Ausdruck (daraus werden die Timer erzeugt)
+# stale_after_hours: ab wann der Datenstatus „veraltet“ meldet
+# ---------------------------------------------------------------------------
+sources:
+  cftc:
+    schedule: "Fri *-*-* 22:15:00 Europe/Vienna"   # Release freitags 15:30 ET
+    stale_after_hours: 192
+    min_interval_seconds: 1
+    options:
+      base_url: https://publicreporting.cftc.gov/resource
+      dataset: 6dca-aqww          # Legacy, Futures Only (Non-Commercials)
+      history_years: 6
+  fred:
+    schedule: "*-*-* 06:30:00 Europe/Vienna"
+    stale_after_hours: 48
+    min_interval_seconds: 0.6     # Limit: 120 Requests/Minute
+    options:
+      base_url: https://api.stlouisfed.org/fred
+      history_years: 15
+  eurostat:
+    schedule: "*-*-* 06:45:00 Europe/Vienna"
+    stale_after_hours: 48
+    min_interval_seconds: 1
+    options:
+      base_url: https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data
+  ecb:
+    schedule: "*-*-* 06:50:00 Europe/Vienna"
+    stale_after_hours: 48
+    min_interval_seconds: 1
+    options:
+      base_url: https://data-api.ecb.europa.eu/service/data
+  prices:
+    schedule: "*-*-* 07:00,23:15:00 Europe/Vienna"
+    stale_after_hours: 36
+    min_interval_seconds: 1.5
+    options:
+      history_years: 15
+  myfxbook:
+    schedule: "*-*-* 00/4:20:00 Europe/Vienna"     # 6 Läufe/Tag, je 1–2 Requests
+    stale_after_hours: 12
+    min_interval_seconds: 5
+    daily_request_limit: 80       # Gratis-Limit 100/24 h, Reserve für Re-Login
+    options:
+      base_url: https://www.myfxbook.com/api
+  aaii:
+    schedule: "Thu,Fri *-*-* 08:00:00 Europe/Vienna"   # neue Werte donnerstags
+    stale_after_hours: 216
+    min_interval_seconds: 10
+    options:
+      url: https://www.aaii.com/sentimentsurvey
+  edgar:
+    schedule: "*-*-* 05:30:00 Europe/Vienna"
+    stale_after_hours: 48
+    min_interval_seconds: 0.2     # SEC erlaubt max. 10 Requests/Sekunde
+    options:
+      base_url: https://data.sec.gov
+      insider_lookback_days: 365
+  finra:
+    schedule: "Mon,Thu *-*-* 05:45:00 Europe/Vienna"   # Veröffentlichung zweiwöchentlich
+    stale_after_hours: 504
+    min_interval_seconds: 1
+    options: {}
+
+# Standard für alle Quellen (je Quelle unter `retry:` überschreibbar)
+retry:
+  attempts: 4
+  backoff_seconds: 2
+  max_backoff_seconds: 60
+  timeout_seconds: 30
+
+# ---------------------------------------------------------------------------
+# Volkswirtschaften und ihre Makro-Indikatoren
+# category: growth | inflation | labor | rates
+# transform: level | yoy (Veränderung zum Vorjahr in %) | diff (absolute Veränderung)
+# higher_is: bullish | bearish – Wirkung eines höheren Werts auf die Währung
+# Die Serien der übrigen Volkswirtschaften werden in Etappe b ergänzt, sobald sie
+# gegen die Live-Quellen (FRED, Eurostat, ECB) geprüft sind.
+# ---------------------------------------------------------------------------
+economies:
+  US:
+    name: USA
+    indicators:
+      gdp:           {label: "BIP (real)",              source: fred, series: GDPC1,    category: growth,    transform: yoy,   higher_is: bullish}
+      industrial:    {label: "Industrieproduktion",     source: fred, series: INDPRO,   category: growth,    transform: yoy,   higher_is: bullish}
+      retail_sales:  {label: "Einzelhandelsumsätze",    source: fred, series: RSAFS,    category: growth,    transform: yoy,   higher_is: bullish}
+      cpi:           {label: "Inflation (CPI)",         source: fred, series: CPIAUCSL, category: inflation, transform: yoy,   higher_is: bullish}
+      core_cpi:      {label: "Kerninflation (CPI)",     source: fred, series: CPILFESL, category: inflation, transform: yoy,   higher_is: bullish}
+      unemployment:  {label: "Arbeitslosenquote",       source: fred, series: UNRATE,   category: labor,     transform: level, higher_is: bearish}
+      payrolls:      {label: "Beschäftigung (NFP)",     source: fred, series: PAYEMS,   category: labor,     transform: diff,  higher_is: bullish}
+      jobless:       {label: "Erstanträge Arbeitslosenhilfe", source: fred, series: ICSA, category: labor,   transform: level, higher_is: bearish}
+      policy_rate:   {label: "Leitzins (Fed Funds)",    source: fred, series: FEDFUNDS, category: rates,     transform: level, higher_is: bullish}
+      yield_2y:      {label: "Rendite 2 Jahre",         source: fred, series: DGS2,     category: rates,     transform: level, higher_is: bullish}
+      yield_10y:     {label: "Rendite 10 Jahre",        source: fred, series: DGS10,    category: rates,     transform: level, higher_is: bullish}
+  EZ: {name: Euroraum,       indicators: {}}
+  DE: {name: Deutschland,    indicators: {}}
+  UK: {name: Großbritannien, indicators: {}}
+  JP: {name: Japan,          indicators: {}}
+  CH: {name: Schweiz,        indicators: {}}
+  AU: {name: Australien,     indicators: {}}
+  CA: {name: Kanada,         indicators: {}}
+  NZ: {name: Neuseeland,     indicators: {}}
+
+# ---------------------------------------------------------------------------
+# Währungen: Zuordnung zu Volkswirtschaft und CFTC-Kontrakt (Legacy-Report)
+# ---------------------------------------------------------------------------
+currencies:
+  USD: {economy: US, cftc_code: "098662"}   # US Dollar Index (ICE)
+  EUR: {economy: EZ, cftc_code: "099741"}
+  GBP: {economy: UK, cftc_code: "096742"}
+  JPY: {economy: JP, cftc_code: "097741"}
+  CHF: {economy: CH, cftc_code: "092741"}
+  AUD: {economy: AU, cftc_code: "232741"}
+  CAD: {economy: CA, cftc_code: "090741"}
+  NZD: {economy: NZ, cftc_code: "112741"}
+
+# ---------------------------------------------------------------------------
+# Assets
+# yfinance: Kurssymbol · myfxbook: Symbol im Community Outlook (null = nicht abgedeckt)
+# cftc_code: null = kein COT verfügbar (Teilscore entfällt, Gewichte werden renormiert)
+# ---------------------------------------------------------------------------
+assets:
+  forex:
+    # Majors
+    - {id: EURUSD, name: "Euro / US-Dollar",                 base: EUR, quote: USD, yfinance: "EURUSD=X", myfxbook: EURUSD}
+    - {id: GBPUSD, name: "Britisches Pfund / US-Dollar",     base: GBP, quote: USD, yfinance: "GBPUSD=X", myfxbook: GBPUSD}
+    - {id: USDJPY, name: "US-Dollar / Japanischer Yen",      base: USD, quote: JPY, yfinance: "USDJPY=X", myfxbook: USDJPY}
+    - {id: USDCHF, name: "US-Dollar / Schweizer Franken",    base: USD, quote: CHF, yfinance: "USDCHF=X", myfxbook: USDCHF}
+    - {id: AUDUSD, name: "Australischer Dollar / US-Dollar", base: AUD, quote: USD, yfinance: "AUDUSD=X", myfxbook: AUDUSD}
+    - {id: USDCAD, name: "US-Dollar / Kanadischer Dollar",   base: USD, quote: CAD, yfinance: "USDCAD=X", myfxbook: USDCAD}
+    - {id: NZDUSD, name: "Neuseeland-Dollar / US-Dollar",    base: NZD, quote: USD, yfinance: "NZDUSD=X", myfxbook: NZDUSD}
+    # Crosses
+    - {id: EURGBP, name: "Euro / Britisches Pfund",          base: EUR, quote: GBP, yfinance: "EURGBP=X", myfxbook: EURGBP}
+    - {id: EURJPY, name: "Euro / Japanischer Yen",           base: EUR, quote: JPY, yfinance: "EURJPY=X", myfxbook: EURJPY}
+    - {id: GBPJPY, name: "Britisches Pfund / Japanischer Yen", base: GBP, quote: JPY, yfinance: "GBPJPY=X", myfxbook: GBPJPY}
+    - {id: EURCHF, name: "Euro / Schweizer Franken",         base: EUR, quote: CHF, yfinance: "EURCHF=X", myfxbook: EURCHF}
+    - {id: AUDJPY, name: "Australischer Dollar / Japanischer Yen", base: AUD, quote: JPY, yfinance: "AUDJPY=X", myfxbook: AUDJPY}
+    - {id: EURAUD, name: "Euro / Australischer Dollar",      base: EUR, quote: AUD, yfinance: "EURAUD=X", myfxbook: EURAUD}
+    - {id: AUDNZD, name: "Australischer Dollar / Neuseeland-Dollar", base: AUD, quote: NZD, yfinance: "AUDNZD=X", myfxbook: AUDNZD}
+
+  indices:
+    - {id: SPX,    name: "S&P 500",    economy: US, yfinance: "^GSPC",  cftc_code: "13874A", myfxbook: null}
+    - {id: NDX,    name: "Nasdaq 100", economy: US, yfinance: "^NDX",   cftc_code: "209742", myfxbook: null}
+    - {id: DJI,    name: "Dow Jones",  economy: US, yfinance: "^DJI",   cftc_code: "124603", myfxbook: null}
+    - {id: DAX,    name: "DAX",        economy: DE, yfinance: "^GDAXI", cftc_code: null,     myfxbook: null}   # Eurex, kein CFTC-Report
+    - {id: NIKKEI, name: "Nikkei 225", economy: JP, yfinance: "^N225",  cftc_code: "240741", myfxbook: null}
+
+  commodities:
+    - {id: GOLD,   name: "Gold",     yfinance: "GC=F", cftc_code: "088691", myfxbook: XAUUSD}
+    - {id: SILVER, name: "Silber",   yfinance: "SI=F", cftc_code: "084691", myfxbook: XAGUSD}
+    - {id: WTI,    name: "Öl (WTI)", yfinance: "CL=F", cftc_code: "067651", myfxbook: null}
+    - {id: COPPER, name: "Kupfer",   yfinance: "HG=F", cftc_code: "085692", myfxbook: null}
+
+  stocks:   # Watchlist; `ticker` gilt für SEC/FINRA, `yfinance` nur bei abweichendem Symbol
+    - {id: AAPL,  name: "Apple",              ticker: AAPL}
+    - {id: MSFT,  name: "Microsoft",          ticker: MSFT}
+    - {id: NVDA,  name: "Nvidia",             ticker: NVDA}
+    - {id: AMZN,  name: "Amazon",             ticker: AMZN}
+    - {id: GOOGL, name: "Alphabet",           ticker: GOOGL}
+    - {id: META,  name: "Meta Platforms",     ticker: META}
+    - {id: TSLA,  name: "Tesla",              ticker: TSLA}
+    - {id: AVGO,  name: "Broadcom",           ticker: AVGO}
+    - {id: BRKB,  name: "Berkshire Hathaway", ticker: BRK-B}
+    - {id: JPM,   name: "JPMorgan Chase",     ticker: JPM}
+    - {id: V,     name: "Visa",               ticker: V}
+    - {id: MA,    name: "Mastercard",         ticker: MA}
+    - {id: LLY,   name: "Eli Lilly",          ticker: LLY}
+    - {id: UNH,   name: "UnitedHealth",       ticker: UNH}
+    - {id: JNJ,   name: "Johnson & Johnson",  ticker: JNJ}
+    - {id: XOM,   name: "Exxon Mobil",        ticker: XOM}
+    - {id: PG,    name: "Procter & Gamble",   ticker: PG}
+    - {id: HD,    name: "Home Depot",         ticker: HD}
+    - {id: COST,  name: "Costco",             ticker: COST}
+    - {id: NFLX,  name: "Netflix",            ticker: NFLX}
+
+# ---------------------------------------------------------------------------
+# Score-Engine
+# Teilscores liegen auf [-1, +1]; gewichtete Summe × 10 ergibt den Gesamtscore.
+# Gewichte je Assetklasse müssen sich zu 1 summieren.
+# ---------------------------------------------------------------------------
+scoring:
+  schedule: "*-*-* 07:30,23:45:00 Europe/Vienna"
+  labels:            # absteigend; erstes Label, dessen `min` erreicht wird
+    - {min: 6.0,   label: "Stark bullish"}
+    - {min: 2.0,   label: "Bullish"}
+    - {min: -2.0,  label: "Neutral"}
+    - {min: -6.0,  label: "Bearish"}
+    - {min: -10.0, label: "Stark bearish"}
+
+profiles:
+  swing:
+    label: Swing
+    horizon: "Tage bis Wochen"
+    params:
+      cot:              {percentile_weeks: 156, change_weeks: 4}
+      retail_sentiment: {smoothing_days: 3}
+      macro:            {change_months: 3}
+      trend:            {sma_days: [20, 50], roc_days: 20}
+      seasonality:      {years: 10, forward_days: 21}
+      aaii:             {smoothing_weeks: 1, history_weeks: 156}
+      fundamentals:     {growth_quarters: 4, valuation_years: 5}
+      earnings:         {quarters: 2}
+      short_interest:   {change_periods: 2}
+      insider:          {lookback_days: 90}
+    weights:
+      forex:     {cot: 0.25, retail_sentiment: 0.20, macro: 0.15, trend: 0.30, seasonality: 0.10}
+      index:     {cot: 0.20, retail_sentiment: 0.05, macro: 0.15, trend: 0.35, seasonality: 0.10, aaii: 0.15}
+      commodity: {cot: 0.30, retail_sentiment: 0.15, macro: 0.10, trend: 0.35, seasonality: 0.10}
+      stock:     {fundamentals: 0.15, earnings: 0.20, trend: 0.30, short_interest: 0.10, insider: 0.10, seasonality: 0.05, aaii: 0.10}
+
+  long_term:
+    label: Langfristig
+    horizon: "Wochen bis Monate"
+    params:
+      cot:              {percentile_weeks: 156, change_weeks: 13}
+      retail_sentiment: {smoothing_days: 10}
+      macro:            {change_months: 12}
+      trend:            {sma_days: [50, 200], roc_days: 126}
+      seasonality:      {years: 15, forward_days: 63}
+      aaii:             {smoothing_weeks: 8, history_weeks: 260}
+      fundamentals:     {growth_quarters: 12, valuation_years: 10}
+      earnings:         {quarters: 4}
+      short_interest:   {change_periods: 6}
+      insider:          {lookback_days: 180}
+    weights:
+      forex:     {cot: 0.25, retail_sentiment: 0.05, macro: 0.40, trend: 0.20, seasonality: 0.10}
+      index:     {cot: 0.15, retail_sentiment: 0.05, macro: 0.35, trend: 0.25, seasonality: 0.10, aaii: 0.10}
+      commodity: {cot: 0.30, retail_sentiment: 0.05, macro: 0.25, trend: 0.30, seasonality: 0.10}
+      stock:     {fundamentals: 0.35, earnings: 0.15, trend: 0.20, short_interest: 0.05, insider: 0.10, seasonality: 0.05, aaii: 0.10}
