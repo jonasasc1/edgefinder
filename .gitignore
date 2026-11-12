@@ -22,3 +22,6 @@ frontend/*.tsbuildinfo
 shots/
 *.log
 .DS_Store
+
+# Lokale Claude-Code-Einstellungen
+.claude/settings.local.json
