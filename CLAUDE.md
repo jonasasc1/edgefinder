@@ -3,8 +3,56 @@
 Kostenloses Makro-, Sentiment- und Fundamental-Dashboard (Vorbild: A1 Trading EdgeFinder).
 Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie COT englisch).
 
-> Stand: Etappe a abgeschlossen (Gerüst, Config, DB-Schema). Nächste Etappe: b (Fetcher CFTC,
-> FRED/Eurostat/ECB, yfinance). Dieses Dokument wird nach jeder Etappe aktualisiert.
+> Dieses Dokument wird nach jeder Etappe aktualisiert. Aktueller Stand und nächster Schritt
+> stehen direkt hier unten, offene Punkte am Ende.
+
+## Stand und nächster Schritt
+
+**Stand (2026-11-12):** Etappe a ist abgeschlossen und lokal committet (2 Commits + dieser
+Doku-Commit). Tests (30), ruff und Frontend-Build sind grün. Auf „trading“ wurde noch nichts
+verändert.
+
+**Sofort zu erledigen:** `git push -u origin main` – das Repo `jonasasc1/edgefinder`
+(privat, Remote `origin` per HTTPS) ist noch leer. Der Push war in der ersten Sitzung
+blockiert, weil sie in `/home/agent/remote` gestartet wurde und
+`.claude/settings.local.json` (erlaubt `git push`, verbietet `--force`/`-f`) dort nicht griff.
+
+**Nächster Schritt: Etappe b** – erst starten, wenn Jonas bestätigt, dass der FRED-Key in
+der lokalen `.env` steht (Datei existiert, chmod 600; nicht ausgeben). Inhalt:
+1. `fetchers/base.py`: HTTP-Client mit Retry/Backoff, Rate-Limit je Quelle (`request_log`),
+   Rohdaten-Ablage (`raw_files`), Lauf-Protokoll (`fetch_runs`); CLI `edgefinder fetch <quelle>`.
+2. CFTC (Socrata, Legacy Futures Only), FRED, Eurostat/ECB, yfinance (Kurse, Earnings).
+   Neue Abhängigkeiten (httpx als Laufzeit-Dependency, yfinance, pandas) über `uv add`.
+3. Makro-Serien der übrigen Volkswirtschaften in `config.yaml` ergänzen, CFTC-Codes prüfen.
+4. Tests mit aufgezeichneten Antworten unter `backend/tests/fixtures/`.
+5. Abschluss: Tests grün, ruff sauber, Build ok, Commit, Push, kurze Zusammenfassung an Jonas
+   mit Bericht je Quelle (was funktioniert, was nicht).
+
+### Etappenplan
+
+| Etappe | Inhalt | Status |
+|---|---|---|
+| a | Erreichbarkeit „trading“, Gerüst, Config, DB-Schema, CLAUDE.md, README, Repo | fertig, Push offen |
+| b | Fetcher: CFTC, FRED/Eurostat/ECB, yfinance | wartet auf FRED-Key |
+| c | Fetcher: Myfxbook, AAII, SEC EDGAR, FINRA | offen |
+| d | Score-Engine mit beiden Profilen, FastAPI-Endpunkte | offen |
+| e | Design-System und eine Beispielseite – **Screenshots zur Freigabe durch Jonas** | offen |
+| f | Restliches Frontend mit allen Seiten und Funktionen | offen |
+| g | Einrichtung „trading“ (install.sh vorher zeigen), systemd, deploy.sh, Cloudflare-Doku | offen |
+| h | Backtest (Trefferquote/Rendite nach Score-Bereich, je Profil und Assetklasse) | offen |
+
+### Arbeitsweise (von Jonas vorgegeben)
+- In Etappen arbeiten; nach jeder Etappe: Tests grün, ruff sauber, Build ok, Commit, kurze
+  Zusammenfassung. Keine Etappe gilt als fertig, solange Tests, Lint oder Build fehlschlagen.
+- Bei Unklarheit nachfragen statt raten. Quelle funktioniert nicht wie beschrieben → melden.
+- `deploy.sh` und Eingriffe auf „trading“ nur nach Freigabe.
+
+### Entscheidungen von Jonas (2026-11-12)
+- Port 8420. „trading“ hat 2 GB RAM, der Frontend-Build läuft dort.
+- `claude` behält auf „trading“ volles sudo (keine Einschränkung per sudoers).
+- Fehlende Teilscores: Gewichte renormieren, Abdeckung sichtbar machen.
+- Crosses: EURGBP, EURJPY, GBPJPY, EURCHF, AUDJPY, EURAUD, AUDNZD.
+- Gewichte und Label-Schwellen in `config.yaml` sind Startwerte; Feintuning nach dem Backtest.
 
 ## Umgebungen
 
@@ -114,10 +162,20 @@ Vor Eingriffen auf „trading“ (Dienste, Firewall, sudoers): erklären, an Sna
 Bestätigung abwarten.
 
 ## Offen
-- Makro-Serien für EZ, DE, UK, JP, CH, AU, CA, NZ: in Etappe b ergänzen, nachdem sie gegen
+- **Push nach GitHub** steht aus (siehe oben).
+- **Etappe b:** Makro-Serien für EZ, DE, UK, JP, CH, AU, CA, NZ ergänzen, nachdem sie gegen
   die Live-Quellen geprüft sind (bisher nur USA in `config.yaml`).
-- CFTC-Kontraktcodes und Dataset-ID in `config.yaml` in Etappe b gegen Live-Daten prüfen.
-- Bekannte Lücken: kein COT für DAX; Myfxbook deckt Indizes, Öl und Kupfer voraussichtlich
-  nicht ab → Teilscore entfällt, Gewichte werden renormiert (mit Jonas abgestimmt).
+- **Etappe b:** CFTC-Kontraktcodes und Dataset-ID in `config.yaml` stammen aus dem Gedächtnis;
+  gegen Live-Daten prüfen.
+- **Etappe b/h:** FRED liefert revidierte Werte; für den Backtest Vintages (ALFRED,
+  `macro_observations.vintage_date`) nutzen, damit kein Vorgriff auf Revisionen entsteht.
+- **Etappe c, noch ungeprüft:** AAII hat einen Bot-Schutz (Abruf evtl. blockiert); FINRA evtl.
+  nur mit Account; Myfxbook deckt Indizes, Öl und Kupfer voraussichtlich nicht ab. Ergebnis an
+  Jonas melden.
+- Bekannte Lücke: kein COT für den DAX (Eurex) → Teilscore entfällt, Gewichte werden renormiert.
+- **Etappe f:** `npm audit` erneut prüfen. Stand heute: 1 Meldung „moderate“ in `minimatch`,
+  nur über ESLint/typescript-eslint (Dev), nicht im Build; Fix würde ESLint auf 9 zurücksetzen.
+- **Etappe e:** Im Skill `jonas-design` ist der Abschnitt „Marke“ noch offen.
 - Testwarnung: Starlette empfiehlt `httpx2` statt `httpx` für den TestClient; vor einem
   Wechsel Herkunft des Pakets prüfen.
+- `.claude/settings.local.json` ist lokal und nicht im Repo (in `.gitignore`).
