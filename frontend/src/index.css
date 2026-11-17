@@ -1,3 +1,89 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter/wght.css";
+@import "./design/tokens.css";
 
-/* Platzhalter bis Etappe e: dort entstehen die eigenen Design-Tokens. */
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss03";
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--c-canvas);
+    color: var(--c-ink);
+    font-size: var(--text-subhead);
+    line-height: var(--text-subhead--line-height);
+    overflow-wrap: anywhere;
+  }
+  button,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+  button {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--c-fill-strong);
+  }
+}
+
+/* Zahlen immer tabellarisch */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Kartenraster der Übersicht: zwei Spalten auf dem Handy, darüber so viele wie passen */
+.asset-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+}
+@media (min-width: 40rem) {
+  .asset-grid {
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  }
+}
+
+/* Glas für Navigation und Sheets */
+@utility glass {
+  background: var(--c-glass);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* Schimmer der Skeletons; ruhend bei reduzierter Bewegung */
+@keyframes shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+.skeleton {
+  background-color: var(--c-fill);
+  background-image: linear-gradient(100deg, transparent 30%, var(--c-fill) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.scroll-hidden {
+  scrollbar-width: none;
+}
+.scroll-hidden::-webkit-scrollbar {
+  display: none;
+}

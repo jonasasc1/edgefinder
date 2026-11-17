@@ -1,0 +1,205 @@
+/*
+ * Design-Tokens von edgefinder.
+ *
+ * Konvention: Rohwerte (Hex, px, Schatten) stehen NUR in dieser Datei. Komponenten nutzen
+ * ausschließlich die Tailwind-Utilities, die unten aus den Tokens erzeugt werden
+ * (bg-surface, text-ink-2, rounded-card, shadow-card, text-largetitle …).
+ *
+ * Aufbau: `--c-*` sind die modusabhängigen Rohvariablen (hell in :root, dunkel in
+ * [data-theme="dark"]); `@theme inline` hängt Tailwind-Namen darauf. Den Modus setzt
+ * public/theme-init.js vor dem ersten Rendern (System, oder die Wahl aus localStorage).
+ *
+ * Farbwelt: ruhige iOS-Grautöne (grouped background), Akzent nur mit Bedeutung:
+ * Grün = bullish, Rot = bearish (je zwei Stärkestufen), Blau nur für Bedienung/Fokus.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Flächen */
+  --c-canvas: #f2f2f7;
+  --c-surface: #ffffff;
+  --c-raised: #ffffff;
+  --c-thumb: #ffffff;
+  --c-fill: rgb(118 118 128 / 0.12);
+  --c-fill-strong: rgb(118 118 128 / 0.2);
+  --c-glass: rgb(249 249 251 / 0.74);
+  --c-scrim: rgb(0 0 0 / 0.32);
+
+  /* Text und Linien */
+  --c-ink: #000000;
+  --c-ink-2: #5c5c63;
+  --c-ink-3: #8e8e93;
+  --c-line: rgb(60 60 67 / 0.14);
+  --c-edge: rgb(60 60 67 / 0);
+
+  /* Bedienung */
+  --c-accent: #007aff;
+  --c-accent-ink: #005fcc;
+  --c-accent-solid: #0062d1;
+  --c-on-accent: #ffffff;
+
+  /* bullish (grün): soft = Fläche, ring = Ring/Balken, ring-strong = starkes Signal,
+     ink = Text, solid = gefüllte Marke mit on-solid-Text */
+  --c-bull-soft: rgb(52 199 89 / 0.16);
+  --c-bull-ring: #34c759;
+  --c-bull-ring-strong: #248a3d;
+  --c-bull-ink: #1b7a34;
+  --c-bull-solid: #1c7c36;
+
+  /* bearish (rot) */
+  --c-bear-soft: rgb(255 59 48 / 0.12);
+  --c-bear-ring: #ff3b30;
+  --c-bear-ring-strong: #c9251b;
+  --c-bear-ink: #c3231a;
+  --c-bear-solid: #c3231a;
+
+  /* neutral */
+  --c-flat-soft: rgb(118 118 128 / 0.14);
+  --c-flat-ring: #a4a4aa;
+  --c-flat-ink: #55555c;
+  --c-track: rgb(118 118 128 / 0.18);
+  --c-on-solid: #ffffff;
+
+  /* Schatten */
+  --sh-card: 0 0 0 0.5px rgb(0 0 0 / 0.04), 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 20px rgb(0 0 0 / 0.05);
+  --sh-thumb: 0 1px 1px rgb(0 0 0 / 0.06), 0 3px 8px rgb(0 0 0 / 0.12);
+  --sh-pop: 0 8px 30px rgb(0 0 0 / 0.16), 0 0 0 0.5px rgb(0 0 0 / 0.08);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --c-canvas: #000000;
+  --c-surface: #1c1c1e;
+  --c-raised: #2c2c2e;
+  --c-thumb: #636366;
+  --c-fill: rgb(118 118 128 / 0.24);
+  --c-fill-strong: rgb(118 118 128 / 0.36);
+  --c-glass: rgb(22 22 24 / 0.72);
+  --c-scrim: rgb(0 0 0 / 0.55);
+
+  --c-ink: #ffffff;
+  --c-ink-2: #a3a3aa;
+  --c-ink-3: #6e6e75;
+  --c-line: rgb(255 255 255 / 0.1);
+  --c-edge: rgb(255 255 255 / 0.08);
+
+  --c-accent: #0a84ff;
+  --c-accent-ink: #5eb0ff;
+  --c-accent-solid: #0a6cd6;
+  --c-on-accent: #ffffff;
+
+  --c-bull-soft: rgb(48 209 88 / 0.2);
+  --c-bull-ring: #30d158;
+  --c-bull-ring-strong: #6df08f;
+  --c-bull-ink: #5fe583;
+  --c-bull-solid: #30d158;
+
+  --c-bear-soft: rgb(255 69 58 / 0.2);
+  --c-bear-ring: #ff453a;
+  --c-bear-ring-strong: #ff7a70;
+  --c-bear-ink: #ff7b72;
+  --c-bear-solid: #ff453a;
+
+  --c-flat-soft: rgb(118 118 128 / 0.28);
+  --c-flat-ring: #7c7c83;
+  --c-flat-ink: #b0b0b7;
+  --c-track: rgb(118 118 128 / 0.3);
+  --c-on-solid: #000000;
+
+  --sh-card: 0 0 0 0 transparent;
+  --sh-thumb: 0 1px 2px rgb(0 0 0 / 0.5), 0 3px 8px rgb(0 0 0 / 0.4);
+  --sh-pop: 0 12px 40px rgb(0 0 0 / 0.6), 0 0 0 0.5px rgb(255 255 255 / 0.1);
+}
+
+@theme {
+  /* Eigene Skalen statt Tailwind-Standard */
+  --color-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", system-ui,
+    sans-serif;
+
+  /* Typografie (iOS-Stufen) */
+  --text-tab: 0.6875rem;
+  --text-tab--line-height: 0.875rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-footnote: 0.8125rem;
+  --text-footnote--line-height: 1.125rem;
+  --text-subhead: 0.9375rem;
+  --text-subhead--line-height: 1.25rem;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.375rem;
+  --text-title3: 1.25rem;
+  --text-title3--line-height: 1.5rem;
+  --text-title2: 1.5rem;
+  --text-title2--line-height: 1.875rem;
+  --text-title1: 1.75rem;
+  --text-title1--line-height: 2.125rem;
+  --text-largetitle: 2.125rem;
+  --text-largetitle--line-height: 2.5rem;
+  --text-display: 3rem;
+  --text-display--line-height: 1;
+  --tracking-title: -0.022em;
+  --tracking-tight: -0.011em;
+
+  /* Radien: Kapsel, Bedienelement, Gruppe, Karte, Sheet */
+  --radius-chip: 999px;
+  --radius-control: 0.75rem;
+  --radius-thumb: 0.625rem;
+  --radius-group: 1rem;
+  --radius-card: 1.25rem;
+  --radius-sheet: 1.75rem;
+
+  /* Maße */
+  --spacing-touch: 2.75rem;
+  --spacing-row: 4.25rem;
+  --spacing-sidebar: 16.5rem;
+  --spacing-tabbar: 3.25rem;
+  --container-page: 76rem;
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Tailwind-Namen auf die modusabhängigen Variablen */
+@theme inline {
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-raised: var(--c-raised);
+  --color-thumb: var(--c-thumb);
+  --color-fill: var(--c-fill);
+  --color-fill-strong: var(--c-fill-strong);
+  --color-glass: var(--c-glass);
+  --color-scrim: var(--c-scrim);
+  --color-ink: var(--c-ink);
+  --color-ink-2: var(--c-ink-2);
+  --color-ink-3: var(--c-ink-3);
+  --color-line: var(--c-line);
+  --color-edge: var(--c-edge);
+  --color-accent: var(--c-accent);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-accent-solid: var(--c-accent-solid);
+  --color-on-accent: var(--c-on-accent);
+  --color-bull-soft: var(--c-bull-soft);
+  --color-bull-ring: var(--c-bull-ring);
+  --color-bull-ring-strong: var(--c-bull-ring-strong);
+  --color-bull-ink: var(--c-bull-ink);
+  --color-bull-solid: var(--c-bull-solid);
+  --color-bear-soft: var(--c-bear-soft);
+  --color-bear-ring: var(--c-bear-ring);
+  --color-bear-ring-strong: var(--c-bear-ring-strong);
+  --color-bear-ink: var(--c-bear-ink);
+  --color-bear-solid: var(--c-bear-solid);
+  --color-flat-soft: var(--c-flat-soft);
+  --color-flat-ring: var(--c-flat-ring);
+  --color-flat-ink: var(--c-flat-ink);
+  --color-track: var(--c-track);
+  --color-on-solid: var(--c-on-solid);
+
+  --shadow-card: var(--sh-card);
+  --shadow-thumb: var(--sh-thumb);
+  --shadow-pop: var(--sh-pop);
+}

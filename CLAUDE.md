@@ -16,6 +16,10 @@ Insider (Aktien) entfallen vorerst (Gewichte werden renormiert, Abdeckung ca. 55
 `edgefinder score`-Lauf (86 Scores, 43 Assets × 2 Profile) ist plausibel. Auf „trading“ wurde noch
 nichts verändert.
 
+**Etappe e (2026-11-17):** Design-System + Übersicht (echte Daten) + Seite `/design` gebaut; Screenshots
+unter `~/remote/edgefinder-shots/etappe-e/` (außerhalb des Repos). **Wartet auf Freigabe durch Jonas**,
+erst danach Etappe f (restliche Seiten). Bei Änderungswünschen nur Tokens/Komponenten anpassen.
+
 **Nächster Schritt:** Jonas trägt die drei fehlenden Werte in die `.env` ein; danach je einmal
 `uv run edgefinder fetch myfxbook` und `… edgar` live prüfen (Symbolliste von Myfxbook ansehen,
 siehe „Offen“). Dann Etappe e (Design-System, Beispielseite, Screenshots zur Freigabe).
@@ -28,7 +32,7 @@ siehe „Offen“). Dann Etappe e (Design-System, Beispielseite, Screenshots zur
 | b | Fetcher: CFTC, FRED/Eurostat/ECB, yfinance | fertig (Datenlücken siehe „Offen“) |
 | c | Fetcher: Myfxbook, AAII, SEC EDGAR, FINRA | fertig (Myfxbook/EDGAR noch ohne Live-Lauf, siehe „Offen“) |
 | d | Score-Engine mit beiden Profilen, FastAPI-Endpunkte | fertig |
-| e | Design-System und eine Beispielseite – **Screenshots zur Freigabe durch Jonas** | offen |
+| e | Design-System und eine Beispielseite – **Screenshots zur Freigabe durch Jonas** | im Code fertig, wartet auf Freigabe |
 | f | Restliches Frontend mit allen Seiten und Funktionen | offen |
 | g | Einrichtung „trading“ (install.sh vorher zeigen), systemd, deploy.sh, Cloudflare-Doku | offen |
 | h | Backtest (Trefferquote/Rendite nach Score-Bereich, je Profil und Assetklasse) | offen |
@@ -236,6 +240,27 @@ Favoriten gibt es nur clientseitig (localStorage).
 - Grün/Rot nur mit Bedeutung (bullish/bearish). `tabular-nums` für Zahlen.
 - `prefers-reduced-motion` respektieren. iPhone-first.
 - Gestaltung nach Skill `jonas-design` (+ `frontend-design`).
+- **Struktur `frontend/src/`:** `design/tokens.css` (alle Rohwerte, hell+dunkel), `index.css` (Tailwind,
+  Inter, Basis, `.glass`, `.skeleton`, `.asset-grid`), `lib/` (api, format, score, motion, theme,
+  useSpringValue, usePersistentState), `components/` (ScoreRing, SegmentedControl, Card/PressCard,
+  Badge, Delta, Sidebar, TabBar, AppShell, Sheet, Tooltip, Skeleton, Sparkline, AnimatedNumber,
+  ThemeToggle, icons, nav), `pages/` (`overview/` = Beispielseite, `DesignPage`, `PlaceholderPage`).
+  Routen in `App.tsx` (react-router, BrowserRouter); neue Seite = Route + Eintrag in `components/nav.tsx`.
+- **Token-Konventionen:** Farben als `--c-*` (Modus per `[data-theme="dark"]`, gesetzt von
+  `public/theme-init.js` und `lib/theme.tsx`; Wahl in localStorage `ef-theme`). Tailwind-Namen
+  (`bg-surface`, `text-ink-2`, `text-bull-ink`, `rounded-card`, `text-largetitle`, `shadow-card`) kommen
+  aus `@theme` in tokens.css; Tailwind-Standardfarben/-größen sind abgeschaltet. Keine Hex-Werte,
+  keine `[…]`-Arbitrary-Values in Komponenten; fehlt ein Wert, erst Token anlegen. Text auf Flächen:
+  `*-ink` (AA-Kontrast), `*-ring` nur für Grafik. Bullish/Bearish: `soft` (Fläche), `ring`, `ring-strong`,
+  `solid` + `on-solid` (gefüllte Marke). `ink-3` nur Deko (Kontrast < 4,5).
+- **Score-Ring:** 270°-Gauge, Null oben, Bogen wächst von der Nullmarke; Stufe aus dem API-Label
+  (`lib/score.ts`). Zahlen/Ring laufen federnd (`useSpringValue`), sofort bei `prefers-reduced-motion`.
+- **Screenshots/Prüfung:** `node frontend/scripts/screenshots.mjs [Ordner] [URL]` (Backend mit Build muss
+  laufen; Playwright + axe-core aus `~/tools/playwright`, Chromium notfalls per `CHROMIUM_PATH`). Macht
+  Übersicht, Liste, Filter, Langfristig, Design, Platzhalter, Zustände (Fehler/leer/laden), Sheets in
+  hell/dunkel × Desktop 1440×900/iPhone 14 und prüft Konsole, Überlauf (auch 320 px) und axe-core. Dauert ca. 3 Min.
+- Charts: TradingView Lightweight Charts (Attribution als Link im Footer der Übersicht).
+- Lizenz Inter: OFL, per `@fontsource-variable/inter` selbst gehostet (kein CDN).
 
 ### Git
 - Ein sauberer Commit je Etappe (bei Bedarf weitere kleine), klare Message auf Deutsch.
@@ -308,7 +333,8 @@ Bestätigung abwarten.
   Nikkei: COT jetzt über den Yen-Kontrakt 240743 (der USD-Kontrakt 240741 meldet seit 2026-03-03 nicht mehr).
 - **Etappe f:** `npm audit` erneut prüfen. Stand heute: 1 Meldung „moderate“ in `minimatch`,
   nur über ESLint/typescript-eslint (Dev), nicht im Build; Fix würde ESLint auf 9 zurücksetzen.
-- **Etappe e:** Im Skill `jonas-design` ist der Abschnitt „Marke“ noch offen.
+- **Etappe e:** Im Skill `jonas-design` ist der Abschnitt „Marke“ noch offen (Marke hier aus der Vorgabe
+  „Apple-native“ abgeleitet). Score-Verlauf/Sparklines je Asset folgen mit den Detailseiten (Etappe f).
 - Testwarnung: Starlette empfiehlt `httpx2` statt `httpx` für den TestClient; vor einem
   Wechsel Herkunft des Pakets prüfen.
 - `.claude/settings.local.json` ist lokal und nicht im Repo (in `.gitignore`).

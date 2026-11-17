@@ -1,28 +1,26 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense } from "react";
+import { Route, Routes } from "react-router";
 
-type Health = { status: string; version: string; schema_version: number };
+import { AppShell } from "./components/AppShell";
+import { OverviewPage } from "./pages/overview/OverviewPage";
+import { AssetPlaceholder, PlaceholderPage } from "./pages/PlaceholderPage";
 
-// Platzhalter für das Projektgerüst (Etappe a). Design-System und Seiten folgen
-// in den Etappen e und f.
+// Design-Seite mit Chart-Bibliothek erst bei Bedarf laden.
+const DesignPage = lazy(() => import("./pages/DesignPage").then((m) => ({ default: m.DesignPage })));
+
 export function App() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/health")
-      .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
-      .then((body: Health) => setHealth(body))
-      .catch(() => setFailed(true));
-  }, []);
-
   return (
-    <main className="mx-auto max-w-xl p-6 font-sans">
-      <h1 className="text-2xl font-bold">edgefinder</h1>
-      <p className="mt-2 tabular-nums">
-        {failed && "API nicht erreichbar."}
-        {health && `API ${health.status} · Version ${health.version} · Schema ${health.schema_version}`}
-        {!failed && !health && "Verbinde …"}
-      </p>
-    </main>
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<OverviewPage />} />
+        <Route path="makro" element={<PlaceholderPage title="Makro" text="Die Heatmap der Volkswirtschaften folgt in Etappe f." />} />
+        <Route path="aenderungen" element={<PlaceholderPage title="Änderungen" text="Hier siehst du später, welche Scores sich seit gestern oder seit einer Woche am stärksten bewegt haben." />} />
+        <Route path="favoriten" element={<PlaceholderPage title="Favoriten" text="Favoriten speicherst du später direkt im Browser; die Seite folgt in Etappe f." />} />
+        <Route path="status" element={<PlaceholderPage title="Status" text="Die Aktualität der Datenquellen folgt in Etappe f." />} />
+        <Route path="asset/:id" element={<AssetPlaceholder />} />
+        <Route path="design" element={<Suspense fallback={null}><DesignPage /></Suspense>} />
+        <Route path="*" element={<PlaceholderPage title="Nicht gefunden" text="Diese Adresse gibt es nicht. Wähle eine Seite in der Navigation." />} />
+      </Route>
+    </Routes>
   );
 }

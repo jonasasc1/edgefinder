@@ -46,3 +46,17 @@ def test_spa_serves_files_and_falls_back_to_index(config: Config, tmp_path: Path
     # Kein Ausbruch aus dem Build-Verzeichnis
     assert "geheim" not in client.get("/%2e%2e/secret.txt").text
     assert "geheim" not in client.get("/..%2fsecret.txt").text
+
+
+def test_spa_serves_theme_init_and_client_routes(config: Config, tmp_path: Path) -> None:
+    """theme-init.js liegt im Build-Wurzelverzeichnis; Client-Routen fallen auf index.html."""
+    _migrate(config)
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><title>edgefinder</title>", encoding="utf-8")
+    (dist / "theme-init.js").write_text("document.body.dataset.theme='light'", encoding="utf-8")
+    client = TestClient(create_app(config, frontend_dist=dist))
+
+    assert "dataset.theme" in client.get("/theme-init.js").text
+    for route in ("/design", "/makro", "/favoriten", "/asset/GOLD"):
+        assert "<title>edgefinder</title>" in client.get(route).text
