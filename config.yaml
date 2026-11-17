@@ -22,7 +22,7 @@ sources:
     min_interval_seconds: 1
     options:
       base_url: https://publicreporting.cftc.gov/resource
-      dataset: 6dca-aqww          # Legacy, Futures Only (Non-Commercials)
+      dataset: 6dca-aqww          # „Legacy - Futures Only“ (live geprüft 2026-11-17)
       history_years: 6
   fred:
     schedule: "*-*-* 06:30:00 Europe/Vienna"
@@ -31,18 +31,21 @@ sources:
     options:
       base_url: https://api.stlouisfed.org/fred
       history_years: 15
+      vintages: true              # ALFRED: alle Vorabstände je Beobachtung (Backtest ohne Vorgriff)
   eurostat:
     schedule: "*-*-* 06:45:00 Europe/Vienna"
     stale_after_hours: 48
     min_interval_seconds: 1
     options:
       base_url: https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data
+      history_years: 15
   ecb:
     schedule: "*-*-* 06:50:00 Europe/Vienna"
     stale_after_hours: 48
     min_interval_seconds: 1
     options:
       base_url: https://data-api.ecb.europa.eu/service/data
+      history_years: 15
   prices:
     schedule: "*-*-* 07:00,23:15:00 Europe/Vienna"
     stale_after_hours: 36
@@ -87,8 +90,13 @@ retry:
 # category: growth | inflation | labor | rates
 # transform: level | yoy (Veränderung zum Vorjahr in %) | diff (absolute Veränderung)
 # higher_is: bullish | bearish – Wirkung eines höheren Werts auf die Währung
-# Die Serien der übrigen Volkswirtschaften werden in Etappe b ergänzt, sobald sie
-# gegen die Live-Quellen (FRED, Eurostat, ECB) geprüft sind.
+# series: FRED-Serien-ID · ECB: "Dataflow/Schlüssel" · Eurostat: "Datensatz?Filter" (ein Filter je
+# Dimension, sodass genau eine Zeitreihe übrig bleibt). Alle Serien sind am 2026-11-17 live
+# geprüft (Daten bis mindestens Aug./Sep. 2026). Nicht aufgeführt = keine aktuelle Gratis-Serie
+# in FRED/Eurostat/ECB (siehe CLAUDE.md, Abschnitt „Offen“). Wo es keine aktuelle Reihe des
+# offiziellen Leitzinses gibt, steht ein Tagesgeld-/Interbankzins als Proxy (im Label vermerkt).
+# transform bei Wachstumsraten: Die Quelle liefert bereits die Veränderung zum Vorjahr in %,
+# daher `level` (z. B. FRED-Serien auf *GYSAM, Eurostat RCH_A / CLV_PCH_SM).
 # ---------------------------------------------------------------------------
 economies:
   US:
@@ -105,14 +113,78 @@ economies:
       policy_rate:   {label: "Leitzins (Fed Funds)",    source: fred, series: FEDFUNDS, category: rates,     transform: level, higher_is: bullish}
       yield_2y:      {label: "Rendite 2 Jahre",         source: fred, series: DGS2,     category: rates,     transform: level, higher_is: bullish}
       yield_10y:     {label: "Rendite 10 Jahre",        source: fred, series: DGS10,    category: rates,     transform: level, higher_is: bullish}
-  EZ: {name: Euroraum,       indicators: {}}
-  DE: {name: Deutschland,    indicators: {}}
-  UK: {name: Großbritannien, indicators: {}}
-  JP: {name: Japan,          indicators: {}}
-  CH: {name: Schweiz,        indicators: {}}
-  AU: {name: Australien,     indicators: {}}
-  CA: {name: Kanada,         indicators: {}}
-  NZ: {name: Neuseeland,     indicators: {}}
+  EZ:
+    name: Euroraum
+    indicators:
+      gdp:           {label: "BIP (real, Vorjahr in %)", source: eurostat, series: "namq_10_gdp?s_adj=SCA&unit=CLV_PCH_SM&na_item=B1GQ&geo=EA21", category: growth, transform: level, higher_is: bullish}
+      industrial:    {label: "Industrieproduktion", source: eurostat, series: "sts_inpr_m?indic_bt=PRD&nace_r2=B-D&s_adj=SCA&unit=I21&geo=EA21", category: growth, transform: yoy, higher_is: bullish}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen)", source: eurostat, series: "sts_trtu_m?indic_bt=VOL_SLS&nace_r2=G47&s_adj=SCA&unit=I21&geo=EA21", category: growth, transform: yoy, higher_is: bullish}
+      cpi:           {label: "Inflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOTAL&unit=RCH_A&geo=EA", category: inflation, transform: level, higher_is: bullish}
+      core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=EA", category: inflation, transform: level, higher_is: bullish}
+      unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=EA21", category: labor, transform: level, higher_is: bearish}
+      policy_rate:   {label: "Leitzins (EZB Einlagesatz)", source: ecb, series: FM/D.U2.EUR.4F.KR.DFR.LEV, category: rates, transform: level, higher_is: bullish}
+      yield_2y:      {label: "Rendite 2 Jahre (Euro-Staatsanleihen, AAA)", source: ecb, series: YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y, category: rates, transform: level, higher_is: bullish}
+      yield_10y:     {label: "Rendite 10 Jahre (Euro-Staatsanleihen, AAA)", source: ecb, series: YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_10Y, category: rates, transform: level, higher_is: bullish}
+  DE:
+    name: Deutschland
+    indicators:
+      gdp:           {label: "BIP (real, Vorjahr in %)", source: eurostat, series: "namq_10_gdp?s_adj=SCA&unit=CLV_PCH_SM&na_item=B1GQ&geo=DE", category: growth, transform: level, higher_is: bullish}
+      industrial:    {label: "Industrieproduktion", source: eurostat, series: "sts_inpr_m?indic_bt=PRD&nace_r2=B-D&s_adj=SCA&unit=I21&geo=DE", category: growth, transform: yoy, higher_is: bullish}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen)", source: eurostat, series: "sts_trtu_m?indic_bt=VOL_SLS&nace_r2=G47&s_adj=SCA&unit=I21&geo=DE", category: growth, transform: yoy, higher_is: bullish}
+      cpi:           {label: "Inflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOTAL&unit=RCH_A&geo=DE", category: inflation, transform: level, higher_is: bullish}
+      core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=DE", category: inflation, transform: level, higher_is: bullish}
+      unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=DE", category: labor, transform: level, higher_is: bearish}
+      yield_10y:     {label: "Rendite 10 Jahre (Bund, Monatswert)", source: fred, series: IRLTLT01DEM156N, category: rates, transform: level, higher_is: bullish}
+  UK:
+    name: Großbritannien
+    indicators:
+      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCGBQ, category: growth, transform: yoy, higher_is: bullish}
+      industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: GBRPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: GBRSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
+      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRHUTTTTGBM156S, category: labor, transform: level, higher_is: bearish}
+      policy_rate:   {label: "Leitzins-Proxy (SONIA, Tagesgeld)", source: fred, series: IUDSOIA, category: rates, transform: level, higher_is: bullish}
+      yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01GBM156N, category: rates, transform: level, higher_is: bullish}
+  JP:
+    name: Japan
+    indicators:
+      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCJPQ, category: growth, transform: yoy, higher_is: bullish}
+      industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: JPNPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: JPNSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
+      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRUNTTTTJPM156S, category: labor, transform: level, higher_is: bearish}
+      policy_rate:   {label: "Leitzins-Proxy (Tagesgeldsatz)", source: fred, series: IRSTCI01JPM156N, category: rates, transform: level, higher_is: bullish}
+      yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01JPM156N, category: rates, transform: level, higher_is: bullish}
+  CH:
+    name: Schweiz
+    indicators:
+      gdp:           {label: "BIP (real, Vorjahr in %)", source: eurostat, series: "namq_10_gdp?s_adj=SCA&unit=CLV_PCH_SM&na_item=B1GQ&geo=CH", category: growth, transform: level, higher_is: bullish}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: CHESLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
+      cpi:           {label: "Inflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOTAL&unit=RCH_A&geo=CH", category: inflation, transform: level, higher_is: bullish}
+      core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=CH", category: inflation, transform: level, higher_is: bullish}
+      unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=CH", category: labor, transform: level, higher_is: bearish}
+      policy_rate:   {label: "Leitzins-Proxy (Tagesgeldsatz)", source: fred, series: IRSTCI01CHM156N, category: rates, transform: level, higher_is: bullish}
+      yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01CHM156N, category: rates, transform: level, higher_is: bullish}
+  AU:
+    name: Australien
+    indicators:
+      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCAUQ, category: growth, transform: yoy, higher_is: bullish}
+      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRHUTTTTAUM156S, category: labor, transform: level, higher_is: bearish}
+      policy_rate:   {label: "Leitzins-Proxy (Tagesgeldsatz)", source: fred, series: IRSTCI01AUM156N, category: rates, transform: level, higher_is: bullish}
+      yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01AUM156N, category: rates, transform: level, higher_is: bullish}
+  CA:
+    name: Kanada
+    indicators:
+      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCCAQ, category: growth, transform: yoy, higher_is: bullish}
+      industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: CANPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: CANSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
+      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRUNTTTTCAM156S, category: labor, transform: level, higher_is: bearish}
+      policy_rate:   {label: "Leitzins-Proxy (Tagesgeldsatz)", source: fred, series: IRSTCI01CAM156N, category: rates, transform: level, higher_is: bullish}
+      yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01CAM156N, category: rates, transform: level, higher_is: bullish}
+  NZ:
+    name: Neuseeland
+    indicators:
+      unemployment:  {label: "Arbeitslosenquote (Quartal)", source: fred, series: LRUNTTTTNZQ156S, category: labor, transform: level, higher_is: bearish}
+      policy_rate:   {label: "Leitzins-Proxy (3-Monats-Interbankzins)", source: fred, series: IR3TIB01NZM156N, category: rates, transform: level, higher_is: bullish}
+      yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01NZM156N, category: rates, transform: level, higher_is: bullish}
 
 # ---------------------------------------------------------------------------
 # Währungen: Zuordnung zu Volkswirtschaft und CFTC-Kontrakt (Legacy-Report)
@@ -156,7 +228,7 @@ assets:
     - {id: NDX,    name: "Nasdaq 100", economy: US, yfinance: "^NDX",   cftc_code: "209742", myfxbook: null}
     - {id: DJI,    name: "Dow Jones",  economy: US, yfinance: "^DJI",   cftc_code: "124603", myfxbook: null}
     - {id: DAX,    name: "DAX",        economy: DE, yfinance: "^GDAXI", cftc_code: null,     myfxbook: null}   # Eurex, kein CFTC-Report
-    - {id: NIKKEI, name: "Nikkei 225", economy: JP, yfinance: "^N225",  cftc_code: "240741", myfxbook: null}
+    - {id: NIKKEI, name: "Nikkei 225", economy: JP, yfinance: "^N225",  cftc_code: "240743", myfxbook: null}   # Yen-Kontrakt; der USD-Kontrakt 240741 wird seit 2026-03 nicht mehr gemeldet
 
   commodities:
     - {id: GOLD,   name: "Gold",     yfinance: "GC=F", cftc_code: "088691", myfxbook: XAUUSD}

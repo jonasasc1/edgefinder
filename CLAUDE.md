@@ -8,32 +8,22 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
-**Stand (2026-11-12):** Etappe a ist abgeschlossen und lokal committet (2 Commits + dieser
-Doku-Commit). Tests (30), ruff und Frontend-Build sind grün. Auf „trading“ wurde noch nichts
-verändert.
+**Stand (2026-11-17):** Etappe a und b sind abgeschlossen und auf `origin/main` (Remote per SSH,
+Host-Alias `github-edgefinder`). Tests (88), ruff sind grün. Die Fetcher für CFTC, FRED (mit
+ALFRED-Vintages), Eurostat, EZB und yfinance (Kurse + Earnings) laufen live; ein erster Lauf
+hat die lokale DB (`data/`, nicht im Repo) befüllt. Auf „trading“ wurde noch nichts verändert.
 
-**Sofort zu erledigen:** `git push -u origin main` – das Repo `jonasasc1/edgefinder`
-(privat, Remote `origin` per HTTPS) ist noch leer. Der Push war in der ersten Sitzung
-blockiert, weil sie in `/home/agent/remote` gestartet wurde und
-`.claude/settings.local.json` (erlaubt `git push`, verbietet `--force`/`-f`) dort nicht griff.
-
-**Nächster Schritt: Etappe b** – erst starten, wenn Jonas bestätigt, dass der FRED-Key in
-der lokalen `.env` steht (Datei existiert, chmod 600; nicht ausgeben). Inhalt:
-1. `fetchers/base.py`: HTTP-Client mit Retry/Backoff, Rate-Limit je Quelle (`request_log`),
-   Rohdaten-Ablage (`raw_files`), Lauf-Protokoll (`fetch_runs`); CLI `edgefinder fetch <quelle>`.
-2. CFTC (Socrata, Legacy Futures Only), FRED, Eurostat/ECB, yfinance (Kurse, Earnings).
-   Neue Abhängigkeiten (httpx als Laufzeit-Dependency, yfinance, pandas) über `uv add`.
-3. Makro-Serien der übrigen Volkswirtschaften in `config.yaml` ergänzen, CFTC-Codes prüfen.
-4. Tests mit aufgezeichneten Antworten unter `backend/tests/fixtures/`.
-5. Abschluss: Tests grün, ruff sauber, Build ok, Commit, Push, kurze Zusammenfassung an Jonas
-   mit Bericht je Quelle (was funktioniert, was nicht).
+**Nächster Schritt: Etappe c** – Fetcher für Myfxbook, AAII, SEC EDGAR (Fundamentaldaten,
+Form 4) und FINRA (Short Interest). Vorher die Punkte unter „Offen“ (Etappe c, noch ungeprüft)
+live testen und Abweichungen melden. Neue Fetcher folgen dem Muster aus `fetchers/base.py`
+(siehe „Fetcher-Konventionen“).
 
 ### Etappenplan
 
 | Etappe | Inhalt | Status |
 |---|---|---|
-| a | Erreichbarkeit „trading“, Gerüst, Config, DB-Schema, CLAUDE.md, README, Repo | fertig, Push offen |
-| b | Fetcher: CFTC, FRED/Eurostat/ECB, yfinance | wartet auf FRED-Key |
+| a | Erreichbarkeit „trading“, Gerüst, Config, DB-Schema, CLAUDE.md, README, Repo | fertig |
+| b | Fetcher: CFTC, FRED/Eurostat/ECB, yfinance | fertig (Datenlücken siehe „Offen“) |
 | c | Fetcher: Myfxbook, AAII, SEC EDGAR, FINRA | offen |
 | d | Score-Engine mit beiden Profilen, FastAPI-Endpunkte | offen |
 | e | Design-System und eine Beispielseite – **Screenshots zur Freigabe durch Jonas** | offen |
@@ -91,14 +81,16 @@ Struktur (✓ = vorhanden, sonst geplant):
 backend/edgefinder/
   config.py     ✓  Laden/Validieren von config.yaml (pydantic) und .env
   db/           ✓  Verbindung, Migrations-Runner, migrations/NNNN_name.sql
-  fetchers/        base.py (HTTP, Retry/Backoff, Rate-Limit, Rohdaten-Ablage, Lauf-Protokoll)
-                   cftc.py fred.py eurostat.py prices.py myfxbook.py aaii.py edgar.py finra.py
+  fetchers/     ✓  base.py (HTTP, Retry/Backoff, Rate-Limit, Rohdaten-Ablage, Lauf-Protokoll),
+                   macro.py (gemeinsam für FRED/Eurostat/EZB), cftc.py, fred.py,
+                   eurostat.py (Eurostat + EZB), prices.py (yfinance: Kurse, Earnings)
+                   geplant: myfxbook.py aaii.py edgar.py finra.py
   scoring/         factors/ (ein Modul je Faktor), engine.py, labels.py
   api/          ✓  FastAPI-App (bisher /api/health + SPA-Auslieferung), Router, Schemas
   notify/       ✓  Notifier-Schnittstelle (noch ohne Kanal)
   backtest/        Auswertung Score-Historie gegen Kursentwicklung
-  cli.py        ✓  `edgefinder check-config | migrate | serve` (später: fetch <quelle>, score, backtest)
-backend/tests/     pytest, fixtures/ mit aufgezeichneten Antworten
+  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle>` (später: score, backtest)
+backend/tests/     pytest; fixtures/ = aufgezeichnete API-Antworten (ohne Keys), support.py = Hilfen
 frontend/          React + TypeScript + Vite, Tailwind mit eigenen Tokens
 deploy/            systemd-Units und -Timer, sudoers, nftables, install.sh, deploy.sh
 config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
@@ -125,6 +117,36 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
 - Zeitpläne stehen als systemd-`OnCalendar` in `config.yaml`; die Timer-Units werden daraus
   erzeugt (Etappe g), nicht von Hand gepflegt.
 - Tests: pytest, nur aufgezeichnete Beispieldaten, **keine Live-API-Calls**.
+
+### Fetcher-Konventionen
+- Aufruf: `uv run edgefinder fetch <cftc|fred|eurostat|ecb|prices|all>`. Jede Quelle läuft mit
+  eigener DB-Verbindung und eigenem `fetch_runs`-Eintrag; `all` macht bei Ausfall einer Quelle
+  mit den übrigen weiter. Exit-Code 1, wenn ein Lauf nicht `success` war (systemd zeigt es an).
+  Der CLI-Name ist der Schlüssel in `config.sources`; `enabled: false` überspringt die Quelle.
+- Neuer Fetcher: Unterklasse von `Fetcher`, `source = "<name>"`, `fetch()` gibt die Zeilenzahl zurück.
+  Fehler je Einheit (Serie, Symbol, Kontrakt) in `with self.unit("name"):` fangen → Lauf wird
+  `partial`; nichts gespeichert + Fehler → `error`. Je Einheit eine Transaktion (`transaction()`).
+  HTTP nur über `self.http.get()` (Rate-Limit, Retry, Backoff), Bibliotheken mit eigenem HTTP
+  (yfinance) über `call_with_retry`. Rohantwort immer mit `self.save_raw()` ablegen.
+- Secrets stehen teils in URLs (FRED `api_key`): Fehlermeldungen enthalten nur Pfad und Status,
+  `self.scrub()` schwärzt Werte, die Logger `httpx`/`httpcore` bleiben auf WARNING (sie würden
+  sonst URLs samt Key auf INFO loggen). Nie URLs mit Query loggen.
+- Makro-Serien in `config.yaml`: FRED = Serien-ID, EZB = `Dataflow/Schlüssel`, Eurostat =
+  `Datensatz?Filter` (je Dimension ein Wert; Eurostat-HICP seit 2026 im Datensatz
+  `prc_hicp_minr` mit `coicop18`, der alte `prc_hicp_manr` ist bei 2025-12 eingefroren).
+  `macro_observations.series_id` = dieser String. Zeiträume stehen auf dem Periodenbeginn
+  (Quartal 2026-Q3 → 2026-07-01). Wachstumsraten, die die Quelle schon als Vorjahres-%
+  liefert, haben `transform: level`.
+- FRED/ALFRED: je Serie ein Abruf des aktuellen Stands (`vintage_date = ''`) und einer aller
+  Vorabstände (`vintage_date` = `realtime_start`). Tägliche Marktdaten (DGS2, DGS10) sprengen
+  das ALFRED-Limit von 2000 Vintage-Daten (HTTP 400) und werden nur mit aktuellem Stand
+  gespeichert (nicht revidiert). Eurostat/EZB liefern nur den aktuellen Stand.
+- CFTC: ein Abruf für alle Kontrakte (Legacy – Futures Only, `6dca-aqww`, 6 Jahre); ein
+  konfigurierter Kontrakt ohne Daten oder mit letzter Meldung > 45 Tage gibt `partial`.
+- Kurse: Tagesdaten ab `history_years`, danach nur ab letztem Kurs minus 10 Tage (Korrekturen).
+  Der Eintrag des laufenden Tages ist bis zum Handelsschluss ein Zwischenstand und wird beim
+  nächsten Lauf überschrieben. Earnings liegen unter `ticker` (z. B. `BRK-B`), noch nicht
+  gemeldete Termine haben `eps_actual = NULL`.
 
 ### Frontend
 - Design-Tokens (Farben, Abstände, Radien, Typografie, hell/dunkel) als CSS-Variablen, in Tailwind
@@ -162,17 +184,29 @@ Vor Eingriffen auf „trading“ (Dienste, Firewall, sudoers): erklären, an Sna
 Bestätigung abwarten.
 
 ## Offen
-- **Push nach GitHub** steht aus (siehe oben).
-- **Etappe b:** Makro-Serien für EZ, DE, UK, JP, CH, AU, CA, NZ ergänzen, nachdem sie gegen
-  die Live-Quellen geprüft sind (bisher nur USA in `config.yaml`).
-- **Etappe b:** CFTC-Kontraktcodes und Dataset-ID in `config.yaml` stammen aus dem Gedächtnis;
-  gegen Live-Daten prüfen.
-- **Etappe b/h:** FRED liefert revidierte Werte; für den Backtest Vintages (ALFRED,
-  `macro_observations.vintage_date`) nutzen, damit kein Vorgriff auf Revisionen entsteht.
+- **Makro-Lücken (Stand 2026-11-17, live geprüft):** Es gibt keine aktuelle Gratis-Serie in
+  FRED/Eurostat/EZB für: Inflation (CPI/Kern) von UK, JP, AU, CA, NZ (die OECD-CPI-Reihen auf
+  FRED enden 2021–2025, Eurostat liefert für UK keine Werte mehr); Industrieproduktion CH, AU,
+  NZ; Einzelhandel AU, NZ; BIP NZ. Folge: Teilscore „macro“ dieser Währungen hat keine
+  Inflationskomponente (Gewichte werden renormiert). Zu klären: Ergänzung durch nationale
+  Quellen (ONS, StatCan, ABS, Stats NZ, e-Stat) – wäre ein neuer Fetcher je Land.
+- **Leitzinsen:** Offizielle Leitzins-Serien gibt es nur für USA (FEDFUNDS) und EZ (EZB-Einlagesatz).
+  Für UK (SONIA), JP, CH, AU, CA (Tagesgeldsätze) und NZ (3M-Interbank) stehen Proxys in der
+  Konfiguration (im Label vermerkt). 2-Jahres-Renditen gibt es nur für USA und EZ.
+- **Euroraum-Zusammensetzung:** Eurostat-Reihen nutzen `geo=EA21` (Euroraum mit Bulgarien seit
+  2026), HICP `geo=EA`. Ändert sich die Mitgliederzahl, muss `config.yaml` angepasst werden.
+- **Rohdaten wachsen:** `data/raw` bekommt je Lauf neue Dateien (FRED mit Vintages ≈ 20 MB je
+  Lauf). Aufräumregel (z. B. nur die letzten 30 Tage behalten) fehlt noch – vor Etappe g klären.
+- **yfinance** ist eine inoffizielle Schnittstelle (kann ohne Vorwarnung brechen); Forex-Volumen
+  ist immer 0. Mini-Zeitverzug und Zwischenstände des Tages sind möglich.
+- **Etappe b/h:** Für den Backtest die Vintages aus `macro_observations` nutzen
+  (`vintage_date <= Stichtag`, je Beobachtung der jüngste Stand); Zeilen mit `''` nur dort, wo
+  keine Vintages existieren (tägliche Marktdaten, Eurostat, EZB, CFTC kennt keine Revisionen).
 - **Etappe c, noch ungeprüft:** AAII hat einen Bot-Schutz (Abruf evtl. blockiert); FINRA evtl.
   nur mit Account; Myfxbook deckt Indizes, Öl und Kupfer voraussichtlich nicht ab. Ergebnis an
   Jonas melden.
 - Bekannte Lücke: kein COT für den DAX (Eurex) → Teilscore entfällt, Gewichte werden renormiert.
+  Nikkei: COT jetzt über den Yen-Kontrakt 240743 (der USD-Kontrakt 240741 meldet seit 2026-03-03 nicht mehr).
 - **Etappe f:** `npm audit` erneut prüfen. Stand heute: 1 Meldung „moderate“ in `minimatch`,
   nur über ESLint/typescript-eslint (Dev), nicht im Build; Fix würde ESLint auf 9 zurücksetzen.
 - **Etappe e:** Im Skill `jonas-design` ist der Abschnitt „Marke“ noch offen.

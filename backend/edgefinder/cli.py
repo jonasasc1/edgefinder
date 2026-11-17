@@ -7,8 +7,9 @@ import logging
 import sys
 from collections import Counter
 
-from edgefinder.config import Config, load_config
+from edgefinder.config import Config, load_config, load_secrets
 from edgefinder.db import connect, migrate
+from edgefinder.fetchers import FETCHERS
 
 log = logging.getLogger("edgefinder")
 
@@ -32,6 +33,39 @@ def _cmd_migrate(config: Config, _args: argparse.Namespace) -> int:
     else:
         log.info("Datenbank ist aktuell")
     return 0
+
+
+def _cmd_fetch(config: Config, args: argparse.Namespace) -> int:
+    """Holt eine oder alle Quellen. Jede Quelle läuft für sich (eigene Verbindung, eigener Lauf)."""
+    names = list(FETCHERS) if args.source == "all" else [args.source]
+    secrets = load_secrets()
+    migrate_conn = connect(config.storage.database)
+    try:
+        migrate(migrate_conn)
+    finally:
+        migrate_conn.close()
+    failed = False
+    for name in names:
+        if not config.sources[name].enabled:
+            log.info("%s: in config.yaml deaktiviert, übersprungen", name)
+            continue
+        conn = connect(config.storage.database)
+        try:
+            result = FETCHERS[name](config, secrets, conn).run()
+        finally:
+            conn.close()
+        log.info(
+            "%s: %s, %d Zeilen, %d Requests (Lauf %d)",
+            name,
+            result.status,
+            result.items,
+            result.requests,
+            result.run_id,
+        )
+        for error in result.errors:
+            log.error("%s: %s", name, error)
+        failed |= result.status != "success"
+    return 1 if failed else 0
 
 
 def _cmd_serve(config: Config, args: argparse.Namespace) -> int:
@@ -61,6 +95,9 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser("migrate", help="ausstehende DB-Migrationen anwenden").set_defaults(
         func=_cmd_migrate
     )
+    fetch = commands.add_parser("fetch", help="Daten einer Quelle holen")
+    fetch.add_argument("source", choices=[*FETCHERS, "all"], help="Quelle oder „all“")
+    fetch.set_defaults(func=_cmd_fetch)
     serve = commands.add_parser("serve", help="API und Frontend ausliefern")
     serve.add_argument("--host", help="überschreibt server.host")
     serve.add_argument("--port", type=int, help="überschreibt server.port")
@@ -81,6 +118,8 @@ def main(argv: list[str] | None = None) -> int:
         format="%(levelname)s %(name)s: %(message)s",
         stream=sys.stderr,
     )
+    for noisy in ("httpx", "httpcore"):  # loggen URLs samt Query (API-Keys), auch bei -v
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     try:
         config = load_config()
     except (OSError, ValueError) as exc:

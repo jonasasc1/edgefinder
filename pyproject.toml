@@ -5,10 +5,13 @@ description = "Makro-, Sentiment- und Fundamental-Dashboard"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "fastapi>=0.115",
+    "httpx>=0.28.1",
+    "pandas>=3.1.1",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "pyyaml>=6.0",
     "uvicorn>=0.32",
+    "yfinance>=1.8.0",
 ]
 
 [project.scripts]
@@ -16,7 +19,6 @@ edgefinder = "edgefinder.cli:main"
 
 [dependency-groups]
 dev = [
-    "httpx>=0.27",
     "pytest>=8.3",
     "ruff>=0.8",
 ]
@@ -43,4 +45,4 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "PTH", "RUF", "S"]
 ignore = ["RUF001", "RUF002", "RUF003"]  # deutsche Texte: typografische Zeichen erlaubt
 
 [tool.ruff.lint.per-file-ignores]
-"backend/tests/**" = ["S101"]
+"backend/tests/**" = ["S101", "S105", "S106"]
