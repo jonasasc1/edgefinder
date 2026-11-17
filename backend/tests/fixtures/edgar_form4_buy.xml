@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!-- Synthetisch nach dem SEC-Schema ownershipDocument (kein Live-Abruf) -->
+<ownershipDocument>
+  <schemaVersion>X0508</schemaVersion>
+  <documentType>4</documentType>
+  <issuer><issuerCik>0000320193</issuerCik><issuerName>Apple Inc.</issuerName><issuerTradingSymbol>AAPL</issuerTradingSymbol></issuer>
+  <reportingOwner>
+    <reportingOwnerId><rptOwnerCik>0001000001</rptOwnerCik><rptOwnerName>Example Director Two</rptOwnerName></reportingOwnerId>
+    <reportingOwnerRelationship><isDirector>1</isDirector><isOfficer>0</isOfficer></reportingOwnerRelationship>
+  </reportingOwner>
+  <nonDerivativeTable>
+    <nonDerivativeTransaction>
+      <securityTitle><value>Common Stock</value></securityTitle>
+      <transactionDate><value>2026-10-30</value></transactionDate>
+      <transactionCoding><transactionFormType>4</transactionFormType><transactionCode>P</transactionCode><equitySwapInvolved>0</equitySwapInvolved></transactionCoding>
+      <transactionAmounts>
+        <transactionShares><value>250</value></transactionShares>
+        <transactionPricePerShare><value>198.00</value></transactionPricePerShare>
+        <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+      </transactionAmounts>
+    </nonDerivativeTransaction>
+    <nonDerivativeTransaction>
+      <securityTitle><value>Common Stock</value></securityTitle>
+      <transactionDate><value>2026-10-30</value></transactionDate>
+      <transactionCoding><transactionFormType>4</transactionFormType><transactionCode>A</transactionCode><equitySwapInvolved>0</equitySwapInvolved></transactionCoding>
+      <transactionAmounts>
+        <transactionShares><value>100</value></transactionShares>
+        <transactionPricePerShare><value></value></transactionPricePerShare>
+        <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+      </transactionAmounts>
+    </nonDerivativeTransaction>
+  </nonDerivativeTable>
+  <derivativeTable>
+    <derivativeTransaction>
+      <transactionDate><value>2026-11-02</value></transactionDate>
+      <transactionCoding><transactionCode>S</transactionCode></transactionCoding>
+      <transactionAmounts><transactionShares><value>999</value></transactionShares><transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode></transactionAmounts>
+    </derivativeTransaction>
+  </derivativeTable>
+</ownershipDocument>

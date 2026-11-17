@@ -59,12 +59,16 @@ sources:
     daily_request_limit: 80       # Gratis-Limit 100/24 h, Reserve für Re-Login
     options:
       base_url: https://www.myfxbook.com/api
+      session_max_age_days: 25    # Session läuft nach ca. 1 Monat ab → vorher neu anmelden
+      login_retry_hours: 12       # nach fehlgeschlagenem Login so lange kein neuer Versuch
   aaii:
     schedule: "Thu,Fri *-*-* 08:00:00 Europe/Vienna"   # neue Werte donnerstags
     stale_after_hours: 216
     min_interval_seconds: 10
     options:
       url: https://www.aaii.com/sentimentsurvey
+      # Ehrlicher UA mit Zweck; der kurze Standard-UA „edgefinder/0.1“ bekam HTTP 403 (2026-11-17)
+      user_agent: "edgefinder/0.1 (private, non-commercial research project; one request per day)"
   edgar:
     schedule: "*-*-* 05:30:00 Europe/Vienna"
     stale_after_hours: 48
@@ -72,11 +76,32 @@ sources:
     options:
       base_url: https://data.sec.gov
       insider_lookback_days: 365
+      cik_refresh_days: 7          # company_tickers.json neu laden
+      fundamentals_refresh_days: 3 # companyfacts sind mehrere MB je Ticker
+      fundamentals_history_years: 10   # nach Einreichungsdatum
+      fundamentals_forms: ["10-K", "10-Q"]
+      fundamentals_concepts:       # "Taxonomie:Konzept"; fehlende Konzepte je Firma sind normal
+        - us-gaap:Revenues
+        - us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+        - us-gaap:GrossProfit
+        - us-gaap:OperatingIncomeLoss
+        - us-gaap:NetIncomeLoss
+        - us-gaap:EarningsPerShareDiluted
+        - us-gaap:Assets
+        - us-gaap:Liabilities
+        - us-gaap:StockholdersEquity
+        - us-gaap:CashAndCashEquivalentsAtCarryingValue
+        - us-gaap:LongTermDebt
+        - us-gaap:NetCashProvidedByUsedInOperatingActivities
+        - us-gaap:PaymentsToAcquirePropertyPlantAndEquipment
+        - us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding
+        - dei:EntityCommonStockSharesOutstanding
   finra:
     schedule: "Mon,Thu *-*-* 05:45:00 Europe/Vienna"   # Veröffentlichung zweiwöchentlich
     stale_after_hours: 504
     min_interval_seconds: 1
-    options: {}
+    options:
+      history_years: 2             # Erstladung; danach nur die letzten 60 Tage (Revisionen)
 
 # Standard für alle Quellen (je Quelle unter `retry:` überschreibbar)
 retry:
@@ -202,6 +227,8 @@ currencies:
 # ---------------------------------------------------------------------------
 # Assets
 # yfinance: Kurssymbol · myfxbook: Symbol im Community Outlook (null = nicht abgedeckt)
+# myfxbook null bei Indizes/Öl/Kupfer: Symbole im Outlook noch ungeprüft (Zugangsdaten fehlten);
+# nach erstem Live-Lauf `SELECT DISTINCT symbol FROM retail_sentiment` ansehen und eintragen.
 # cftc_code: null = kein COT verfügbar (Teilscore entfällt, Gewichte werden renormiert)
 # ---------------------------------------------------------------------------
 assets:

@@ -147,6 +147,26 @@ class HttpClient:
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> httpx.Response:
+        return self.request("GET", url, params=params, headers=headers)
+
+    def post_json(
+        self,
+        url: str,
+        payload: Any,
+        headers: Mapping[str, str] | None = None,
+    ) -> httpx.Response:
+        """POST mit JSON-Body (z. B. FINRA-Abfrage-API); gleiche Regeln wie `get`."""
+        return self.request("POST", url, headers=headers, json=payload)
+
+    def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        json: Any = None,
+    ) -> httpx.Response:
         path = httpx.URL(url).path  # ohne Query: dort kann ein API-Key stehen
         failure = "unbekannt"
         for attempt in range(1, self._retry.attempts + 1):
@@ -154,7 +174,9 @@ class HttpClient:
             self.requests += 1
             response: httpx.Response | None = None
             try:
-                response = self._client.get(url, params=params, headers=headers)
+                response = self._client.request(
+                    method, url, params=params, headers=headers, json=json
+                )
             except httpx.TransportError as exc:
                 failure = f"{type(exc).__name__} bei {path}"
             else:
@@ -298,6 +320,7 @@ class Fetcher:
             self.secrets.cftc_app_token,
             self.secrets.myfxbook_email,
             self.secrets.myfxbook_password,
+            self.secrets.contact_email,
         ):
             if value is not None and value.get_secret_value():
                 text = text.replace(value.get_secret_value(), "***")
@@ -329,6 +352,30 @@ class Fetcher:
                 ),
             )
         return target
+
+    # ------------------------------------------------------------ Zustand
+    def get_state(self, key: str) -> tuple[str, str] | None:
+        """Wert und Zeitpunkt (`updated_at`) aus `source_state`, falls vorhanden."""
+        row = self.conn.execute(
+            "SELECT value, updated_at FROM source_state WHERE source = ? AND key = ?",
+            (self.source, key),
+        ).fetchone()
+        return (row[0], row[1]) if row else None
+
+    def set_state(self, key: str, value: str) -> None:
+        with transaction(self.conn):
+            self.conn.execute(
+                "INSERT INTO source_state (source, key, value, updated_at) VALUES (?, ?, ?, ?)"
+                " ON CONFLICT (source, key) DO UPDATE SET value = excluded.value,"
+                " updated_at = excluded.updated_at",
+                (self.source, key, value, iso(self.clock())),
+            )
+
+    def clear_state(self, key: str) -> None:
+        with transaction(self.conn):
+            self.conn.execute(
+                "DELETE FROM source_state WHERE source = ? AND key = ?", (self.source, key)
+            )
 
     # ------------------------------------------------------------ Hilfen
     def history_start(self, years: int | None = None) -> datetime:

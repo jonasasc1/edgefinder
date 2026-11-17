@@ -1,0 +1,37 @@
+{
+ "_hinweis": "Synthetisch nach dem dokumentierten Antwortformat (kein Live-Abruf: keine Zugangsdaten vorhanden)",
+ "cik": "0000320193",
+ "name": "Apple Inc.",
+ "filings": {
+  "recent": {
+   "accessionNumber": [
+    "0001140361-26-000003",
+    "0001140361-26-000002",
+    "0001140361-26-000001",
+    "0000320193-26-000009",
+    "0001140361-24-000001"
+   ],
+   "filingDate": [
+    "2026-11-10",
+    "2026-11-03",
+    "2026-10-02",
+    "2026-10-30",
+    "2024-01-05"
+   ],
+   "form": [
+    "4",
+    "4",
+    "4",
+    "10-Q",
+    "4"
+   ],
+   "primaryDocument": [
+    "xslF345X05/form4_a.xml",
+    "xslF345X05/form4_b.xml",
+    "xslF345X05/form4_c.xml",
+    "aapl-20260927.htm",
+    "xslF345X05/form4_old.xml"
+   ]
+  }
+ }
+}

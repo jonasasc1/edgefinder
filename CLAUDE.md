@@ -8,15 +8,15 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
-**Stand (2026-11-17):** Etappe a und b sind abgeschlossen und auf `origin/main` (Remote per SSH,
-Host-Alias `github-edgefinder`). Tests (88), ruff sind grün. Die Fetcher für CFTC, FRED (mit
-ALFRED-Vintages), Eurostat, EZB und yfinance (Kurse + Earnings) laufen live; ein erster Lauf
-hat die lokale DB (`data/`, nicht im Repo) befüllt. Auf „trading“ wurde noch nichts verändert.
+**Stand (2026-11-17):** Etappe a, b und c sind im Code fertig (Tests 136, ruff grün). Live
+laufen CFTC, FRED (ALFRED), Eurostat, EZB, yfinance, AAII und FINRA. **Myfxbook und SEC EDGAR sind
+nur gegen Fixtures getestet:** In der lokalen `.env` fehlen `MYFXBOOK_EMAIL`/`MYFXBOOK_PASSWORD`
+und `CONTACT_EMAIL`; ohne sie brechen die Fetcher mit klarer Meldung ab (kein Request). Auf
+„trading“ wurde noch nichts verändert.
 
-**Nächster Schritt: Etappe c** – Fetcher für Myfxbook, AAII, SEC EDGAR (Fundamentaldaten,
-Form 4) und FINRA (Short Interest). Vorher die Punkte unter „Offen“ (Etappe c, noch ungeprüft)
-live testen und Abweichungen melden. Neue Fetcher folgen dem Muster aus `fetchers/base.py`
-(siehe „Fetcher-Konventionen“).
+**Nächster Schritt:** Jonas trägt die drei fehlenden Werte in die `.env` ein; danach je einmal
+`uv run edgefinder fetch myfxbook` und `… edgar` live prüfen (Symbolliste von Myfxbook ansehen,
+siehe „Offen“). Dann Etappe d (Score-Engine, FastAPI-Endpunkte).
 
 ### Etappenplan
 
@@ -24,7 +24,7 @@ live testen und Abweichungen melden. Neue Fetcher folgen dem Muster aus `fetcher
 |---|---|---|
 | a | Erreichbarkeit „trading“, Gerüst, Config, DB-Schema, CLAUDE.md, README, Repo | fertig |
 | b | Fetcher: CFTC, FRED/Eurostat/ECB, yfinance | fertig (Datenlücken siehe „Offen“) |
-| c | Fetcher: Myfxbook, AAII, SEC EDGAR, FINRA | offen |
+| c | Fetcher: Myfxbook, AAII, SEC EDGAR, FINRA | fertig (Myfxbook/EDGAR noch ohne Live-Lauf, siehe „Offen“) |
 | d | Score-Engine mit beiden Profilen, FastAPI-Endpunkte | offen |
 | e | Design-System und eine Beispielseite – **Screenshots zur Freigabe durch Jonas** | offen |
 | f | Restliches Frontend mit allen Seiten und Funktionen | offen |
@@ -83,8 +83,8 @@ backend/edgefinder/
   db/           ✓  Verbindung, Migrations-Runner, migrations/NNNN_name.sql
   fetchers/     ✓  base.py (HTTP, Retry/Backoff, Rate-Limit, Rohdaten-Ablage, Lauf-Protokoll),
                    macro.py (gemeinsam für FRED/Eurostat/EZB), cftc.py, fred.py,
-                   eurostat.py (Eurostat + EZB), prices.py (yfinance: Kurse, Earnings)
-                   geplant: myfxbook.py aaii.py edgar.py finra.py
+                   eurostat.py (Eurostat + EZB), prices.py (yfinance: Kurse, Earnings),
+                   myfxbook.py aaii.py edgar.py finra.py
   scoring/         factors/ (ein Modul je Faktor), engine.py, labels.py
   api/          ✓  FastAPI-App (bisher /api/health + SPA-Auslieferung), Router, Schemas
   notify/       ✓  Notifier-Schnittstelle (noch ohne Kanal)
@@ -148,6 +148,33 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   nächsten Lauf überschrieben. Earnings liegen unter `ticker` (z. B. `BRK-B`), noch nicht
   gemeldete Termine haben `eps_actual = NULL`.
 
+- Aufruf-Namen jetzt: `cftc|fred|eurostat|ecb|prices|myfxbook|aaii|edgar|finra|all`.
+  `HttpClient` kann auch `post_json()` (FINRA); `Fetcher.get_state/set_state/clear_state` nutzen
+  `source_state` (Session, Fristen). Migration `0002_sec_edgar.sql`: `sec_companies` (Ticker → CIK),
+  `sec_filings_seen` (ausgewertete Form-4-Einreichungen).
+- **Myfxbook:** `login.json` + `get-community-outlook.json`. Alle Symbole des Outlooks landen in
+  `retail_sentiment` (Quelle `myfxbook`), auch nicht zugeordnete – so lässt sich nach dem ersten
+  Live-Lauf die Symbolliste für Indizes/Öl/Kupfer prüfen. Limit: `daily_request_limit: 80` (Gratis
+  100/24 h), gezählt persistent in `request_log` über jeden Versuch inkl. Login und Retries.
+  Session in `source_state` (Token nie loggen/in Rohdaten; `scrub` schwärzt ihn), Neu-Login bei
+  „Invalid session“ (einmal je Lauf, nie direkt nach frischem Login) und nach 25 Tagen. Nach
+  fehlgeschlagenem Login 12 h Pause (Schutz vor Konto-Sperre). Konfigurierte Symbole, die im
+  Outlook fehlen → `partial`.
+- **AAII:** HTML von `aaii.com/sentimentsurvey` (aktuelle Woche + 4 letzte Wochen; Historie bauen
+  wir selbst auf). Erkennt keine Ergebnisse (Bot-Schutz/Layout) → `error`, kein Ersatz.
+  Der Standard-UA `edgefinder/0.1` bekam 403 (Imperva); ein ehrlicher beschreibender UA
+  (`options.user_agent`, nennt Zweck, kein Browser-Vortäuschen) wird akzeptiert.
+- **EDGAR:** UA `edgefinder/0.1 (private research; <CONTACT_EMAIL>)`, 5 Requests/s. Ablauf:
+  company_tickers.json (7 Tage) → je Ticker companyfacts (alle 3 Tage, gzip in `raw`, nur Formulare
+  10-K/10-Q, Konzepte aus `options.fundamentals_concepts`) → `submissions`, neue Form 4 laden
+  (rohes XML), nur Code P/S aus der nicht abgeleiteten Tabelle in `insider_trades`. `submissions`
+  „recent“ reicht für ≥ 1 Jahr bzw. 1000 Einreichungen. Form 4/A (Korrekturen) werden nicht
+  ausgewertet.
+- **FINRA:** `POST api.finra.org/data/group/otcMarket/name/consolidatedShortInterest`, ohne Account
+  (live geprüft). Filter: `settlementDate` > Start und `domainFilters` auf `symbolCode`; Symbol =
+  Ticker ohne `-`/`.` (BRK-B → BRKB). Erstladung 2 Jahre, danach die letzten 60 Tage (Revisionen).
+  Ticker ohne Meldung seit 45 Tagen → `partial`.
+
 ### Frontend
 - Design-Tokens (Farben, Abstände, Radien, Typografie, hell/dunkel) als CSS-Variablen, in Tailwind
   eingebunden. Keine Rohwerte in Komponenten.
@@ -202,9 +229,21 @@ Bestätigung abwarten.
 - **Etappe b/h:** Für den Backtest die Vintages aus `macro_observations` nutzen
   (`vintage_date <= Stichtag`, je Beobachtung der jüngste Stand); Zeilen mit `''` nur dort, wo
   keine Vintages existieren (tägliche Marktdaten, Eurostat, EZB, CFTC kennt keine Revisionen).
-- **Etappe c, noch ungeprüft:** AAII hat einen Bot-Schutz (Abruf evtl. blockiert); FINRA evtl.
-  nur mit Account; Myfxbook deckt Indizes, Öl und Kupfer voraussichtlich nicht ab. Ergebnis an
-  Jonas melden.
+- **Etappe c, Stand 2026-11-17:**
+  - Myfxbook: Zugangsdaten fehlen in der `.env` → kein Live-Lauf. Welche Symbole der Outlook für
+    Indizes (SPX/NDX/DJI/DAX/Nikkei), Öl und Kupfer führt, ist ungeprüft; `myfxbook:` bleibt dort
+    `null` (nicht geraten). Abgedeckt sind vermutlich 14 Forex-Paare, Gold (XAUUSD), Silber
+    (XAGUSD). Nach dem ersten Lauf: `SELECT DISTINCT symbol FROM retail_sentiment`.
+    Die Myfxbook-Webseite liegt hinter Cloudflare-Challenge (403), die API selbst ist erreichbar.
+  - EDGAR: `CONTACT_EMAIL` fehlt in der `.env` → kein Live-Lauf; die Fixtures sind nach der
+    dokumentierten Struktur nachgebaut, nicht aufgezeichnet. Erster Live-Lauf lädt ≈ 20 × (Facts +
+    Submissions) + einige hundert Form-4-XML (≈ 5 Min.).
+  - AAII: läuft, aber nur mit beschreibendem UA (siehe oben). Die Seite zeigt nur 4 Wochen; ein
+    Backfill ist nicht möglich (Historie der Seite `sent_results` ist Mitgliedern vorbehalten,
+    nicht geprüft). Fällt ein Donnerstag/Freitag-Lauf aus, bleibt eine Lücke bis zu 4 Wochen heilbar.
+  - FINRA: läuft ohne Account; Daten ab 2024-11 geladen, Veröffentlichung ca. 7 Handelstage nach
+    Stichtag (Stand: letzter Stichtag 2026-10-30).
+  - `data/raw` wächst durch EDGAR (gzip) zusätzlich; Aufräumregel weiter offen.
 - Bekannte Lücke: kein COT für den DAX (Eurex) → Teilscore entfällt, Gewichte werden renormiert.
   Nikkei: COT jetzt über den Yen-Kontrakt 240743 (der USD-Kontrakt 240741 meldet seit 2026-03-03 nicht mehr).
 - **Etappe f:** `npm audit` erneut prüfen. Stand heute: 1 Meldung „moderate“ in `minimatch`,
