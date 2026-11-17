@@ -125,6 +125,7 @@ class CommodityAsset(_Model):
     yfinance: str
     cftc_code: str | None = None
     myfxbook: str | None = None
+    macro_driver: Literal["safe_haven", "cyclical"] | None = None
 
     asset_class: Literal[AssetClass.COMMODITY] = AssetClass.COMMODITY
 

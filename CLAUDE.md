@@ -8,15 +8,17 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
-**Stand (2026-11-17):** Etappe a, b und c sind im Code fertig (Tests 136, ruff grün). Live
-laufen CFTC, FRED (ALFRED), Eurostat, EZB, yfinance, AAII und FINRA. **Myfxbook und SEC EDGAR sind
-nur gegen Fixtures getestet:** In der lokalen `.env` fehlen `MYFXBOOK_EMAIL`/`MYFXBOOK_PASSWORD`
-und `CONTACT_EMAIL`; ohne sie brechen die Fetcher mit klarer Meldung ab (kein Request). Auf
-„trading“ wurde noch nichts verändert.
+**Stand (2026-11-17):** Etappe a–d sind im Code fertig (Tests 200, ruff grün). Live laufen CFTC,
+FRED (ALFRED), Eurostat, EZB, yfinance, AAII und FINRA. **Myfxbook und SEC EDGAR sind nur gegen
+Fixtures getestet:** In der lokalen `.env` fehlen `MYFXBOOK_EMAIL`/`MYFXBOOK_PASSWORD` und
+`CONTACT_EMAIL`. Folge für die Scores: Retail-Sentiment (Forex/Gold/Silber) sowie Fundamentals und
+Insider (Aktien) entfallen vorerst (Gewichte werden renormiert, Abdeckung ca. 55–95 %). Der erste
+`edgefinder score`-Lauf (86 Scores, 43 Assets × 2 Profile) ist plausibel. Auf „trading“ wurde noch
+nichts verändert.
 
 **Nächster Schritt:** Jonas trägt die drei fehlenden Werte in die `.env` ein; danach je einmal
 `uv run edgefinder fetch myfxbook` und `… edgar` live prüfen (Symbolliste von Myfxbook ansehen,
-siehe „Offen“). Dann Etappe d (Score-Engine, FastAPI-Endpunkte).
+siehe „Offen“). Dann Etappe e (Design-System, Beispielseite, Screenshots zur Freigabe).
 
 ### Etappenplan
 
@@ -25,7 +27,7 @@ siehe „Offen“). Dann Etappe d (Score-Engine, FastAPI-Endpunkte).
 | a | Erreichbarkeit „trading“, Gerüst, Config, DB-Schema, CLAUDE.md, README, Repo | fertig |
 | b | Fetcher: CFTC, FRED/Eurostat/ECB, yfinance | fertig (Datenlücken siehe „Offen“) |
 | c | Fetcher: Myfxbook, AAII, SEC EDGAR, FINRA | fertig (Myfxbook/EDGAR noch ohne Live-Lauf, siehe „Offen“) |
-| d | Score-Engine mit beiden Profilen, FastAPI-Endpunkte | offen |
+| d | Score-Engine mit beiden Profilen, FastAPI-Endpunkte | fertig |
 | e | Design-System und eine Beispielseite – **Screenshots zur Freigabe durch Jonas** | offen |
 | f | Restliches Frontend mit allen Seiten und Funktionen | offen |
 | g | Einrichtung „trading“ (install.sh vorher zeigen), systemd, deploy.sh, Cloudflare-Doku | offen |
@@ -85,11 +87,13 @@ backend/edgefinder/
                    macro.py (gemeinsam für FRED/Eurostat/EZB), cftc.py, fred.py,
                    eurostat.py (Eurostat + EZB), prices.py (yfinance: Kurse, Earnings),
                    myfxbook.py aaii.py edgar.py finra.py
-  scoring/         factors/ (ein Modul je Faktor), engine.py, labels.py
-  api/          ✓  FastAPI-App (bisher /api/health + SPA-Auslieferung), Router, Schemas
+  scoring/      ✓  factors/ (ein Modul je Faktor: cot, retail_sentiment, macro, trend, seasonality,
+                   aaii, fundamentals, earnings, short_interest, insider), data.py (DataStore:
+                   Daten bis Stichtag, Look-Ahead-Schutz), engine.py (Gewichten, Persistenz), labels.py
+  api/          ✓  app.py (FastAPI, /api/health, SPA), routes.py (alle /api-Endpunkte), schemas.py
   notify/       ✓  Notifier-Schnittstelle (noch ohne Kanal)
   backtest/        Auswertung Score-Historie gegen Kursentwicklung
-  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle>` (später: score, backtest)
+  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score` (später: backtest)
 backend/tests/     pytest; fixtures/ = aufgezeichnete API-Antworten (ohne Keys), support.py = Hilfen
 frontend/          React + TypeScript + Vite, Tailwind mit eigenen Tokens
 deploy/            systemd-Units und -Timer, sudoers, nftables, install.sh, deploy.sh
@@ -175,6 +179,56 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   Ticker ohne `-`/`.` (BRK-B → BRKB). Erstladung 2 Jahre, danach die letzten 60 Tage (Revisionen).
   Ticker ohne Meldung seit 45 Tagen → `partial`.
 
+### Score-Engine (Etappe d)
+- Aufruf: `uv run edgefinder score [--as-of YYYY-MM-DD] [--asset ID ...] [--from D --to D]`.
+  `--from/--to` rechnet jeden Werktag nach (Backtest, Etappe h; Herkunft `backfill`). Ein Eintrag je
+  Asset/Profil/Tag in `scores`, Teilscores in `score_components`; erneuter Lauf überschreibt.
+  Ohne Kurse bis zum Stichtag oder ohne einen einzigen Faktor gibt es keinen Score.
+- Gesamt = 10 × Σ (effektives Gewicht × Teilscore); effektives Gewicht = Gewicht / Summe der
+  Gewichte verfügbarer Faktoren; `coverage` = verfügbare / alle Gewichte. Label aus `scoring.labels`.
+- **Look-Ahead-Schutz** (`scoring/data.py`): Kurse ≤ Stichtag; COT ab Berichtsdatum + 3 Tage
+  (Freitag); Makro mit ALFRED-Vintage ≤ Stichtag, ohne Vintages (Eurostat/EZB/Tageswerte) mit
+  geschätzter Verzögerung je Frequenz (täglich 1, wöchentlich 5, monatlich 50, quartalsweise 135
+  Tage ab Periodenbeginn); AAII Umfragedatum + 1; Short Interest + 11 Tage; Fundamentals/Form 4 nach
+  Einreichungsdatum; Earnings nach Meldedatum. Stichtag ≥ heute = „live“, dann ohne Verzögerung.
+  Retail-Sentiment hat keine Historie vor dem ersten Fetch (Backtest: Faktor entfällt dort).
+- Formeln (Startwerte, Parameter je Profil in `config.yaml`):
+  - **cot:** Non-Commercial Netto / Open Interest; 0,7 × Perzentil des Niveaus + 0,3 × Perzentil der
+    `change_weeks`-Veränderung über `percentile_weeks` → [-1,1]. Forex: Score(Basis) − Score(Quote).
+  - **retail_sentiment:** konträr, −(Long% − 50)/25 auf [-1,1]; Mittel über `smoothing_days`;
+    Messung älter als 7 Tage → entfällt.
+  - **macro:** je Indikator z-Wert der `change_months`-Veränderung gegen 10 Jahre, tanh(z/2),
+    Richtung laut `higher_is`; Kategorie = Mittel; Gesamt = Mittel der Kategorien. Forex:
+    Differenz Basis − Quote je Kategorie plus Zinskategorie (Leitzins, 2J, 10J: tanh(Differenz/2 PP)).
+    Index: Wachstum + Arbeitsmarkt der eigenen Volkswirtschaft. Rohstoffe über `macro_driver`
+    (`safe_haven`: US-Inflation + fallende 10J-Rendite; `cyclical`: US-Wachstum + Arbeitsmarkt).
+    Serien älter als `max_age_days` entfallen.
+  - **trend:** Abstand zum langsamen SMA, SMA-Kreuz und ROC, je durch Volatilität × √Horizont
+    geteilt, tanh(z/2), Mittel der drei.
+  - **seasonality:** Rendite über `forward_days` ab gleichem Kalendertag in den letzten `years`
+    Jahren; t-Statistik, tanh(t/3); mindestens 3 Jahre.
+  - **aaii:** konträr moderat (max ±0,6): Perzentil von Bullish−Bearish über `history_weeks`; bei
+    < `min_weeks` Wochen Historie z-Wert gegen `fallback_mean/std`.
+  - **fundamentals:** TTM-Umsatzwachstum (CAGR), operative/Nettomarge (Niveau + Veränderung), KGV im
+    Perzentil der eigenen Historie (günstig = bullish); Mittel der verfügbaren Teile.
+  - **earnings:** gewichtetes Mittel der Surprise-% der letzten `quarters`, tanh(x/10).
+  - **short_interest:** 0,6 × (−tanh(Veränderung/25 %)) + 0,4 × (−Perzentil Days-to-Cover).
+  - **insider:** (Käufe − 0,2 × Verkäufe)/(Käufe + 0,2 × Verkäufe) in $, Vertrauen min(1, n/3),
+    negative Werte halbiert; keine Transaktion = 0, keine Form-4-Daten geladen = entfällt.
+- Forex-Crosses (EURGBP …) und Majors laufen gleich: COT und Makro aus Basis- und Quote-Währung
+  (`currencies` in `config.yaml`); der Kurs-/Trend-Faktor nutzt die Kursreihe des Paares.
+
+### API (Etappe d)
+Alle lesend, JSON, unter `/api`; Schemas in `api/schemas.py`, Swagger unter `/api/docs`. Pro Request
+eigene Verbindung, wenige Abfragen (kein N+1; Indizes aus Migration 0001 reichen, keine 0003).
+`/profiles`, `/assets` (beide Profile + Änderung 1d/7d), `/assets/{id}?date=` (Teilscores mit Begründung,
+Eingangswerten, Abdeckung), `/assets/{id}/history?days|from|to`, `/assets/{id}/cot?weeks`,
+`/assets/{id}/sentiment` (Retail + AAII), `/assets/{id}/fundamentals?profile` (Aktien: SEC-Werte,
+Earnings, Short Interest, Insider; sonst Makrodaten der beteiligten Volkswirtschaften), `/macro`
+(Heatmap je Land/Indikator mit Wert, Änderung, Score, Frische), `/changes?since=1d|7d`,
+`/status` (letzte erfolgreiche Aktualisierung je Quelle, `stale` aus `stale_after_hours`), `/health`.
+Favoriten gibt es nur clientseitig (localStorage).
+
 ### Frontend
 - Design-Tokens (Farben, Abstände, Radien, Typografie, hell/dunkel) als CSS-Variablen, in Tailwind
   eingebunden. Keine Rohwerte in Komponenten.
@@ -211,6 +265,12 @@ Vor Eingriffen auf „trading“ (Dienste, Firewall, sudoers): erklären, an Sna
 Bestätigung abwarten.
 
 ## Offen
+- **Etappe d, Stand 2026-11-17:** Gewichte, Skalen (tanh-Teiler), Label-Schwellen sind Startwerte,
+  Feintuning nach dem Backtest (Etappe h). Aufgefallen: (1) EURUSD-COT sättigt bei −1,0, weil die
+  Differenz Basis − Quote zweier Perzentil-Scores oft ±1 erreicht. (2) AAII hat erst 2–3 Wochen
+  eigene Historie → Norm-Fallback. (3) Retail-Sentiment/EDGAR-Faktoren fehlen bis zu den Live-Läufen.
+  (4) Backtest: für Zeit vor dem ersten Lauf gibt es kein Retail-Sentiment, kaum AAII, Short
+  Interest ab 2024-11, Earnings nur soweit yfinance sie liefert.
 - **Makro-Lücken (Stand 2026-11-17, live geprüft):** Es gibt keine aktuelle Gratis-Serie in
   FRED/Eurostat/EZB für: Inflation (CPI/Kern) von UK, JP, AU, CA, NZ (die OECD-CPI-Reihen auf
   FRED enden 2021–2025, Eurostat liefert für UK keine Werte mehr); Industrieproduktion CH, AU,

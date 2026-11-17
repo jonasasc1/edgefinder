@@ -6,6 +6,7 @@ import argparse
 import logging
 import sys
 from collections import Counter
+from datetime import UTC, date, datetime
 
 from edgefinder.config import Config, load_config, load_secrets
 from edgefinder.db import connect, migrate
@@ -68,6 +69,61 @@ def _cmd_fetch(config: Config, args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def _cmd_score(config: Config, args: argparse.Namespace) -> int:
+    """Scores berechnen: ein Stichtag (Standard heute) oder Zeitraum (--from/--to, Backtest)."""
+    from edgefinder.scoring.engine import ScoreEngine
+
+    if args.asset:
+        unknown = sorted(set(args.asset) - set(config.assets_by_id))
+        if unknown:
+            log.error("Unbekannte Asset-ID(s): %s", ", ".join(unknown))
+            return 2
+    if (args.date_from or args.date_to) and args.as_of:
+        log.error("--as-of und --from/--to schließen sich aus")
+        return 2
+    migrate_conn = connect(config.storage.database)
+    try:
+        migrate(migrate_conn)
+    finally:
+        migrate_conn.close()
+    conn = connect(config.storage.database)
+    try:
+        engine = ScoreEngine(config, conn)
+        if args.date_from or args.date_to:
+            start = args.date_from or args.date_to
+            end = args.date_to or datetime.now(UTC).date()
+            if start > end:
+                log.error("--from liegt nach --to")
+                return 2
+            count = engine.run_range(start, end, args.asset)
+            log.info("%d Scores für %s bis %s berechnet", count, start, end)
+        else:
+            day = args.as_of or datetime.now(UTC).date()
+            results = engine.run_day(day, args.asset)
+            for result in results:
+                log.debug(
+                    "%s %s: %+.2f %s (Abdeckung %.0f %%)",
+                    result.asset_id,
+                    result.profile,
+                    result.score,
+                    result.label,
+                    result.coverage * 100,
+                )
+            log.info("%d Scores für %s berechnet", len(results), day)
+            if not results:
+                return 1
+    finally:
+        conn.close()
+    return 0
+
+
+def _iso_date(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"ungültiges Datum '{value}' (YYYY-MM-DD)") from exc
+
+
 def _cmd_serve(config: Config, args: argparse.Namespace) -> int:
     import uvicorn
 
@@ -98,6 +154,14 @@ def build_parser() -> argparse.ArgumentParser:
     fetch = commands.add_parser("fetch", help="Daten einer Quelle holen")
     fetch.add_argument("source", choices=[*FETCHERS, "all"], help="Quelle oder „all“")
     fetch.set_defaults(func=_cmd_fetch)
+    score = commands.add_parser("score", help="Scores berechnen und speichern")
+    score.add_argument("--as-of", type=_iso_date, help="Stichtag YYYY-MM-DD (Standard: heute)")
+    score.add_argument("--from", dest="date_from", type=_iso_date, help="Zeitraum ab (Werktage)")
+    score.add_argument(
+        "--to", dest="date_to", type=_iso_date, help="Zeitraum bis (Standard: heute)"
+    )
+    score.add_argument("--asset", action="append", help="nur dieses Asset (mehrfach möglich)")
+    score.set_defaults(func=_cmd_score)
     serve = commands.add_parser("serve", help="API und Frontend ausliefern")
     serve.add_argument("--host", help="überschreibt server.host")
     serve.add_argument("--port", type=int, help="überschreibt server.port")

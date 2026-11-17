@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from edgefinder import __version__
+from edgefinder.api.routes import create_router
 from edgefinder.config import Config
 from edgefinder.db import applied_versions, connect
 
@@ -36,6 +37,8 @@ def create_app(config: Config, frontend_dist: Path | None = FRONTEND_DIST) -> Fa
         except Exception as exc:
             raise HTTPException(status_code=503, detail="Datenbank nicht erreichbar") from exc
         return {"status": "ok", "version": __version__, "schema_version": schema_version}
+
+    app.include_router(create_router(config))
 
     if frontend_dist is not None and (frontend_dist / "index.html").is_file():
         _mount_frontend(app, frontend_dist)

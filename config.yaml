@@ -230,6 +230,8 @@ currencies:
 # myfxbook null bei Indizes/Öl/Kupfer: Symbole im Outlook noch ungeprüft (Zugangsdaten fehlten);
 # nach erstem Live-Lauf `SELECT DISTINCT symbol FROM retail_sentiment` ansehen und eintragen.
 # cftc_code: null = kein COT verfügbar (Teilscore entfällt, Gewichte werden renormiert)
+# macro_driver (nur Rohstoffe): safe_haven = Gold/Silber (steigende US-Renditen bearish, steigende
+# Inflation bullish); cyclical = Öl/Kupfer (US-Wachstum und Arbeitsmarkt bullish)
 # ---------------------------------------------------------------------------
 assets:
   forex:
@@ -258,10 +260,10 @@ assets:
     - {id: NIKKEI, name: "Nikkei 225", economy: JP, yfinance: "^N225",  cftc_code: "240743", myfxbook: null}   # Yen-Kontrakt; der USD-Kontrakt 240741 wird seit 2026-03 nicht mehr gemeldet
 
   commodities:
-    - {id: GOLD,   name: "Gold",     yfinance: "GC=F", cftc_code: "088691", myfxbook: XAUUSD}
-    - {id: SILVER, name: "Silber",   yfinance: "SI=F", cftc_code: "084691", myfxbook: XAGUSD}
-    - {id: WTI,    name: "Öl (WTI)", yfinance: "CL=F", cftc_code: "067651", myfxbook: null}
-    - {id: COPPER, name: "Kupfer",   yfinance: "HG=F", cftc_code: "085692", myfxbook: null}
+    - {id: GOLD,   name: "Gold",     yfinance: "GC=F", cftc_code: "088691", myfxbook: XAUUSD, macro_driver: safe_haven}
+    - {id: SILVER, name: "Silber",   yfinance: "SI=F", cftc_code: "084691", myfxbook: XAGUSD, macro_driver: safe_haven}
+    - {id: WTI,    name: "Öl (WTI)", yfinance: "CL=F", cftc_code: "067651", myfxbook: null, macro_driver: cyclical}
+    - {id: COPPER, name: "Kupfer",   yfinance: "HG=F", cftc_code: "085692", myfxbook: null, macro_driver: cyclical}
 
   stocks:   # Watchlist; `ticker` gilt für SEC/FINRA, `yfinance` nur bei abweichendem Symbol
     - {id: AAPL,  name: "Apple",              ticker: AAPL}
@@ -306,10 +308,10 @@ profiles:
     params:
       cot:              {percentile_weeks: 156, change_weeks: 4}
       retail_sentiment: {smoothing_days: 3}
-      macro:            {change_months: 3}
+      macro:            {change_months: 3, history_years: 10, max_age_days: 270, rates_max_age_days: 120}
       trend:            {sma_days: [20, 50], roc_days: 20}
       seasonality:      {years: 10, forward_days: 21}
-      aaii:             {smoothing_weeks: 1, history_weeks: 156}
+      aaii:             {smoothing_weeks: 1, history_weeks: 156, min_weeks: 26, fallback_mean: 6.5, fallback_std: 16.0}
       fundamentals:     {growth_quarters: 4, valuation_years: 5}
       earnings:         {quarters: 2}
       short_interest:   {change_periods: 2}
@@ -326,10 +328,10 @@ profiles:
     params:
       cot:              {percentile_weeks: 156, change_weeks: 13}
       retail_sentiment: {smoothing_days: 10}
-      macro:            {change_months: 12}
+      macro:            {change_months: 12, history_years: 10, max_age_days: 270, rates_max_age_days: 120}
       trend:            {sma_days: [50, 200], roc_days: 126}
       seasonality:      {years: 15, forward_days: 63}
-      aaii:             {smoothing_weeks: 8, history_weeks: 260}
+      aaii:             {smoothing_weeks: 8, history_weeks: 260, min_weeks: 26, fallback_mean: 6.5, fallback_std: 16.0}
       fundamentals:     {growth_quarters: 12, valuation_years: 10}
       earnings:         {quarters: 4}
       short_interest:   {change_periods: 6}
