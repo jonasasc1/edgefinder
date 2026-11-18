@@ -113,6 +113,8 @@ def load_observations(
         query += " AND date <= ?"
         args.append(until)
     out: list[Observation] = []
+    # (False Positive: SQL nur aus festen Fragmenten, Werte als ?-Parameter, s. ERGEBNIS.md)
+    # nosemgrep
     for score_id, asset_id, profile, day, score, coverage in conn.execute(
         query + " ORDER BY date, asset_id, profile", args
     ):

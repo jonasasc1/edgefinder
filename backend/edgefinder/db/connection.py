@@ -21,6 +21,8 @@ def connect(path: Path | str) -> sqlite3.Connection:
     conn = sqlite3.connect(path, autocommit=True)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # (False Positive: Konstante (int), PRAGMA erlaubt keine Parameter; siehe ERGEBNIS.md)
+    # nosemgrep
     conn.execute(f"PRAGMA busy_timeout = {BUSY_TIMEOUT_MS}")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA synchronous = NORMAL")

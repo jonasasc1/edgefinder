@@ -55,6 +55,8 @@ def _recent_scores(
         sql += " AND asset_id = ?"
         params.append(asset_id)
     out: dict[tuple[str, str], list[tuple[str, float, str, float]]] = {}
+    # (False Positive: SQL nur aus festen Fragmenten, Werte als ?-Parameter, s. ERGEBNIS.md)
+    # nosemgrep
     for row in conn.execute(sql + " ORDER BY date", params):
         out.setdefault((row[0], row[1]), []).append((row[2], row[3], row[4], row[5]))
     return out

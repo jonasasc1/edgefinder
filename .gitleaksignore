@@ -1,0 +1,3 @@
+# Dummy-Zugangsdaten in Tests (reine Testwerte, keine echten Secrets; Jonas bestätigt 2026-11-18)
+5e9436bb6453f3d13c3606b684147c4ffe4a6cbb:backend/tests/test_myfxbook.py:generic-api-key:16
+backend/tests/test_myfxbook.py:generic-api-key:16
