@@ -173,6 +173,65 @@ class FundamentalsOut(BaseModel):
     macro: MacroOut | None = None
 
 
+Signal = Literal["bullish", "bearish", "neutral"]
+
+
+class ScorecardTileOut(BaseModel):
+    """Teilscore einer Gruppe (Technik, Sentiment, Institutionell, Makro) als −10…+10."""
+
+    key: Literal["technical", "sentiment", "institutional", "macro"]
+    label: str
+    score: float | None  # gewichtetes Mittel der Faktor-Teilscores (effektive Gewichte) × 10
+    weight: float  # Summe der effektiven Gewichte der Gruppe (Anteil am Gesamtscore)
+    signal: Signal | None
+    factors: list[str]  # Faktoren mit Daten, die in die Gruppe eingehen
+
+
+class ScorecardRowOut(BaseModel):
+    """Eine Tabellenzeile; nicht belegte Felder sind None (die Oberfläche zeigt „–“)."""
+
+    key: str
+    label: str
+    side: str | None = None  # Währung/Volkswirtschaft bei Forex (Basis, Quote)
+    unit: str = ""  # "%", "count", "k", "index", "x", "shares", "usd" oder leer
+    change_unit: str | None = None  # None = wie `unit`; "pp" = Prozentpunkte
+    value: float | None = None  # Actual
+    previous: float | None = None  # Vorwert
+    change: float | None = None  # Änderung zum Vorwert
+    date: str | None = None
+    signal: Signal | None = None
+    score: float | None = None  # −1…+1
+    long_pct: float | None = None  # Long-Anteil (COT, Retail, AAII bullish)
+    short_pct: float | None = None
+    estimate: float | None = None  # nur Earnings (EPS-Schätzung)
+    surprise_pct: float | None = None  # nur Earnings
+    text: str | None = None
+    note: str | None = None  # Begründung aus der Engine (Tooltip)
+    next_date: str | None = None  # nächster sicher bekannter Termin
+    soon: bool = False  # nächster Termin liegt in den nächsten Tagen (Stern)
+
+
+class ScorecardSectionOut(BaseModel):
+    key: str
+    group: Literal["technical", "sentiment", "institutional", "macro"]
+    label: str
+    kind: Literal["indicator", "crowd", "positioning", "earnings"]
+    signal: Signal | None
+    score: float | None  # −1…+1
+    rows: list[ScorecardRowOut]
+    empty_reason: str | None = None  # warum keine Zeilen da sind
+    in_score: bool = True  # False: nur zur Information, geht nicht in den Score ein
+
+
+class ScorecardOut(BaseModel):
+    asset_id: str
+    profile: str
+    as_of: str | None  # Datum des Scores
+    signal_threshold: float
+    tiles: list[ScorecardTileOut]
+    sections: list[ScorecardSectionOut]
+
+
 class ChangeOut(BaseModel):
     asset_id: str
     name: str

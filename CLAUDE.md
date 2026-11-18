@@ -8,7 +8,29 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
-**Stand (2026-11-18, abends): LIVE auf „trading“.** Erster Deploy erfolgreich (Health + Smoke-Test ok), alle 13
+**Stand (2026-11-18, nachts, noch NICHT deployt): Bugfix schwarzer Schirm + neue Asset-Detailseite (Scorecard).**
+- **Bug „Klick in Sidebar → schwarzer Schirm bis F5“:** `AppShell` gab `window.scrollTo()` direkt aus `useEffect`
+  zurück. Aktuelle Chromium-Versionen liefern von `scrollTo` ein Promise; React hält jeden Rückgabewert für eine
+  Aufräumfunktion und wirft beim Seitenwechsel `TypeError: destroy is not a function`. Ohne Error Boundary verschwand
+  der ganze Baum (leerer `#root`). Nicht Service-Worker-bedingt (reproduziert auch mit SW aus). Fix: Effekt als Block.
+  Zusätzlich: `RouteErrorBoundary` (je Route + um die App, „Erneut laden“), Auto-Reload (max. 1× je 30 s) bei
+  Chunk-Ladefehlern (`lib/chunkError.ts`, `vite:preloadError`), SW-Cache-Version = Hash der Build-Dateien
+  (`scripts/sw-build-id.mjs` nach `vite build`), HTML/404-Antworten werden unter `/assets` nie gecacht/ausgeliefert.
+  Regressionstest: `npm run check:nav` (Playwright, SW aktiv, alle Routen, toter Chunk; Server + Build nötig).
+- **Detailseite:** Hero (Ring) → vier Gruppen-Kacheln (Technik, Sentiment, Institutionell, Makro bzw. bei Aktien
+  Fundamentals; −10…+10) → Score-Verlauf als Histogramm (TimeChart `kind: "histogram"`) über dem Kurs → Scorecard-Tabellen
+  (`pages/asset/ScorecardTables.tsx`, mobil Karten-Zeilen) → Faktoren im Detail + COT/Sentiment-Charts (Makro-Heatmap nur
+  noch bei Aktien-Fundamentals). Keine Forecast/Surprise für Makro (keine kostenlosen Konsensdaten), echte Schätzung nur bei Earnings.
+- **API neu:** `GET /api/assets/{id}/scorecard?profile=` (`api/scorecard.py`, `ScorecardOut`): `tiles` (Teilscore je Gruppe =
+  Σ effektives Gewicht × Teilscore ÷ Σ Gewicht × 10, `weight`, `signal`), `sections` (je Gruppe/Kategorie `kind`
+  indicator|crowd|positioning|earnings, Zeilen mit value/previous/change/date/signal/score, long_pct/short_pct, estimate,
+  surprise_pct, `soon`/`next_date` für den Stern, `in_score`). Signal-Schwelle `scoring.signal_threshold` (0.15) und
+  `scoring.earnings_neutral_pct` (1.0) in config.yaml. Sterne nur bei COT (nächster Bericht ≤ 2 Tage) und Earnings (≤ 14 Tage).
+  Vorwert = vorherige Veröffentlichung der transformierten Reihe; Indizes zeigen nur Wachstum + Arbeitsmarkt.
+- Screenshots: `~/remote/edgefinder-shots/etappe-i/` (`node scripts/screenshots.mjs`, enthält Szenarien mit gepatchter
+  Scorecard, weil lokal Myfxbook/EDGAR-Daten fehlen).
+
+**Stand (2026-11-18, abends, vorher): LIVE auf „trading“.** Erster Deploy erfolgreich (Health + Smoke-Test ok), alle 13
 Quellen haben auf trading erfolgreich geladen (inkl. Myfxbook und EDGAR mit Live-Daten), Score-Lauf ok (43 Assets,
 Abdeckung für EURUSD/Gold/AAPL jetzt 100 %). Firewall (nftables, `inet edgefinder_fw`) aktiv und dauerhaft:
 8420 nur von 10.10.20.20, SSH nur von 10.10.20.90. Cloudflare-Route und Access hat Jonas eingerichtet, Seite ist online.

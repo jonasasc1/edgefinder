@@ -170,6 +170,10 @@ class ScoreLabel(_Model):
 class ScoringConfig(_Model):
     schedule: str | list[str]
     labels: tuple[ScoreLabel, ...]
+    # Scorecard (Detailseite): ab diesem |Teilscore| (−1…+1) gilt ein Signal als bullish/bearish.
+    signal_threshold: float = Field(default=0.15, gt=0, lt=1)
+    # Earnings: Überraschung innerhalb ±x % gilt als neutral.
+    earnings_neutral_pct: float = Field(default=1.0, ge=0)
 
     @model_validator(mode="after")
     def _check_labels(self) -> ScoringConfig:

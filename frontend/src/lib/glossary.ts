@@ -20,9 +20,59 @@ export type TermKey =
   | "earnings"
   | "surprise"
   | "insider"
-  | "heatmap";
+  | "heatmap"
+  | "groupScores"
+  | "groupTechnical"
+  | "groupSentiment"
+  | "groupInstitutional"
+  | "groupMacro"
+  | "signal"
+  | "previousValue"
+  | "noForecast"
+  | "longShort"
+  | "scoreHistory";
 
 export const TERMS: Record<TermKey, { title: string; text: string }> = {
+  groupScores: {
+    title: "Teilscores nach Gruppe",
+    text: "Die Faktoren des Scores in vier Gruppen gebündelt, jeweils von −10 bis +10. Jede Gruppe ist das gewichtete Mittel ihrer Faktoren; „Gewicht“ ist ihr Anteil am Gesamtscore.",
+  },
+  groupTechnical: {
+    title: "Technik",
+    text: "Chart-Trend und Saisonalität. Zeigt, wohin der Kurs läuft und wie sich das Asset zu dieser Jahreszeit meist verhalten hat.",
+  },
+  groupSentiment: {
+    title: "Sentiment",
+    text: "Stimmung der Anleger: Privatanleger-Positionen (Myfxbook), AAII-Umfrage und bei Aktien Leerverkäufe. Wird meist konträr gelesen, wenn alle gleich liegen.",
+  },
+  groupInstitutional: {
+    title: "Institutionell",
+    text: "Positionierung großer Marktteilnehmer: COT-Bericht der Non-Commercials, bei Aktien Insider-Käufe und -Verkäufe.",
+  },
+  groupMacro: {
+    title: "Makro bzw. Fundamentals",
+    text: "Wirtschaftsdaten der betroffenen Volkswirtschaft (Wachstum, Inflation, Arbeitsmarkt, Zinsen). Bei Aktien stattdessen Geschäftszahlen (Fundamentals) und Earnings.",
+  },
+  signal: {
+    title: "Signal",
+    text: "Bullish, Bearish oder Neutral aus dem Score der Zeile. Ab ±0,15 auf der Skala −1 bis +1 (in config.yaml einstellbar) gilt ein Signal als bullish bzw. bearish.",
+  },
+  previousValue: {
+    title: "Vorwert",
+    text: "Wert der vorherigen Veröffentlichung derselben Reihe. Die Änderung ist Wert minus Vorwert; Prozentwerte ändern sich in Prozentpunkten (PP).",
+  },
+  noForecast: {
+    title: "Keine Prognosen",
+    text: "Für Makrodaten stehen keine kostenlosen Konsensprognosen zur Verfügung. Darum zeigt die Tabelle Wert, Vorwert, Änderung und Datum statt Forecast und Surprise. Nur bei Earnings gibt es echte Schätzungen.",
+  },
+  longShort: {
+    title: "Long- und Short-Anteil",
+    text: "Anteil der Long- bzw. Short-Positionen. COT: Long ÷ (Long + Short) der Non-Commercials. Retail: Anteil der Privatanleger-Positionen. Die Pille zeigt die Lesart des Scores (Perzentil gegen die eigene Historie), nicht den reinen Anteil.",
+  },
+  scoreHistory: {
+    title: "Score-Verlauf",
+    text: "Gesamtscore je Tag als Balken um die Nulllinie: grün über 0, rot darunter, kräftiger bei starkem Signal. Der Verlauf wächst täglich.",
+  },
   score: {
     title: "Score",
     text: "Gesamtbewertung von −10 (stark bearish) bis +10 (stark bullish). Er fasst die Teilscores nach den Gewichten des gewählten Profils zusammen. Ein Hinweis auf die Datenlage, keine Prognose.",

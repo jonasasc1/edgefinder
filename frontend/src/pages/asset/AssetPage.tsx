@@ -13,7 +13,7 @@ import { SectionTitle } from "../../components/SectionTitle";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { Skeleton } from "../../components/Skeleton";
 import { StarButton } from "../../components/StarButton";
-import { fetchAssetDetail, fetchProfiles, type AssetDetail, type ProfileKey } from "../../lib/api";
+import { fetchAssetDetail, fetchProfiles, fetchScorecard, type AssetDetail, type ProfileKey } from "../../lib/api";
 import { formatDateMedium, formatPct, formatPctSigned, formatPrice } from "../../lib/format";
 import { levelOf, toneOf } from "../../lib/score";
 import { useApi } from "../../lib/useApi";
@@ -22,7 +22,9 @@ import { CLASS_LABEL } from "../overview/model";
 import { CotCard } from "./CotCard";
 import { FactorList } from "./FactorList";
 import { FundamentalsCard } from "./FundamentalsCard";
+import { GroupTiles } from "./GroupTiles";
 import { PriceScoreChart } from "./PriceScoreChart";
+import { ScorecardTables } from "./ScorecardTables";
 import { SentimentCard } from "./SentimentCard";
 
 const PROFILE_KEYS: readonly ProfileKey[] = ["swing", "long_term"];
@@ -89,6 +91,7 @@ export function AssetPage() {
   const { state, reload } = useApi((signal) => fetchAssetDetail(id, signal), [id]);
   const profiles = useApi((signal) => fetchProfiles(signal), []);
   const [profile, setProfile] = usePersistentState<ProfileKey>("ef-profile", "swing", PROFILE_KEYS);
+  const scorecard = useApi((signal) => fetchScorecard(id, profile, signal), [id, profile]);
 
   const profileList = profiles.state.status === "ready" ? profiles.state.data : null;
   const options = (profileList ?? [{ key: "swing" as const, label: "Swing", horizon: "" }, { key: "long_term" as const, label: "Langfristig", horizon: "" }]).map((p) => ({ value: p.key, label: p.label }));
@@ -141,11 +144,17 @@ export function AssetPage() {
           <SegmentedControl label="Profil" value={profile} onChange={setProfile} options={options} full className="sm:w-72" />
           <Hero detail={detail} profile={profile} horizon={horizon} />
 
+          {scorecard.state.status === "ready" && <GroupTiles tiles={scorecard.state.data.tiles} />}
+          <PriceScoreChart assetId={detail.id} profile={profile} />
+          {scorecard.state.status === "loading" && <Skeleton className="h-64 w-full rounded-card" />}
+          {scorecard.state.status === "error" && <ErrorState what="Die Scorecard" onRetry={scorecard.reload} />}
+          {scorecard.state.status === "ready" && <ScorecardTables scorecard={scorecard.state.data} isStock={detail.asset_class === "stock"} />}
+
           <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
             <section aria-labelledby="factors-title">
               <SectionTitle
                 id="factors-title"
-                title="Teilscores"
+                title="Faktoren im Detail"
                 term="score"
                 aside={detail.profiles[profile] ? <span className="text-footnote text-ink-2">Beitrag in Punkten</span> : undefined}
               />
@@ -159,13 +168,12 @@ export function AssetPage() {
             </section>
 
             <div className="flex min-w-0 flex-col gap-6">
-              <PriceScoreChart assetId={detail.id} profile={profile} />
               <CotCard assetId={detail.id} assetClass={detail.asset_class} />
               <SentimentCard assetId={detail.id} assetClass={detail.asset_class} />
             </div>
           </div>
 
-          <FundamentalsCard assetId={detail.id} profile={profile} isStock={detail.asset_class === "stock"} />
+          {detail.asset_class === "stock" && <FundamentalsCard assetId={detail.id} profile={profile} isStock /> }
         </div>
       )}
     </>

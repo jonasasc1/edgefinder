@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query
 
 from edgefinder.api import schemas as s
+from edgefinder.api.scorecard import build_scorecard
 from edgefinder.config import Asset, AssetClass, Config, ForexAsset, IndexAsset, StockAsset
 from edgefinder.db import connect
 from edgefinder.scoring.data import DataStore
@@ -273,6 +274,14 @@ def create_router(config: Config) -> APIRouter:
             last_price=last_price,
             profiles=profile_out,
         )
+
+    @router.get("/assets/{asset_id}/scorecard", response_model=s.ScorecardOut)
+    def scorecard(asset_id: str, profile: str = default_profile) -> s.ScorecardOut:
+        """Gruppen-Teilscores (−10…+10) und gruppierte Tabellenzeilen für die Detailseite."""
+        asset = _asset_or_404(config, asset_id)
+        _profile_or_422(profile)
+        with db() as conn:
+            return build_scorecard(config, conn, asset, profile, datetime.now(UTC).date())
 
     @router.get("/assets/{asset_id}/history", response_model=s.HistoryOut)
     def history(

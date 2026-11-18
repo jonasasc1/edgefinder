@@ -154,3 +154,56 @@ export const fetchChanges = (since: Since, signal?: AbortSignal) => getJson<Chan
 export const fetchStatus = (signal?: AbortSignal) => getJson<Status>("/api/status", signal);
 export const fetchSparklines = (profile: ProfileKey, days = 30, signal?: AbortSignal) =>
   getJson<Sparklines>(`/api/sparklines?profile=${profile}&days=${days}`, signal);
+
+// --- Scorecard (Detailseite) ---
+
+export type Signal = "bullish" | "bearish" | "neutral";
+export type GroupKey = "technical" | "sentiment" | "institutional" | "macro";
+
+export type ScorecardTile = { key: GroupKey; label: string; score: number | null; weight: number; signal: Signal | null; factors: string[] };
+
+export type ScorecardRow = {
+  key: string;
+  label: string;
+  side: string | null;
+  unit: string;
+  change_unit: string | null;
+  value: number | null;
+  previous: number | null;
+  change: number | null;
+  date: string | null;
+  signal: Signal | null;
+  score: number | null;
+  long_pct: number | null;
+  short_pct: number | null;
+  estimate: number | null;
+  surprise_pct: number | null;
+  text: string | null;
+  note: string | null;
+  next_date: string | null;
+  soon: boolean;
+};
+
+export type ScorecardSection = {
+  key: string;
+  group: GroupKey;
+  label: string;
+  kind: "indicator" | "crowd" | "positioning" | "earnings";
+  signal: Signal | null;
+  score: number | null;
+  rows: ScorecardRow[];
+  empty_reason: string | null;
+  in_score: boolean;
+};
+
+export type Scorecard = {
+  asset_id: string;
+  profile: ProfileKey;
+  as_of: string | null;
+  signal_threshold: number;
+  tiles: ScorecardTile[];
+  sections: ScorecardSection[];
+};
+
+export const fetchScorecard = (assetId: string, profile: ProfileKey, signal?: AbortSignal) =>
+  getJson<Scorecard>(`/api/assets/${encodeURIComponent(assetId)}/scorecard?profile=${profile}`, signal);

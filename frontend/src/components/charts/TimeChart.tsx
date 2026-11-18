@@ -4,6 +4,7 @@ import {
   ColorType,
   createChart,
   CrosshairMode,
+  HistogramSeries,
   LineSeries,
   LineType,
   type IChartApi,
@@ -15,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { cssColor, cssColorAlpha } from "../../lib/chartColors";
 import { formatDateMedium } from "../../lib/format";
+import { levelOf, RING_COLOR, toneOf } from "../../lib/score";
 import { useTheme } from "../../lib/theme";
 
 export type SeriesSpec = {
@@ -24,7 +26,7 @@ export type SeriesSpec = {
   data: readonly [string, number][];
   /** Token-Variable, z. B. "--c-series-1" */
   color: string;
-  kind?: "line" | "area" | "baseline";
+  kind?: "line" | "area" | "baseline" | "histogram";
   /** Pane von oben (0 = oberes Diagramm) */
   pane?: number;
   /** Basislinie der Baseline-Reihe (oberhalb grün, unterhalb rot) */
@@ -130,6 +132,9 @@ export function TimeChart({ series, height = 220, paneWeights, label, guide }: P
           },
           pane,
         );
+      } else if (spec.kind === "histogram") {
+        // Balken um 0, nach Stärke gefärbt (gleiche Stufen wie der Gesamtscore)
+        api = chart.addSeries(HistogramSeries, { ...common, base: spec.base ?? 0 }, pane);
       } else if (spec.kind === "area") {
         api = chart.addSeries(
           AreaSeries,
@@ -139,7 +144,12 @@ export function TimeChart({ series, height = 220, paneWeights, label, guide }: P
       } else {
         api = chart.addSeries(LineSeries, { ...common, color, lineWidth: 2, lineType }, pane);
       }
-      api.setData(spec.data.map(([time, value]) => ({ time: time.slice(0, 10) as Time, value })));
+      if (spec.kind === "histogram") {
+        const palette = Object.fromEntries(Object.entries(RING_COLOR).map(([tone, variable]) => [tone, cssColor(variable.slice(4, -1))]));
+        api.setData(spec.data.map(([time, value]) => ({ time: time.slice(0, 10) as Time, value, color: palette[toneOf(levelOf(value))] })));
+      } else {
+        api.setData(spec.data.map(([time, value]) => ({ time: time.slice(0, 10) as Time, value })));
+      }
       created.push({ spec, api });
     }
     if (guide) {
@@ -173,7 +183,7 @@ export function TimeChart({ series, height = 220, paneWeights, label, guide }: P
       <figcaption className="mb-2 flex min-h-5 flex-wrap items-baseline gap-x-4 gap-y-1 text-footnote">
         {series.map((s) => (
           <span key={s.id} className="inline-flex items-baseline gap-1.5">
-            <span aria-hidden="true" className="size-2 self-center rounded-chip" style={{ background: `var(${s.kind === "baseline" ? "--c-ink-2" : s.color})` }} />
+            <span aria-hidden="true" className="size-2 self-center rounded-chip" style={{ background: `var(${s.kind === "baseline" || s.kind === "histogram" ? "--c-ink-2" : s.color})` }} />
             <span className="text-ink-2">{s.name}</span>
             <span className="num font-semibold text-ink">{formatValue(s, shown.values[s.id])}</span>
           </span>

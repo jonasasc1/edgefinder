@@ -27,7 +27,7 @@ export function PriceScoreChart({ assetId, profile }: { assetId: string; profile
     const scores = lastDays(data.scores[profile] ?? [], days);
     const prices = lastDays(data.prices, days);
     const out: SeriesSpec[] = [];
-    if (scores.length >= MIN_SCORE_POINTS) out.push({ id: "score", name: "Score", data: scores, color: "--c-ink-2", kind: "baseline", base: 0, pane: 0, format: formatScore });
+    if (scores.length >= MIN_SCORE_POINTS) out.push({ id: "score", name: "Score", data: scores, color: "--c-ink-2", kind: "histogram", base: 0, pane: 0, format: formatScore });
     if (prices.length > 0) out.push({ id: "price", name: "Kurs", data: prices, color: "--c-series-1", kind: "line", pane: scores.length >= MIN_SCORE_POINTS ? 1 : 0, format: formatPrice });
     return out;
   }, [data, profile, days]);
@@ -41,7 +41,8 @@ export function PriceScoreChart({ assetId, profile }: { assetId: string; profile
     <section aria-labelledby="chart-title">
       <SectionTitle
         id="chart-title"
-        title="Score und Kurs"
+        title="Score-Verlauf und Kurs"
+        term="scoreHistory"
         aside={<SegmentedControl label="Zeitraum" size="sm" value={range} onChange={setRange} options={RANGES.map((r) => ({ value: r.value, label: r.label }))} />}
       />
       {state.status === "error" ? (
@@ -65,7 +66,7 @@ export function PriceScoreChart({ assetId, profile }: { assetId: string; profile
                 {scoreCount < 5 ? (
                   <>Der Score-Verlauf baut sich täglich auf, bisher {scoreCount === 1 ? "ein Tag" : `${scoreCount} Tage`}.</>
                 ) : (
-                  <>Oben der Score des gewählten Profils, unten der Schlusskurs.</>
+                  <>Oben der Score des gewählten Profils als Balken um die Nulllinie (grün positiv, rot negativ, kräftiger bei starkem Signal), unten der Schlusskurs.</>
                 )}
               </p>
             </>

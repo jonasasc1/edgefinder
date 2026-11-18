@@ -15,7 +15,7 @@ const require = createRequire(join(toolsDir, "package.json"));
 const { chromium, devices } = require("playwright");
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 
-const out = process.argv[2] ?? join(homedir(), "remote", "edgefinder-shots", "etappe-f");
+const out = process.argv[2] ?? join(homedir(), "remote", "edgefinder-shots", "etappe-i");
 const base = process.argv[3] ?? "http://127.0.0.1:8420";
 mkdirSync(out, { recursive: true });
 
@@ -51,6 +51,28 @@ const FAKE_STOCK = {
   macro: null,
 };
 
+// Scorecard mit ergänzten Zeilen (lokal fehlen Myfxbook-, EDGAR- und Insider-Daten): echte Antwort holen und patchen.
+const patchScorecard = (patch) => async (route) => {
+  const response = await route.fetch();
+  const body = await response.json();
+  patch(body);
+  await route.fulfill({ response, json: body });
+};
+const setSection = (body, key, fields) => Object.assign(body.sections.find((x) => x.key === key), fields);
+const row = (key, label, extra) => ({ key, label, side: null, unit: "", change_unit: null, value: null, previous: null, change: null, date: null, signal: null, score: null, long_pct: null, short_pct: null, estimate: null, surprise_pct: null, text: null, note: null, next_date: null, soon: false, ...extra });
+const FOREX_PATCH = patchScorecard((body) => {
+  setSection(body, "crowd", { signal: "bullish", score: 0.4, empty_reason: null, rows: [row("retail", "Privatanleger (Myfxbook)", { unit: "%", change_unit: "pp", long_pct: 34.2, short_pct: 65.8, change: -2.1, date: "2026-11-18", signal: "bullish", score: 0.4 })] });
+  body.tiles.find((t) => t.key === "sentiment").score = 4.0;
+  body.tiles.find((t) => t.key === "sentiment").signal = "bullish";
+});
+const STOCK_PATCH = patchScorecard((body) => {
+  setSection(body, "fundamentals", { signal: "bullish", score: 0.35, empty_reason: null, rows: [
+    row("growth", "Umsatzwachstum (p. a.)", { unit: "%", value: 10.9, date: "2026-06-30", signal: "bullish", score: 0.5 }),
+    row("margin", "Nettomarge", { unit: "%", change_unit: "pp", value: 24.6, previous: 24.0, change: 0.6, date: "2026-06-30", signal: "neutral", score: 0.1 }),
+    row("valuation", "Bewertung (KGV)", { unit: "x", value: 38.2, signal: "bearish", score: -0.45, text: "Perzentil 88 der eigenen Historie" }),
+  ] });
+  setSection(body, "insider", { signal: "bearish", score: -0.4, empty_reason: null, rows: [row("insider", "Insider-Handel (90 Tage)", { unit: "usd", value: -2800000, signal: "bearish", score: -0.4, text: "1 Kauf, 4 Verkäufe (Nettowert)" })] });
+});
 const open = (name) => (page) => page.getByRole("button", { name }).click();
 const FAVS = ["EURUSD", "GOLD", "NVDA"];
 
@@ -64,12 +86,13 @@ const scenarios = [
   { id: "detail-forex", path: "/asset/EURUSD", full: true },
   { id: "detail-index", path: "/asset/SPX", full: true },
   { id: "detail-rohstoff", path: "/asset/GOLD", full: true },
+  { id: "detail-forex-voll", path: "/asset/EURUSD", full: true, api: [["**/api/assets/EURUSD/scorecard*", FOREX_PATCH]] },
   { id: "detail-aktie", path: "/asset/AAPL", full: true },
   {
     id: "detail-aktie-voll",
     path: "/asset/AAPL",
     full: true,
-    api: [["**/api/assets/AAPL/fundamentals*", (route) => route.fulfill({ json: FAKE_STOCK })]],
+    api: [["**/api/assets/AAPL/fundamentals*", (route) => route.fulfill({ json: FAKE_STOCK })], ["**/api/assets/AAPL/scorecard*", STOCK_PATCH]],
   },
   { id: "detail-fehler", path: "/asset/EURUSD", api: [["**/api/assets/EURUSD/cot*", (route) => route.abort()]], full: true },
   { id: "detail-unbekannt", path: "/asset/GIBTSNICHT" },

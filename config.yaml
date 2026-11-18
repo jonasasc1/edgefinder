@@ -338,6 +338,8 @@ scoring:
     - {min: -2.0,  label: "Neutral"}
     - {min: -6.0,  label: "Bearish"}
     - {min: -10.0, label: "Stark bearish"}
+  signal_threshold: 0.15     # Scorecard: ab |Teilscore| (−1…+1) Pille bullish/bearish, sonst neutral
+  earnings_neutral_pct: 1.0  # Scorecard: Gewinnüberraschung innerhalb ±1 % = neutral
 
 profiles:
   swing:
