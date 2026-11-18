@@ -218,6 +218,10 @@ elif [[ -e "$APP_DIR/data" ]]; then
 else
     run as_app ln -s "$STATE_DIR/data" "$APP_DIR/data"
 fi
+# Der Link ist für Git „untracked“; ältere Stände ignorierten nur `data/`. Lokal ausschließen, damit deploy.sh nicht abbricht.
+if $SUDO test -d "$APP_DIR/.git" 2>/dev/null; then
+    run as_app sh -c "grep -qx data \"$APP_DIR/.git/info/exclude\" || echo data >> \"$APP_DIR/.git/info/exclude\""
+fi
 
 # --- 7. .env (nur prüfen!) --------------------------------------------------------------------
 section "7. .env prüfen (Inhalt wird nie gelesen)"
