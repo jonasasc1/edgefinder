@@ -63,3 +63,16 @@ def test_spa_serves_theme_init_and_client_routes(config: Config, tmp_path: Path)
     assert "dataset.theme" in client.get("/theme-init.js").text
     for route in ("/design", "/makro", "/favoriten", "/asset/GOLD"):
         assert "<title>edgefinder</title>" in client.get(route).text
+
+
+def test_backtest_endpoint_serves_last_report(config: Config, tmp_path: Path) -> None:
+    _migrate(config)
+    out = tmp_path / "bt"
+    config = config.model_copy(
+        update={"backtest": config.backtest.model_copy(update={"output_dir": out})}
+    )
+    client = TestClient(create_app(config, frontend_dist=None))
+    assert client.get("/api/backtest").status_code == 404
+    out.mkdir()
+    (out / "backtest.json").write_text('{"scores": 3}', encoding="utf-8")
+    assert client.get("/api/backtest").json() == {"scores": 3}

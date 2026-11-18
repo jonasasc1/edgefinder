@@ -22,7 +22,7 @@ nichts verändert.
 Vergleich), Command-Palette, Tastenkürzel, Tooltips/Erklär-Sheets, PWA. Screenshots (hell/dunkel ×
 Desktop/iPhone) unter `~/remote/edgefinder-shots/etappe-f/`; axe, Konsole und 320-px-Überlauf sauber.
 Neu im Backend: `GET /api/sparklines` (Score-Verlauf aller Assets), `sw.js`/Manifest ohne Cache.
-**Nächster Schritt:** Etappe g (Einrichtung „trading“, nur nach Freigabe), danach h (Backtest).
+**Etappe h (2026-11-18): fertig** (Nacharbeiten + Backtest, Tests 238). **Nächster Schritt:** Etappe g (Einrichtung „trading“, nur nach Freigabe); Tuning-Entscheidungen nach Backtest-Bericht.
 
 **Nächster Schritt:** Jonas trägt die drei fehlenden Werte in die `.env` ein; danach je einmal
 `uv run edgefinder fetch myfxbook` und `… edgar` live prüfen (Symbolliste von Myfxbook ansehen,
@@ -39,7 +39,7 @@ siehe „Offen“). Dann Etappe e (Design-System, Beispielseite, Screenshots zur
 | e | Design-System und eine Beispielseite | fertig, von Jonas freigegeben |
 | f | Restliches Frontend mit allen Seiten und Funktionen | fertig |
 | g | Einrichtung „trading“ (install.sh vorher zeigen), systemd, deploy.sh, Cloudflare-Doku | offen |
-| h | Backtest (Trefferquote/Rendite nach Score-Bereich, je Profil und Assetklasse) | offen |
+| h | Backtest (Trefferquote/Rendite nach Score-Bereich, je Profil und Assetklasse) | fertig (Ergebnisse siehe „Offen“, `docs/backtest-report.md`) |
 
 ### Arbeitsweise (von Jonas vorgegeben)
 - In Etappen arbeiten; nach jeder Etappe: Tests grün, ruff sauber, Build ok, Commit, kurze
@@ -100,9 +100,9 @@ backend/edgefinder/
                    Daten bis Stichtag, Look-Ahead-Schutz), engine.py (Gewichten, Persistenz), labels.py
   api/          ✓  app.py (FastAPI, /api/health, SPA), routes.py (alle /api-Endpunkte), schemas.py
   notify/       ✓  Notifier-Schnittstelle (noch ohne Kanal)
-  backtest/        Auswertung Score-Historie gegen Kursentwicklung
+  backtest/     ✓  analysis.py (Forward-Rendite, Buckets, Kennzahlen, Faktor-IC), stats.py, report.py (Markdown/JSON)
   cleanup.py    ✓  Rohdaten-Aufbewahrung (`edgefinder cleanup`)
-  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | cleanup` (später: backtest)
+  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | backtest | cleanup`
 backend/tests/     pytest; fixtures/ = aufgezeichnete API-Antworten (ohne Keys), support.py = Hilfen
 frontend/          React + TypeScript + Vite, Tailwind mit eigenen Tokens
 deploy/            systemd-Units und -Timer, sudoers, nftables, install.sh, deploy.sh
@@ -243,6 +243,22 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
 - Forex-Crosses (EURGBP …) und Majors laufen gleich: COT und Makro aus Basis- und Quote-Währung
   (`currencies` in `config.yaml`); der Kurs-/Trend-Faktor nutzt die Kursreihe des Paares.
 
+### Backtest (Etappe h)
+- **Backfill:** `uv run edgefinder score --from 2013-01-01 --to 2026-11-13 [--weekday fr|all]` – Standard sind die
+  Stichtage des Wochentags `backtest.score_weekday` (Freitag), `--weekday all` = jeder Werktag. Dauer ≈ 4 Min.
+  (`nice -n 19 ionice -c3`), ≈ 62 000 Scores, DB ≈ 47 MB. Backfill speichert nur Teilscores/Gewichte
+  (`reason` leer, `inputs` `{}`), sonst wären es Hunderte MB; Details gibt es nur für `score --as-of`-Läufe.
+- **Auswertung:** `uv run edgefinder backtest [--profile P] [--class K] [--horizon-days N] [--from D --to D]
+  [--markdown PFAD]` → `backtest.output_dir` (`data/backtest/backtest.json` + `backtest-report.md`, nicht im Git);
+  der eingecheckte Report liegt in `docs/backtest-report.md` (`--markdown docs/backtest-report.md`).
+  `GET /api/backtest` liefert das JSON. Keine neue DB-Tabelle (Report ist abgeleitet und schnell neu erzeugt).
+- Forward-Rendite: letzter Schlusskurs ≤ Stichtag → `h` Handelstage der Kursreihe später (Horizonte
+  `backtest.horizons`: Swing 5/10/20, Langfristig 20/60/120; Kennwert `primary_horizon`). Buckets/Richtung aus
+  `scoring.labels`. Kennzahlen: n, n_eff (÷ Überlappung h/5), Trefferquote (Richtung korrekt), Basisrate
+  (Anteil steigend), Ø/Median, Spread bullish − bearish, IC (Spearman, gepoolt + Querschnitt je Stichtag),
+  IC je Faktor, Stabilität je Jahr, Abdeckung je Jahr. „Alle Klassen“: IC/Spread als n-gewichtetes Klassenmittel.
+- Einstieg am Schlusskurs des Stichtags (Signal ist erst nach Handelsschluss bekannt: leicht optimistisch).
+
 ### API (Etappe d)
 Alle lesend, JSON, unter `/api`; Schemas in `api/schemas.py`, Swagger unter `/api/docs`. Pro Request
 eigene Verbindung, wenige Abfragen (kein N+1; Indizes aus Migration 0001 reichen, keine 0003).
@@ -345,6 +361,14 @@ Bestätigung abwarten.
   Konfiguration (im Label vermerkt). 2-Jahres-Renditen gibt es nur für USA und EZ.
 - **Euroraum-Zusammensetzung:** Eurostat-Reihen nutzen `geo=EA21` (Euroraum mit Bulgarien seit
   2026), HICP `geo=EA`. Ändert sich die Mitgliederzahl, muss `config.yaml` angepasst werden.
+- **Backtest-Ergebnis (2026-11-18, 2013–2026, wöchentlich, `docs/backtest-report.md`):** Die Scores haben
+  **keinen positiven Vorhersagewert**; Indizes/Aktien zeigen signifikant *negativen* IC (Swing 10 T: Indizes −0,09,
+  Aktien −0,05; Langfristig 60 T: Indizes −0,15). Haupttreiber: der Trend-Faktor (Kurzfrist-Umkehr: IC Indizes −0,12,
+  Aktien −0,06, Forex −0,03; geprüft: Trend korreliert 0,86–0,92 mit der Vorperformance, also kein Vorzeichenfehler).
+  Forex/Rohstoffe: IC ≈ 0. Makro (Indizes langfristig −0,15) fällt negativ auf. COT (Forex) −0,08 (nur 2021–2026
+  verfügbar). Sehr hohe Scores (Stark bullish) sind selten (n klein). Tuning-Kandidaten (nicht geändert): Trend-Gewicht
+  senken/Vorzeichen für Indizes/Aktien prüfen, Makro-Gewicht Indizes, COT-Interpretation (Trendfolger vs. Konträr).
+  CFTC lädt nur 6 Jahre (`history_years: 6`); 15 Jahre würden den COT-Backtest ab 2013 ermöglichen (offen, Jonas fragen).
 - **Rohdaten wachsen:** `data/raw` bekommt je Lauf neue Dateien (FRED mit Vintages ≈ 20 MB je
   Lauf). Regel: 30 Tage, `edgefinder cleanup`; in Etappe g als täglicher systemd-Timer einrichten.
 - **yfinance** ist eine inoffizielle Schnittstelle (kann ohne Vorwarnung brechen); Forex-Volumen

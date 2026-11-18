@@ -150,6 +150,14 @@ def create_router(config: Config) -> APIRouter:
         finally:
             conn.close()
 
+    @router.get("/backtest")
+    def backtest() -> dict:
+        """Letzter Backtest (JSON aus `backtest.output_dir`, erzeugt von `edgefinder backtest`)."""
+        path = config.backtest.output_dir / "backtest.json"
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="Noch kein Backtest gelaufen")
+        return json.loads(path.read_text(encoding="utf-8"))
+
     def _profile_or_422(profile: str) -> str:
         if profile not in config.profiles:
             raise HTTPException(status_code=422, detail=f"Unbekanntes Profil '{profile}'")

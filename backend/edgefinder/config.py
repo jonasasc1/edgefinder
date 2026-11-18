@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import date
 from enum import StrEnum
 from functools import cached_property
 from pathlib import Path
@@ -216,6 +217,31 @@ class Profile(_Model):
         return self
 
 
+class BacktestConfig(_Model):
+    """Backfill (Stichtage) und Auswertung des Backtests (Etappe h)."""
+
+    # Wochentag der Backfill-Stichtage (0 = Montag … 4 = Freitag); None = jeder Werktag
+    score_weekday: int | None = Field(default=4, ge=0, le=4)
+    start: date = date(2013, 1, 1)  # frühester Stichtag des Backfills
+    output_dir: Path = Path("data/backtest")
+    # Horizonte in Handelstagen je Profil; `primary_horizon` ist der Kennwert in den Kurztabellen
+    horizons: dict[str, tuple[int, ...]] = Field(
+        default_factory=lambda: {"swing": (5, 10, 20), "long_term": (20, 60, 120)}
+    )
+    primary_horizon: dict[str, int] = Field(default_factory=lambda: {"swing": 10, "long_term": 60})
+    min_signals: int = Field(default=30, ge=1)  # darunter wird ein Wert als „zu wenig“ markiert
+
+    @model_validator(mode="after")
+    def _check_horizons(self) -> BacktestConfig:
+        for profile, days in self.horizons.items():
+            if not days or any(d < 1 for d in days):
+                raise ValueError(f"backtest.horizons.{profile}: Handelstage ≥ 1 nötig")
+            primary = self.primary_horizon.get(profile)
+            if primary is not None and primary not in days:
+                raise ValueError(f"backtest.primary_horizon.{profile} muss in horizons stehen")
+        return self
+
+
 class Config(_Model):
     server: ServerConfig
     storage: StorageConfig
@@ -226,6 +252,7 @@ class Config(_Model):
     assets: AssetsConfig
     scoring: ScoringConfig
     profiles: dict[str, Profile]
+    backtest: BacktestConfig = Field(default_factory=BacktestConfig)
 
     @model_validator(mode="after")
     def _check_references(self) -> Config:

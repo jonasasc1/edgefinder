@@ -258,8 +258,19 @@ class ScoreEngine:
             tuple(components),
         )
 
-    def persist(self, result: AssetScore, origin: str, computed_at: datetime | None = None) -> None:
-        """Ein Eintrag je Asset/Profil/Tag; erneuter Lauf überschreibt (idempotent)."""
+    def persist(
+        self,
+        result: AssetScore,
+        origin: str,
+        computed_at: datetime | None = None,
+        *,
+        detail: bool = True,
+    ) -> None:
+        """Ein Eintrag je Asset/Profil/Tag; erneuter Lauf überschreibt (idempotent).
+
+        `detail=False` (Backfill): Teilscores und Gewichte bleiben, Begründung und Eingangswerte
+        entfallen (leer) – sonst wächst die DB bei Jahren an Stichtagen um Hunderte MB.
+        """
         stamp = (computed_at or datetime.now(UTC)).isoformat(timespec="seconds")
         with transaction(self.conn):
             row = self.conn.execute(
@@ -291,14 +302,16 @@ class ScoreEngine:
                         c.subscore,
                         c.weight,
                         c.effective_weight,
-                        c.reason,
-                        json.dumps(c.inputs, ensure_ascii=False, default=str),
+                        c.reason if detail else "",
+                        json.dumps(c.inputs, ensure_ascii=False, default=str) if detail else "{}",
                     )
                     for c in result.components
                 ],
             )
 
-    def run_day(self, as_of: date, asset_ids: Iterable[str] | None = None) -> list[AssetScore]:
+    def run_day(
+        self, as_of: date, asset_ids: Iterable[str] | None = None, *, detail: bool = True
+    ) -> list[AssetScore]:
         """Alle (oder die gewählten) Assets mit allen Profilen für einen Stichtag."""
         wanted = set(asset_ids) if asset_ids is not None else None
         origin = "live" if as_of >= datetime.now(UTC).date() else "backfill"
@@ -310,18 +323,30 @@ class ScoreEngine:
             for profile in self.config.profiles:
                 result = self.score_asset(asset, profile, as_of, contexts[profile])
                 if result is None:
-                    log.warning("%s/%s am %s: keine Daten, kein Score", asset.id, profile, as_of)
+                    level = logging.DEBUG if origin == "backfill" else logging.WARNING
+                    log.log(level, "%s/%s am %s: keine Daten, kein Score", asset.id, profile, as_of)
                     continue
-                self.persist(result, origin)
+                self.persist(result, origin, detail=detail)
                 results.append(result)
         return results
 
-    def run_range(self, start: date, end: date, asset_ids: Iterable[str] | None = None) -> int:
-        """Rückwärtsberechnung (Backtest, Etappe h): jeder Werktag von `start` bis `end`."""
+    def run_range(
+        self,
+        start: date,
+        end: date,
+        asset_ids: Iterable[str] | None = None,
+        *,
+        weekday: int | None = None,
+    ) -> int:
+        """Rückwärtsberechnung (Backtest): Werktage von `start` bis `end`.
+
+        `weekday` (0 = Montag … 4 = Freitag) rechnet nur diesen Wochentag, sonst jeder Werktag.
+        Gespeichert werden nur Teilscores (ohne Begründungstext), siehe `persist`.
+        """
         count = 0
         day = start
         while day <= end:
-            if day.weekday() < 5:
-                count += len(self.run_day(day, asset_ids))
+            if day.weekday() < 5 and (weekday is None or day.weekday() == weekday):
+                count += len(self.run_day(day, asset_ids, detail=False))
             day += timedelta(days=1)
         return count

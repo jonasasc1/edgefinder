@@ -34,11 +34,22 @@ def test_score_command_as_of_and_idempotent(cli_env: Path) -> None:  # noqa: F81
 def test_score_command_range_and_errors(cli_env: Path) -> None:  # noqa: F811
     assert cli.main(["migrate"]) == 0
     _seed(cli_env)
-    assert (
-        cli.main(["score", "--from", "2026-03-02", "--to", "2026-03-06", "--asset", "EURGBP"]) == 0
-    )
+    daily = ["score", "--from", "2026-03-02", "--to", "2026-03-06", "--asset", "EURGBP"]
+    daily += ["--weekday", "all"]
+    assert cli.main(daily) == 0
     conn = sqlite3.connect(cli_env)
     assert conn.execute("SELECT COUNT(*) FROM scores").fetchone()[0] == 10
+    # Standard (backtest.score_weekday = Freitag): nur ein Stichtag, Begründung nicht gespeichert
+    assert (
+        cli.main(["score", "--from", "2026-03-09", "--to", "2026-03-15", "--asset", "EURGBP"]) == 0
+    )
+    dates = {r[0] for r in conn.execute("SELECT date FROM scores WHERE date > '2026-03-08'")}
+    assert dates == {"2026-03-13"}
+    reasons = conn.execute(
+        "SELECT DISTINCT c.reason FROM score_components c JOIN scores s ON s.id = c.score_id"
+        " WHERE s.date = '2026-03-13'"
+    ).fetchall()
+    assert reasons == [("",)]
     conn.close()
     assert cli.main(["score", "--asset", "NOPE"]) == 2
     assert cli.main(["score", "--as-of", "2026-03-02", "--from", "2026-03-01"]) == 2

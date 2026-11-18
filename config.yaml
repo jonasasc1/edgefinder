@@ -379,3 +379,16 @@ profiles:
       index:     {cot: 0.15, retail_sentiment: 0.05, macro: 0.35, trend: 0.25, seasonality: 0.10, aaii: 0.10}
       commodity: {cot: 0.30, retail_sentiment: 0.05, macro: 0.25, trend: 0.30, seasonality: 0.10}
       stock:     {fundamentals: 0.35, earnings: 0.15, trend: 0.20, short_interest: 0.05, insider: 0.10, seasonality: 0.05, aaii: 0.10}
+
+# ---------------------------------------------------------------------------
+# Backtest (Etappe h): `edgefinder score --from … --to …` (Backfill) und `edgefinder backtest`
+# ---------------------------------------------------------------------------
+backtest:
+  score_weekday: 4          # Backfill-Stichtage: 0 = Montag … 4 = Freitag; null = jeder Werktag
+  start: 2013-01-01         # frühester Stichtag (Kurse reichen bis 2011, Makro braucht ~2 Jahre Vorlauf)
+  output_dir: data/backtest # Report (Markdown) und JSON; nicht im Git
+  horizons:                 # Forward-Rendite in Handelstagen je Profil
+    swing: [5, 10, 20]
+    long_term: [20, 60, 120]
+  primary_horizon: {swing: 10, long_term: 60}   # Kennwert in Übersichtstabellen
+  min_signals: 30           # weniger Beobachtungen: Wert wird als „zu wenig“ markiert
