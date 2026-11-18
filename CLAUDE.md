@@ -8,6 +8,18 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
+**Stand (2026-11-18, abends): LIVE auf „trading“.** Erster Deploy erfolgreich (Health + Smoke-Test ok), alle 13
+Quellen haben auf trading erfolgreich geladen (inkl. Myfxbook und EDGAR mit Live-Daten), Score-Lauf ok (43 Assets,
+Abdeckung für EURUSD/Gold/AAPL jetzt 100 %). Firewall (nftables, `inet edgefinder_fw`) aktiv und dauerhaft:
+8420 nur von 10.10.20.20, SSH nur von 10.10.20.90. Cloudflare-Route und Access hat Jonas eingerichtet, Seite ist online.
+Timer laufen nach `config.yaml`. Deploy künftig: `deploy/deploy.sh` (nur nach Freigabe, vorher Proxmox-Snapshot).
+**Nächste Schritte (offen):** Symbolliste von Myfxbook ansehen (`SELECT DISTINCT symbol FROM retail_sentiment`) und
+Indizes/Öl/Kupfer in `config.yaml` mappen, falls vorhanden; langfristigen Score (negativer IC) überarbeiten;
+Score-Historie wächst täglich (Verlaufs-Charts füllen sich); optional e-Stat-appId für Japan-Inflation.
+Hinweis: `install.sh --apply-firewall` braucht ein Terminal; die Firewall wurde deshalb von Hand mit
+60-s-Rollback-Timer geladen (gleiche Schritte wie im Skript).
+
+
 **Stand (2026-11-17):** Etappe a–d sind im Code fertig (Tests 200, ruff grün). Live laufen CFTC,
 FRED (ALFRED), Eurostat, EZB, yfinance, AAII und FINRA. **Myfxbook und SEC EDGAR sind nur gegen
 Fixtures getestet:** In der lokalen `.env` fehlen `MYFXBOOK_EMAIL`/`MYFXBOOK_PASSWORD` und
