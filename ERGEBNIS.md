@@ -25,3 +25,18 @@ False Positives, der Gitleaks-Fund ist ein Testwert (Zustimmung zur Ausnahme).
 
 ## Nicht geprüft
 - `shellcheck` und `nft` sind auf der Agent-VM nicht installiert: `install.sh`, `deploy.sh`, `sync-units.sh` nur mit `bash -n` und Dry-Run/Stub geprüft, `nftables.conf` nicht per `nft -c`.
+
+## /security-review (2026-11-18)
+
+- Befehl: `/security-review` über das gesamte Projekt (noch nie deployt; Vergleich gegen leeren Basis-Commit, 224 Dateien).
+- Geprüft im Detail: SPA-Auslieferung (`api/app.py`), alle SQL-Stellen in `api/routes.py`, `cleanup.py` (Löschpfade),
+  `deploy/deploy.sh`, `frontend/public/sw.js`, Server-Konfiguration.
+- Ergebnis: **0 Funde** (High 0, Medium 0, Low 0).
+  - SPA: Pfad wird per `resolve()` + `is_relative_to(root)` begrenzt, kein Path-Traversal.
+  - SQL: feste Fragmente, Werte nur als `?`-Parameter; Asset-IDs werden gegen die Config geprüft.
+  - `cleanup`: löscht nie außerhalb von `raw_dir`.
+  - `deploy.sh`: `--ref` nur als Hex-Hash (Regex), Variablen quotiert (`@Q`).
+  - Service Worker: nur gleiche Herkunft, API-Antworten max. 24 h, keine Secrets.
+- Hinweis (kein Fund): `server.host: 0.0.0.0` und die API hat keine eigene Anmeldung. Der Schutz besteht nur aus
+  Firewall (8420 nur von 10.10.20.20) und Cloudflare Access. Bis die Firewall aktiv ist, ist Port 8420 im LAN offen
+  (öffentliche Marktdaten, keine Secrets). Daher Firewall direkt nach dem ersten Deploy aktivieren.
