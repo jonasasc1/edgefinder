@@ -59,6 +59,7 @@ class ServerConfig(_Model):
 class StorageConfig(_Model):
     database: Path
     raw_dir: Path
+    raw_retention_days: int = Field(default=30, gt=0)
 
 
 class RetryConfig(_Model):
@@ -80,11 +81,14 @@ class SourceConfig(_Model):
 
 class Indicator(_Model):
     label: str
-    source: Literal["fred", "eurostat", "ecb"]
+    source: Literal["fred", "eurostat", "ecb", "ons", "statcan", "abs", "imf"]
     series: str
     category: Literal["growth", "inflation", "labor", "rates"]
     transform: Literal["level", "yoy", "diff"]
     higher_is: Literal["bullish", "bearish"]
+    # Geschätzte Verzögerung (Tage ab Periodenbeginn) bis zur Veröffentlichung, nur für Serien
+    # ohne Vintages; None = Schätzung nach Frequenz (scoring/data.py)
+    publication_lag_days: int | None = Field(default=None, gt=0)
 
 
 class Economy(_Model):

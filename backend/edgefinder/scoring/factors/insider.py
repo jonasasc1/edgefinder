@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
-from edgefinder.scoring.factors import FactorResult, clamp, rounded, sign_word, unavailable
+from edgefinder.scoring.factors import FactorResult, clamp, de, rounded, sign_word, unavailable
 
 SALE_WEIGHT = 0.2
 NEGATIVE_DAMPING = 0.5
@@ -62,8 +62,9 @@ def compute(
     confidence = min(1.0, len(recent) / FULL_CONFIDENCE_TRADES)
     score = clamp(ratio * confidence)
     reason = (
-        f"Insider in {days} Tagen: {len(buys)} Käufe ({buy_value / 1e6:.2f} Mio. $) und "
-        f"{len(sells)} Verkäufe ({sell_value / 1e6:.2f} Mio. $); Verkäufe zählen nur zu 20 % → "
+        f"Insider in {days} Tagen: {len(buys)} Käufe ({de(buy_value / 1e6, '.2f')} Mio. $) und "
+        f"{len(sells)} Verkäufe ({de(sell_value / 1e6, '.2f')} Mio. $); Verkäufe zählen "
+        f"nur zu 20 % → "
         f"{sign_word(score)}."
     )
     return FactorResult(score, reason, inputs)

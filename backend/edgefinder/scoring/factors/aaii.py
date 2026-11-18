@@ -13,6 +13,7 @@ from typing import Any
 
 from edgefinder.scoring.factors import (
     FactorResult,
+    de,
     pct_to_unit,
     percentile,
     rounded,
@@ -42,7 +43,7 @@ def compute(weeks: list[tuple[str, float, float]], params: dict[str, Any]) -> Fa
         pct = percentile(current, smoothed)
         score = -MAX_ABS * pct_to_unit(pct)
         method = "percentile"
-        detail = f"Perzentil {pct:.0f} der letzten {len(window)} Wochen"
+        detail = f"Perzentil {de(pct, '.0f')} der letzten {len(window)} Wochen"
         extra = {"percentile": rounded(pct, 1)}
     else:
         mean = float(params.get("fallback_mean", 6.5))
@@ -51,14 +52,15 @@ def compute(weeks: list[tuple[str, float, float]], params: dict[str, Any]) -> Fa
         score = -MAX_ABS * squash(z, 1.5)
         method = "historical_norm"
         detail = (
-            f"{z:+.1f} Standardabweichungen vom langjährigen Durchschnitt "
+            f"{de(z, '+.1f')} Standardabweichungen vom langjährigen Durchschnitt "
             f"(erst {len(window)} Wochen eigene Historie)"
         )
         extra = {"z": rounded(z, 3)}
     mood = "Euphorie" if current > 0 else "Pessimismus"
     contrarian = "bearish" if score < -0.1 else "bullish" if score > 0.1 else "neutral"
     reason = (
-        f"AAII-Umfrage ({window[-1][0]}): Bullish − Bearish = {current:+.1f} Punkte, {detail}; "
+        f"AAII-Umfrage ({window[-1][0]}): Bullish − Bearish = {de(current, '+.1f')} "
+        f"Punkte, {detail}; "
         f"{mood} unter Privatanlegern ist konträr moderat {contrarian}."
     )
     return FactorResult(

@@ -162,4 +162,4 @@ def test_shipped_config_has_series_for_all_economies(config) -> None:
     for code, economy in config.economies.items():
         assert economy.indicators, f"{code} hat keine Makro-Serien"
     sources = {i.source for e in config.economies.values() for i in e.indicators.values()}
-    assert sources == {"fred", "eurostat", "ecb"}
+    assert sources == {"fred", "eurostat", "ecb", "ons", "statcan", "abs", "imf"}

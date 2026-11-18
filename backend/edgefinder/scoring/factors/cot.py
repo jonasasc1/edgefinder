@@ -13,6 +13,7 @@ from typing import Any
 
 from edgefinder.scoring.factors import (
     FactorResult,
+    de,
     pct_to_unit,
     percentile,
     rounded,
@@ -57,9 +58,11 @@ def compute(points: list[CotPoint], params: dict[str, Any], name: str = "") -> F
     direction = "Netto-Long" if last.net >= 0 else "Netto-Short"
     trend = "aufgebaut" if change > 0 else "abgebaut"
     reason = (
-        f"Non-Commercials {name + ': ' if name else ''}{direction} von {last.net:.0f} Kontrakten "
-        f"(Stand {last.report_date}), Perzentil {level_pct:.0f} der letzten {len(window)} Wochen; "
-        f"in {change_weeks} Wochen {trend} (Perzentil {change_pct:.0f}) → "
+        f"Non-Commercials {name + ': ' if name else ''}{direction} von "
+        f"{de(last.net, '.0f')} Kontrakten "
+        f"(Stand {last.report_date}), Perzentil {de(level_pct, '.0f')} der letzten "
+        f"{len(window)} Wochen; "
+        f"in {change_weeks} Wochen {trend} (Perzentil {de(change_pct, '.0f')}) → "
         f"{sign_word(score)}."
     )
     return FactorResult(

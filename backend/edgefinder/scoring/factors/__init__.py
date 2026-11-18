@@ -62,5 +62,15 @@ def sign_word(score: float, positive: str = "bullish", negative: str = "bearish"
     return "neutral"
 
 
+def de(value: float, spec: str = ".1f") -> str:
+    """Zahl für deutsche Texte: Komma als Dezimalzeichen, Punkt als Tausendertrenner.
+
+    `spec` wie bei `format` (z. B. ".2f", "+.1f", ".0f", "g"); Tausender werden immer gesetzt.
+    """
+    sign = "+" if spec.startswith("+") else ""
+    text = format(value, f"{sign},{spec.lstrip('+')}")
+    return text.translate({ord(","): ".", ord("."): ","})
+
+
 def rounded(value: float | None, digits: int = 4) -> float | None:
     return None if value is None else round(value, digits)

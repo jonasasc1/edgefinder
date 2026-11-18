@@ -12,7 +12,7 @@ import math
 import statistics
 from typing import Any
 
-from edgefinder.scoring.factors import FactorResult, rounded, sign_word, squash, unavailable
+from edgefinder.scoring.factors import FactorResult, de, rounded, sign_word, squash, unavailable
 
 VOL_DAYS = 60
 Z_SCALE = 2.0
@@ -46,9 +46,11 @@ def compute(closes: list[float], params: dict[str, Any]) -> FactorResult:
     score = sum(parts) / len(parts)
     above = "über" if dist >= 0 else "unter"
     reason = (
-        f"Kurs {price:.4g} liegt {abs(dist) * 100:.1f} % {above} dem {slow}-Tage-Schnitt; "
+        f"Kurs {de(price, '.4g')} liegt {de(abs(dist) * 100, '.1f')} % {above} dem "
+        f"{slow}-Tage-Schnitt; "
         f"{fast}-Tage-Schnitt {'über' if cross >= 0 else 'unter'} {slow}-Tage-Schnitt "
-        f"({cross * 100:+.1f} %); Veränderung über {roc_days} Tage {roc * 100:+.1f} % → "
+        f"({de(cross * 100, '+.1f')} %); Veränderung über {roc_days} Tage "
+        f"{de(roc * 100, '+.1f')} % → "
         f"Trend {sign_word(score, 'aufwärts', 'abwärts')}."
     )
     return FactorResult(

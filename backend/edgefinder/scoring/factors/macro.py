@@ -11,7 +11,9 @@ genug Historie entfallen; fehlt eine ganze Kategorie, entfällt sie.
   `rates_max_age_days`), je tanh(Differenz / 2 Prozentpunkte).
 * Indizes: Wachstum und Arbeitsmarkt der Volkswirtschaft des Index (Inflation nicht, ihre
   Wirkung auf Aktien ist uneindeutig).
-* Rohstoffe: `macro_driver` laut Konfiguration (safe_haven / cyclical) auf US-Daten.
+* Rohstoffe: `macro_driver` laut Konfiguration (safe_haven / cyclical) auf US-Daten. Edelmetalle:
+  Inflation, Zinsen (Leitzins, Realrendite 10J, Rendite 10J, gespiegelt) und Dollar-Stärke
+  (breiter Dollar-Index, gespiegelt).
 Teilscore Macro = Mittel der verfügbaren Kategorien.
 """
 
@@ -24,14 +26,18 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from edgefinder.scoring.factors import FactorResult, clamp, rounded, squash, unavailable
+from edgefinder.scoring.factors import FactorResult, clamp, de, rounded, squash, unavailable
 
 Z_SCALE = 2.0
 RATE_SCALE_PP = 2.0
 MIN_CHANGES = 24
 GROWTH, INFLATION, LABOR, RATES = "growth", "inflation", "labor", "rates"
 RATE_KEYS = ("policy_rate", "yield_2y", "yield_10y")
+DOLLAR = "dollar"
+DOLLAR_KEY = "dollar_index"
+SAFE_HAVEN_RATE_KEYS = ("policy_rate", "real_yield_10y", "yield_10y")
 CATEGORY_LABEL = {
+    DOLLAR: "Dollar",
     GROWTH: "Wachstum",
     INFLATION: "Inflation",
     LABOR: "Arbeitsmarkt",
@@ -149,7 +155,8 @@ def indicator_score(
 def _describe(ind: IndicatorData, info: dict[str, Any], months: int, score: float) -> str:
     verdict = "stützt" if score > 0.15 else "belastet" if score < -0.15 else "neutral für"
     return (
-        f"{ind.label} {info['value']:g} ({info['date'][:7]}, {info['change']:+g} seit "
+        f"{ind.label} {de(info['value'], 'g')} ({info['date'][:7]}, "
+        f"{de(info['change'], '+g')} seit "
         f"{months} Monaten) {verdict} die Währung/den Markt"
     )
 
@@ -202,7 +209,8 @@ def _mean_result(
         return unavailable(f"Makro: {header} – keine aktuellen Serien verfügbar.")
     score = sum(p.score for p in parts.values()) / len(parts)
     texts = [
-        f"{CATEGORY_LABEL[c]} ({p.score:+.2f}): " + "; ".join(p.details) for c, p in parts.items()
+        f"{CATEGORY_LABEL[c]} ({de(p.score, '+.2f')}): " + "; ".join(p.details)
+        for c, p in parts.items()
     ]
     reason = f"{header}: " + " | ".join(texts) + "."
     inputs = {c: {"score": rounded(p.score, 3), **p.inputs} for c, p in parts.items()}
@@ -232,7 +240,7 @@ def compute_forex(
             parts[category] = CategoryScore(
                 category,
                 clamp(b.score - q.score),
-                [f"{base_ccy} {b.score:+.2f} vs. {quote_ccy} {q.score:+.2f}"],
+                [f"{base_ccy} {de(b.score, '+.2f')} vs. {quote_ccy} {de(q.score, '+.2f')}"],
                 {base_ccy: b.inputs, quote_ccy: q.inputs},
             )
     base_rates = rate_levels(base_eco, as_of, params)
@@ -247,8 +255,8 @@ def compute_forex(
             rate_scores.append(score)
             label = base_rates[key][2].split(" (")[0]
             rate_details.append(
-                f"{label} {base_ccy} {base_rates[key][0]:.2f} % vs. {quote_ccy} "
-                f"{quote_rates[key][0]:.2f} % (Differenz {diff:+.2f} Punkte)"
+                f"{label} {base_ccy} {de(base_rates[key][0], '.2f')} % vs. {quote_ccy} "
+                f"{de(quote_rates[key][0], '.2f')} % (Differenz {de(diff, '+.2f')} Punkte)"
             )
             rate_inputs[key] = {
                 base_ccy: {"value": base_rates[key][0], "date": base_rates[key][1]},
@@ -263,6 +271,26 @@ def compute_forex(
     return _mean_result(parts, f"{base_ccy}/{quote_ccy}")
 
 
+def _flipped_score(
+    us: EconomyData, key: str, as_of: date, params: dict[str, Any]
+) -> tuple[IndicatorData, float, dict[str, Any]] | None:
+    """Indikator mit umgedrehter Richtung (steigend = bearish) bewerten, falls vorhanden."""
+    ind = us.indicators.get(key)
+    if ind is None:
+        return None
+    flipped = IndicatorData(ind.key, ind.label, ind.category, ind.transform, "bearish", ind.series)
+    scored = indicator_score(flipped, as_of, params)
+    return None if scored is None else (ind, scored[0], scored[1])
+
+
+def _gold_effect(score: float) -> str:
+    if score > 0.15:
+        return "stützt Edelmetalle"
+    if score < -0.15:
+        return "belastet Edelmetalle"
+    return "neutral für Edelmetalle"
+
+
 def compute_commodity(
     driver: str | None, us: EconomyData, as_of: date, params: dict[str, Any]
 ) -> FactorResult:
@@ -271,22 +299,38 @@ def compute_commodity(
         return _mean_result(cyclical, "US-Konjunktur (zyklischer Rohstoff)")
     if driver == "safe_haven":
         parts = category_scores(us, as_of, params, (INFLATION,))
-        ind = us.indicators.get("yield_10y")
-        if ind is not None:
-            # steigende Renditen sind für Gold/Silber bearish: Richtung umdrehen
-            flipped = IndicatorData(ind.key, ind.label, RATES, ind.transform, "bearish", ind.series)
-            scored = indicator_score(flipped, as_of, params)
-            if scored is not None:
-                score, info = scored
-                parts[RATES] = CategoryScore(
-                    RATES,
-                    score,
-                    [
-                        f"{ind.label} {info['value']:g} % ({info['change']:+g} Punkte seit "
-                        f"{int(params.get('change_months', 3))} Monaten): steigende Renditen "
-                        "belasten Edelmetalle"
-                    ],
-                    {"yield_10y": info},
-                )
-        return _mean_result(parts, "US-Zinsen und Inflation (Edelmetall)")
+        months = int(params.get("change_months", 3))
+        # Wie im Original-EdgeFinder: Leitzins/Realrendite und Dollar-Stärke. Alle drei
+        # Zins-Reihen und der Dollar wirken gegenläufig (steigend = bearish für Edelmetalle).
+        rate_scores: list[float] = []
+        rate_details: list[str] = []
+        rate_inputs: dict[str, Any] = {}
+        for key in SAFE_HAVEN_RATE_KEYS:
+            scored = _flipped_score(us, key, as_of, params)
+            if scored is None:
+                continue
+            ind, score, info = scored
+            rate_scores.append(score)
+            rate_inputs[key] = info
+            rate_details.append(
+                f"{ind.label} {de(info['value'], 'g')} % ({de(info['change'], '+g')} Punkte seit "
+                f"{months} Monaten): {_gold_effect(score)}"
+            )
+        if rate_scores:
+            parts[RATES] = CategoryScore(
+                RATES, sum(rate_scores) / len(rate_scores), rate_details, rate_inputs
+            )
+        scored = _flipped_score(us, DOLLAR_KEY, as_of, params)
+        if scored is not None:
+            ind, score, info = scored
+            parts[DOLLAR] = CategoryScore(
+                DOLLAR,
+                score,
+                [
+                    f"{ind.label} {de(info['value'], 'g')} ({de(info['change'], '+g')} seit "
+                    f"{months} Monaten): {_gold_effect(score)}"
+                ],
+                {DOLLAR_KEY: info},
+            )
+        return _mean_result(parts, "US-Zinsen, Realrendite, Dollar und Inflation (Edelmetall)")
     return unavailable("Makro: für diesen Rohstoff ist kein `macro_driver` konfiguriert.")

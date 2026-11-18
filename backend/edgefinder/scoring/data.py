@@ -116,7 +116,12 @@ class DataStore:
         return self._cached(("macro", source, series_id), load)
 
     def macro_series(
-        self, source: str, series_id: str, as_of: date, lag_days: dict[str, int] | None = None
+        self,
+        source: str,
+        series_id: str,
+        as_of: date,
+        lag_days: dict[str, int] | None = None,
+        fixed_lag: int | None = None,
     ) -> list[tuple[str, float]]:
         vintages, current = self._macro_rows(source, series_id)
         live = as_of >= _today()
@@ -126,7 +131,7 @@ class DataStore:
         if not vintages:
             if live:
                 return [row for row in current if row[0] <= stamp]
-            lag = lags[_frequency([d for d, _ in current])]
+            lag = fixed_lag or lags[_frequency([d for d, _ in current])]
             cutoff = (as_of - timedelta(days=lag)).isoformat()
             return [row for row in current if row[0] <= cutoff]
         for d, value in current:
@@ -144,7 +149,9 @@ class DataStore:
         economy = self.config.economies[code]
         data = EconomyData(code, economy.name)
         for key, ind in economy.indicators.items():
-            series = self.macro_series(ind.source, ind.series, as_of)
+            series = self.macro_series(
+                ind.source, ind.series, as_of, fixed_lag=ind.publication_lag_days
+            )
             if series:
                 data.indicators[key] = IndicatorData(
                     key, ind.label, ind.category, ind.transform, ind.higher_is, series

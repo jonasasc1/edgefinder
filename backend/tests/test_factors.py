@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import math
+import re
 from datetime import date, timedelta
 
 import pytest
 
 from edgefinder.scoring.factors import (
     FactorResult,
+    de,
     pct_to_unit,
     percentile,
 )
@@ -36,6 +38,22 @@ def _in_range(result: FactorResult) -> None:
 def test_factor_result_rejects_out_of_range() -> None:
     with pytest.raises(ValueError):
         FactorResult(1.5, "x")
+
+
+def test_de_formats_german_numbers() -> None:
+    assert de(1.101, ".3f") == "1,101"
+    assert de(2.4, ".1f") == "2,4"
+    assert de(-0.456, "+.2f") == "-0,46"
+    assert de(0.456, "+.2f") == "+0,46"
+    assert de(1234567.0, ".0f") == "1.234.567"
+    assert de(1.1012, ".4g") == "1,101"
+    assert de(12.5, "g") == "12,5"
+
+
+def test_reasons_use_decimal_comma() -> None:
+    trend = trend_f.compute(_prices(300, 0.001), {"sma_days": [20, 50], "roc_days": 20})
+    assert trend.subscore is not None
+    assert re.search(r"\d,\d", trend.reason) and not re.search(r"\d\.\d", trend.reason)
 
 
 def test_percentile_helpers() -> None:
@@ -251,6 +269,32 @@ def test_macro_commodity_drivers() -> None:
     )
     assert macro_f.compute_commodity("safe_haven", us, AS_OF, MP).subscore < 0  # Renditen steigen
     assert macro_f.compute_commodity(None, us, AS_OF, MP).subscore is None
+
+
+def test_macro_safe_haven_uses_real_yield_policy_rate_and_dollar() -> None:
+    rising = [float(i) + (i % 3) * 0.1 for i in range(100)] + [150.0]
+    falling = [-v for v in rising]
+    us = macro_f.EconomyData("US", "USA")
+    us.indicators["real_yield_10y"] = _ind("real_yield_10y", falling, category="rates")
+    only_real = macro_f.compute_commodity("safe_haven", us, AS_OF, MP)
+    assert only_real.subscore > 0.5  # fallende Realrendite stützt Gold
+    assert set(only_real.inputs) == {"rates"}
+    assert "Realrendite" in only_real.reason and "stützt Edelmetalle" in only_real.reason
+
+    us.indicators["dollar_index"] = _ind("dollar_index", rising, category="rates")
+    both = macro_f.compute_commodity("safe_haven", us, AS_OF, MP)
+    assert set(both.inputs) == {"rates", "dollar", "dollar_index"} or "dollar" in both.inputs
+    assert both.inputs["dollar"]["score"] < 0  # starker Dollar belastet
+    assert both.subscore == pytest.approx(
+        (both.inputs["rates"]["score"] + both.inputs["dollar"]["score"]) / 2, abs=1e-3
+    )
+
+    us.indicators["policy_rate"] = _ind("policy_rate", rising, category="rates")
+    three = macro_f.compute_commodity("safe_haven", us, AS_OF, MP)
+    assert set(three.inputs["rates"]) >= {"policy_rate", "real_yield_10y", "score"}
+    assert "belastet Edelmetalle" in three.reason
+    # Zyklische Rohstoffe bleiben unberührt vom Dollar
+    assert macro_f.compute_commodity("cyclical", us, AS_OF, MP).subscore is None
 
 
 def test_macro_index_uses_growth_and_labor() -> None:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from edgefinder.scoring.factors import FactorResult, rounded, sign_word, squash, unavailable
+from edgefinder.scoring.factors import FactorResult, de, rounded, sign_word, squash, unavailable
 
 SCALE_PCT = 10.0
 
@@ -26,8 +26,8 @@ def compute(reports: list[tuple[str, float | None]], params: dict[str, Any]) -> 
     score = squash(mean, SCALE_PCT)
     beats = sum(1 for _, s in valid if s > 0)
     reason = (
-        f"Gewinnüberraschung der letzten {len(valid)} Quartale im Schnitt {mean:+.1f} % "
-        f"({beats} von {len(valid)} über Erwartung, zuletzt {valid[-1][1]:+.1f} % am "
+        f"Gewinnüberraschung der letzten {len(valid)} Quartale im Schnitt {de(mean, '+.1f')} % "
+        f"({beats} von {len(valid)} über Erwartung, zuletzt {de(valid[-1][1], '+.1f')} % am "
         f"{valid[-1][0]}) → {sign_word(score)}."
     )
     return FactorResult(

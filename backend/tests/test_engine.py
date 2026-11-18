@@ -100,9 +100,12 @@ def test_forex_cross_derives_cot_from_both_currencies(config: Config, seeded) ->
     cot = next(c for c in result.components if c.factor == "cot")
     assert cot.inputs["EUR"]["subscore"] > 0
     assert cot.inputs["GBP"]["subscore"] < 0
-    assert cot.subscore == pytest.approx(
-        min(1.0, cot.inputs["EUR"]["subscore"] - cot.inputs["GBP"]["subscore"])
-    )
+    # Differenz/2 statt Differenz: dämpft die Sättigung bei ±1
+    expected = (cot.inputs["EUR"]["subscore"] - cot.inputs["GBP"]["subscore"]) / 2
+    assert cot.subscore == pytest.approx(expected, abs=1e-3)
+    assert abs(cot.subscore) < abs(cot.inputs["EUR"]["subscore"] - cot.inputs["GBP"]["subscore"])
+    assert "/ 2" in cot.reason
+    assert "," in cot.reason  # deutsches Dezimalzeichen
     assert "EUR" in cot.reason
     assert "GBP" in cot.reason
 

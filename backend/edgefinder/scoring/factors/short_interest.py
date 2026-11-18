@@ -12,6 +12,7 @@ from typing import Any
 
 from edgefinder.scoring.factors import (
     FactorResult,
+    de,
     pct_to_unit,
     percentile,
     rounded,
@@ -51,14 +52,14 @@ def compute(points: list[ShortPoint], params: dict[str, Any]) -> FactorResult:
         "change_periods": periods,
     }
     text = (
-        f"Short Interest {last.short_interest / 1e6:.1f} Mio. Aktien "
-        f"({last.settlement_date}), {change * 100:+.1f} % in {periods} Meldungen"
+        f"Short Interest {de(last.short_interest / 1e6, '.1f')} Mio. Aktien "
+        f"({last.settlement_date}), {de(change * 100, '+.1f')} % in {periods} Meldungen"
     )
     if last.days_to_cover is not None and len(dtc_values) >= MIN_POINTS:
         pct = percentile(last.days_to_cover, dtc_values)
         score = CHANGE_WEIGHT * change_score + (1 - CHANGE_WEIGHT) * -pct_to_unit(pct)
         inputs.update({"days_to_cover": last.days_to_cover, "dtc_percentile": rounded(pct, 1)})
-        text += f", Days-to-Cover {last.days_to_cover:.1f} (Perzentil {pct:.0f})"
+        text += f", Days-to-Cover {de(last.days_to_cover, '.1f')} (Perzentil {de(pct, '.0f')})"
     else:
         score = change_score
     return FactorResult(score, f"{text} → {sign_word(score)}.", inputs)

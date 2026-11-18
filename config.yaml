@@ -9,6 +9,7 @@ server:
 storage:
   database: data/edgefinder.db
   raw_dir: data/raw      # Rohantworten der Quellen (je Quelle/Datum)
+  raw_retention_days: 30 # `edgefinder cleanup` löscht ältere Rohdateien (DB-Zeilen bleiben)
 
 # ---------------------------------------------------------------------------
 # Datenquellen
@@ -103,6 +104,36 @@ sources:
     options:
       history_years: 2             # Erstladung; danach nur die letzten 60 Tage (Revisionen)
 
+  ons:
+    schedule: "*-*-* 07:10:00 Europe/Vienna"
+    stale_after_hours: 1080          # CPI monatlich (Veröffentlichung Mitte des Monats)
+    min_interval_seconds: 2
+    options:
+      base_url: https://www.ons.gov.uk/generator   # CSV-Generator; die JSON-API ist seit 2024-11 offline
+      history_years: 15
+  statcan:
+    schedule: "*-*-* 07:15:00 Europe/Vienna"
+    stale_after_hours: 1080
+    min_interval_seconds: 2
+    options:
+      base_url: https://www150.statcan.gc.ca/t1/wds/rest
+      history_years: 15
+  abs:
+    schedule: "*-*-* 07:20:00 Europe/Vienna"
+    stale_after_hours: 2400          # CPI quartalsweise
+    min_interval_seconds: 2
+    options:
+      base_url: https://data.api.abs.gov.au/rest
+      history_years: 15
+  imf:
+    schedule: "*-*-* 07:25:00 Europe/Vienna"
+    stale_after_hours: 2400          # Japan monatlich, Neuseeland quartalsweise
+    min_interval_seconds: 3
+    options:
+      base_url: https://api.imf.org/external/sdmx/2.1
+      agency: IMF.STA
+      history_years: 15
+
 # Standard für alle Quellen (je Quelle unter `retry:` überschreibbar)
 retry:
   attempts: 4
@@ -138,6 +169,8 @@ economies:
       policy_rate:   {label: "Leitzins (Fed Funds)",    source: fred, series: FEDFUNDS, category: rates,     transform: level, higher_is: bullish}
       yield_2y:      {label: "Rendite 2 Jahre",         source: fred, series: DGS2,     category: rates,     transform: level, higher_is: bullish}
       yield_10y:     {label: "Rendite 10 Jahre",        source: fred, series: DGS10,    category: rates,     transform: level, higher_is: bullish}
+      real_yield_10y: {label: "Realrendite 10 Jahre (TIPS)", source: fred, series: DFII10, category: rates, transform: level, higher_is: bullish}
+      dollar_index:  {label: "Dollar-Index (breit, nominal)", source: fred, series: DTWEXBGS, category: rates, transform: level, higher_is: bullish}
   EZ:
     name: Euroraum
     indicators:
@@ -163,6 +196,7 @@ economies:
   UK:
     name: Großbritannien
     indicators:
+      cpi:           {label: "Inflation (CPI, Vorjahr in %)", source: ons, series: "D7G7/mm23", category: inflation, transform: level, higher_is: bullish}
       gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCGBQ, category: growth, transform: yoy, higher_is: bullish}
       industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: GBRPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish}
       retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: GBRSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
@@ -172,6 +206,7 @@ economies:
   JP:
     name: Japan
     indicators:
+      cpi:           {label: "Inflation (CPI-Index, IMF)", source: imf, series: "CPI/JPN.CPI._T.IX.M", category: inflation, transform: yoy, higher_is: bullish, publication_lag_days: 75}
       gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCJPQ, category: growth, transform: yoy, higher_is: bullish}
       industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: JPNPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish}
       retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: JPNSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
@@ -191,6 +226,7 @@ economies:
   AU:
     name: Australien
     indicators:
+      cpi:           {label: "Inflation (CPI-Index, Quartal)", source: abs, series: "CPI/1.10001.10.50.Q", category: inflation, transform: yoy, higher_is: bullish}
       gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCAUQ, category: growth, transform: yoy, higher_is: bullish}
       unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRHUTTTTAUM156S, category: labor, transform: level, higher_is: bearish}
       policy_rate:   {label: "Leitzins-Proxy (Tagesgeldsatz)", source: fred, series: IRSTCI01AUM156N, category: rates, transform: level, higher_is: bullish}
@@ -198,6 +234,7 @@ economies:
   CA:
     name: Kanada
     indicators:
+      cpi:           {label: "Inflation (CPI-Index)", source: statcan, series: "41690973", category: inflation, transform: yoy, higher_is: bullish}
       gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCCAQ, category: growth, transform: yoy, higher_is: bullish}
       industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: CANPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish}
       retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: CANSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
@@ -207,6 +244,7 @@ economies:
   NZ:
     name: Neuseeland
     indicators:
+      cpi:           {label: "Inflation (CPI-Index, Quartal, IMF)", source: imf, series: "CPI/NZL.CPI._T.IX.Q", category: inflation, transform: yoy, higher_is: bullish}
       unemployment:  {label: "Arbeitslosenquote (Quartal)", source: fred, series: LRUNTTTTNZQ156S, category: labor, transform: level, higher_is: bearish}
       policy_rate:   {label: "Leitzins-Proxy (3-Monats-Interbankzins)", source: fred, series: IR3TIB01NZM156N, category: rates, transform: level, higher_is: bullish}
       yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01NZM156N, category: rates, transform: level, higher_is: bullish}

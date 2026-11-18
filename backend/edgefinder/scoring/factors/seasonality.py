@@ -12,7 +12,7 @@ from bisect import bisect_right
 from datetime import date, timedelta
 from typing import Any
 
-from edgefinder.scoring.factors import FactorResult, rounded, sign_word, squash, unavailable
+from edgefinder.scoring.factors import FactorResult, de, rounded, sign_word, squash, unavailable
 
 MIN_YEARS = 3
 T_SCALE = 3.0
@@ -63,7 +63,8 @@ def compute(
     hits = sum(1 for r in returns if r > 0)
     reason = (
         f"In den nächsten {forward} Tagen war der Kurs in den letzten {len(returns)} Jahren im "
-        f"Schnitt {mean * 100:+.2f} % (in {hits} von {len(returns)} Jahren im Plus) → saisonal "
+        f"Schnitt {de(mean * 100, '+.2f')} % (in {hits} von {len(returns)} Jahren im "
+        f"Plus) → saisonal "
         f"{sign_word(score)}."
     )
     return FactorResult(

@@ -101,7 +101,8 @@ backend/edgefinder/
   api/          ✓  app.py (FastAPI, /api/health, SPA), routes.py (alle /api-Endpunkte), schemas.py
   notify/       ✓  Notifier-Schnittstelle (noch ohne Kanal)
   backtest/        Auswertung Score-Historie gegen Kursentwicklung
-  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score` (später: backtest)
+  cleanup.py    ✓  Rohdaten-Aufbewahrung (`edgefinder cleanup`)
+  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | cleanup` (später: backtest)
 backend/tests/     pytest; fixtures/ = aufgezeichnete API-Antworten (ohne Keys), support.py = Hilfen
 frontend/          React + TypeScript + Vite, Tailwind mit eigenen Tokens
 deploy/            systemd-Units und -Timer, sudoers, nftables, install.sh, deploy.sh
@@ -160,7 +161,7 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   nächsten Lauf überschrieben. Earnings liegen unter `ticker` (z. B. `BRK-B`), noch nicht
   gemeldete Termine haben `eps_actual = NULL`.
 
-- Aufruf-Namen jetzt: `cftc|fred|eurostat|ecb|prices|myfxbook|aaii|edgar|finra|all`.
+- Aufruf-Namen jetzt: `cftc|fred|eurostat|ecb|prices|myfxbook|aaii|edgar|finra|ons|statcan|abs|imf|all`.
   `HttpClient` kann auch `post_json()` (FINRA); `Fetcher.get_state/set_state/clear_state` nutzen
   `source_state` (Session, Fristen). Migration `0002_sec_edgar.sql`: `sec_companies` (Ticker → CIK),
   `sec_filings_seen` (ausgewertete Form-4-Einreichungen).
@@ -187,6 +188,18 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   Ticker ohne `-`/`.` (BRK-B → BRKB). Erstladung 2 Jahre, danach die letzten 60 Tage (Revisionen).
   Ticker ohne Meldung seit 45 Tagen → `partial`.
 
+- **Nationale Inflation (2026-11-18, live geprüft, `fetchers/inflation.py`):** `ons` = UK-CPI-Jahresrate (CSV-
+  Generator der ONS-Webseite, Serie „D7G7/mm23“; die JSON-API api.ons.gov.uk ist seit 2024-11 abgeschaltet),
+  `statcan` = Kanada-CPI-Index (WDS, POST, Vektor 41690973), `abs` = Australien-CPI-Index quartalsweise (SDMX-CSV,
+  Dataflow `CPI`; der Monatsfluss `CPI_M` endet 2025-09), `imf` = Japan (monatlich) und Neuseeland (Quartal) als
+  CPI-Index der IMF-SDMX-API (`api.imf.org`, CSV). **Ersatz:** e-Stat braucht eine appId (Account), Stats NZ einen
+  API-Schlüssel und `api.stats.govt.nz` hat ein abgelaufenes Zertifikat, die OECD-API liefert für Japan nur bis
+  2021-06. Index-Reihen laufen mit `transform: yoy`. Indikator-Option `publication_lag_days` (nur Serien ohne
+  Vintages) überschreibt die Verzögerungsschätzung nach Frequenz (Japan/IMF: 75 Tage).
+- **Rohdaten-Aufbewahrung:** `storage.raw_retention_days: 30`. `uv run edgefinder cleanup [--days N] [--dry-run]`
+  löscht Dateien und `raw_files`-Einträge, die älter sind (nie außerhalb `raw_dir`, leere Ordner werden entfernt);
+  normalisierte Tabellen bleiben. Timer folgt in Etappe g.
+
 ### Score-Engine (Etappe d)
 - Aufruf: `uv run edgefinder score [--as-of YYYY-MM-DD] [--asset ID ...] [--from D --to D]`.
   `--from/--to` rechnet jeden Werktag nach (Backtest, Etappe h; Herkunft `backfill`). Ein Eintrag je
@@ -202,14 +215,14 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   Retail-Sentiment hat keine Historie vor dem ersten Fetch (Backtest: Faktor entfällt dort).
 - Formeln (Startwerte, Parameter je Profil in `config.yaml`):
   - **cot:** Non-Commercial Netto / Open Interest; 0,7 × Perzentil des Niveaus + 0,3 × Perzentil der
-    `change_weeks`-Veränderung über `percentile_weeks` → [-1,1]. Forex: Score(Basis) − Score(Quote).
+    `change_weeks`-Veränderung über `percentile_weeks` → [-1,1]. Forex: (Score(Basis) − Score(Quote)) / 2.
   - **retail_sentiment:** konträr, −(Long% − 50)/25 auf [-1,1]; Mittel über `smoothing_days`;
     Messung älter als 7 Tage → entfällt.
   - **macro:** je Indikator z-Wert der `change_months`-Veränderung gegen 10 Jahre, tanh(z/2),
     Richtung laut `higher_is`; Kategorie = Mittel; Gesamt = Mittel der Kategorien. Forex:
     Differenz Basis − Quote je Kategorie plus Zinskategorie (Leitzins, 2J, 10J: tanh(Differenz/2 PP)).
     Index: Wachstum + Arbeitsmarkt der eigenen Volkswirtschaft. Rohstoffe über `macro_driver`
-    (`safe_haven`: US-Inflation + fallende 10J-Rendite; `cyclical`: US-Wachstum + Arbeitsmarkt).
+    (`safe_haven`: US-Inflation, Zinsen (Leitzins, Realrendite DFII10, 10J-Rendite, gespiegelt) und Dollar-Stärke (DTWEXBGS, gespiegelt) als eigene Kategorien; `cyclical`: US-Wachstum + Arbeitsmarkt).
     Serien älter als `max_age_days` entfallen.
   - **trend:** Abstand zum langsamen SMA, SMA-Kreuz und ROC, je durch Volatilität × √Horizont
     geteilt, tanh(z/2), Mittel der drei.
@@ -223,6 +236,10 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   - **short_interest:** 0,6 × (−tanh(Veränderung/25 %)) + 0,4 × (−Perzentil Days-to-Cover).
   - **insider:** (Käufe − 0,2 × Verkäufe)/(Käufe + 0,2 × Verkäufe) in $, Vertrauen min(1, n/3),
     negative Werte halbiert; keine Transaktion = 0, keine Form-4-Daten geladen = entfällt.
+- **Cross-COT (2026-11-18):** Differenz/2 statt Differenz, weil die Differenz zweier Perzentil-Scores bei
+  moderaten Positionierungen schon ±1 erreichte (EURUSD sättigte). /2 = Mittel aus Basis und gespiegelter Quote;
+  ±1 gibt es nur noch bei komplett gegensätzlichen Extremen. Die Makro-Differenz je Kategorie bleibt unverändert.
+- **Texte:** Zahlen in `reason` laufen über `factors.de()` (Komma als Dezimalzeichen, Punkt als Tausendertrenner).
 - Forex-Crosses (EURGBP …) und Majors laufen gleich: COT und Makro aus Basis- und Quote-Währung
   (`currencies` in `config.yaml`); der Kurs-/Trend-Faktor nutzt die Kursreihe des Paares.
 
@@ -312,14 +329,14 @@ Bestätigung abwarten.
 
 ## Offen
 - **Etappe d, Stand 2026-11-17:** Gewichte, Skalen (tanh-Teiler), Label-Schwellen sind Startwerte,
-  Feintuning nach dem Backtest (Etappe h). Aufgefallen: (1) EURUSD-COT sättigt bei −1,0, weil die
-  Differenz Basis − Quote zweier Perzentil-Scores oft ±1 erreicht. (2) AAII hat erst 2–3 Wochen
+  Feintuning nach dem Backtest (Etappe h). Aufgefallen: (1) EURUSD-COT-Sättigung ist mit Differenz/2
+  behoben (2026-11-18). (2) AAII hat erst 2–3 Wochen
   eigene Historie → Norm-Fallback. (3) Retail-Sentiment/EDGAR-Faktoren fehlen bis zu den Live-Läufen.
   (4) Backtest: für Zeit vor dem ersten Lauf gibt es kein Retail-Sentiment, kaum AAII, Short
   Interest ab 2024-11, Earnings nur soweit yfinance sie liefert.
-- **Makro-Lücken (Stand 2026-11-17, live geprüft):** Es gibt keine aktuelle Gratis-Serie in
-  FRED/Eurostat/EZB für: Inflation (CPI/Kern) von UK, JP, AU, CA, NZ (die OECD-CPI-Reihen auf
-  FRED enden 2021–2025, Eurostat liefert für UK keine Werte mehr); Industrieproduktion CH, AU,
+- **Makro-Lücken (Stand 2026-11-18, live geprüft):** Inflation (CPI) von UK, JP, AU, CA, NZ ist jetzt über
+  nationale Quellen/IMF abgedeckt (siehe Fetcher-Konventionen); **Kerninflation** dieser Länder fehlt weiter. Es gibt
+  keine aktuelle Gratis-Serie in FRED/Eurostat/EZB für: Industrieproduktion CH, AU,
   NZ; Einzelhandel AU, NZ; BIP NZ. Folge: Teilscore „macro“ dieser Währungen hat keine
   Inflationskomponente (Gewichte werden renormiert). Zu klären: Ergänzung durch nationale
   Quellen (ONS, StatCan, ABS, Stats NZ, e-Stat) – wäre ein neuer Fetcher je Land.
@@ -329,7 +346,7 @@ Bestätigung abwarten.
 - **Euroraum-Zusammensetzung:** Eurostat-Reihen nutzen `geo=EA21` (Euroraum mit Bulgarien seit
   2026), HICP `geo=EA`. Ändert sich die Mitgliederzahl, muss `config.yaml` angepasst werden.
 - **Rohdaten wachsen:** `data/raw` bekommt je Lauf neue Dateien (FRED mit Vintages ≈ 20 MB je
-  Lauf). Aufräumregel (z. B. nur die letzten 30 Tage behalten) fehlt noch – vor Etappe g klären.
+  Lauf). Regel: 30 Tage, `edgefinder cleanup`; in Etappe g als täglicher systemd-Timer einrichten.
 - **yfinance** ist eine inoffizielle Schnittstelle (kann ohne Vorwarnung brechen); Forex-Volumen
   ist immer 0. Mini-Zeitverzug und Zwischenstände des Tages sind möglich.
 - **Etappe b/h:** Für den Backtest die Vintages aus `macro_observations` nutzen
@@ -353,8 +370,7 @@ Bestätigung abwarten.
 - Bekannte Lücke: kein COT für den DAX (Eurex) → Teilscore entfällt, Gewichte werden renormiert.
   Nikkei: COT jetzt über den Yen-Kontrakt 240743 (der USD-Kontrakt 240741 meldet seit 2026-03-03 nicht mehr).
 - **Etappe f:** `npm audit --omit=dev`: 0 Funde (2026-11-18). Mit Dev-Paketen: 1 „moderate“ in `minimatch` (ESLint, nicht im Build).
-  Score-Verlauf hat erst 2 Tage Historie (Diagramm blendet ihn unter 5 Punkten aus); `reason`-Texte der Engine
-  nutzen Punkt als Dezimalzeichen; Favoriten nur lokal; Push nur Struktur.
+  Score-Verlauf hat erst 2 Tage Historie (Diagramm blendet ihn unter 5 Punkten aus); `reason`-Texte nutzen jetzt Dezimalkomma; Favoriten nur lokal; Push nur Struktur.
 - **Etappe e:** Im Skill `jonas-design` ist der Abschnitt „Marke“ noch offen (Marke hier aus der Vorgabe
   „Apple-native“ abgeleitet). 
 - Testwarnung: Starlette empfiehlt `httpx2` statt `httpx` für den TestClient; vor einem

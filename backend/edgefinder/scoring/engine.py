@@ -26,7 +26,7 @@ from edgefinder.config import (
 )
 from edgefinder.db import transaction
 from edgefinder.scoring.data import DataStore
-from edgefinder.scoring.factors import FactorResult, clamp, unavailable
+from edgefinder.scoring.factors import FactorResult, de, unavailable
 from edgefinder.scoring.factors import aaii as aaii_factor
 from edgefinder.scoring.factors import cot as cot_factor
 from edgefinder.scoring.factors import earnings as earnings_factor
@@ -186,10 +186,14 @@ class ScoreEngine:
                 f"COT: für {asset.base} oder {asset.quote} fehlen Daten.",
                 **{asset.base: base.inputs, asset.quote: quote.inputs},
             )
-        score = clamp(base.subscore - quote.subscore)
+        # Differenz/2 (= Mittel aus Basis und umgekehrter Quote): bleibt in [-1, 1] und sättigt
+        # nur, wenn beide Seiten extrem gegensätzlich stehen (Differenz zweier Perzentil-
+        # Scores erreichte sonst schon bei moderaten Werten ±1).
+        score = (base.subscore - quote.subscore) / 2
         reason = (
-            f"Cross aus Währungspositionierung: {asset.base} {base.subscore:+.2f} minus "
-            f"{asset.quote} {quote.subscore:+.2f} = {score:+.2f}. {base.reason} {quote.reason}"
+            f"Cross aus Währungspositionierung: ({asset.base} {de(base.subscore, '+.2f')} minus "
+            f"{asset.quote} {de(quote.subscore, '+.2f')}) / 2 = {de(score, '+.2f')}. "
+            f"{base.reason} {quote.reason}"
         )
         return FactorResult(
             score,

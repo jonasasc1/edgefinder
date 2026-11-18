@@ -22,6 +22,7 @@ from typing import Any
 
 from edgefinder.scoring.factors import (
     FactorResult,
+    de,
     pct_to_unit,
     percentile,
     rounded,
@@ -145,7 +146,7 @@ def compute(
             score = squash(growth, GROWTH_SCALE)
             parts.append(score)
             texts.append(
-                f"Umsatz (TTM) wächst {growth * 100:+.1f} % p. a. über {quarters} Quartale"
+                f"Umsatz (TTM) wächst {de(growth * 100, '+.1f')} % p. a. über {quarters} Quartale"
             )
             inputs["growth"] = {
                 "revenue_ttm": revenue[-1][1],
@@ -170,12 +171,12 @@ def compute(
                 (date.fromisoformat(end) - timedelta(days=91 * quarters)).isoformat(),
             )
             scores = [level_score]
-            text = f"{profit_name} {margin * 100:.1f} %"
+            text = f"{profit_name} {de(margin * 100, '.1f')} %"
             inputs["margin"] = {"period_end": end, "margin_pct": rounded(margin * 100, 2)}
             if ref_m is not None and ref_m[0] != end:
                 delta = margin - ref_m[1]
                 scores.append(squash(delta, MARGIN_CHANGE_SCALE))
-                text += f" ({delta * 100:+.1f} Punkte in {quarters} Quartalen)"
+                text += f" ({de(delta * 100, '+.1f')} Punkte in {quarters} Quartalen)"
                 inputs["margin"]["change_pts"] = rounded(delta * 100, 2)
             score = sum(scores) / len(scores)
             inputs["margin"]["score"] = rounded(score, 3)
@@ -199,7 +200,10 @@ def compute(
             pct = percentile(current_pe, pes)
             score = -VALUATION_MAX * pct_to_unit(pct)
             parts.append(score)
-            texts.append(f"KGV {current_pe:.1f} liegt im Perzentil {pct:.0f} der eigenen Historie")
+            texts.append(
+                f"KGV {de(current_pe, '.1f')} liegt im Perzentil {de(pct, '.0f')} der "
+                f"eigenen Historie"
+            )
             inputs["valuation"] = {
                 "pe": rounded(current_pe, 2),
                 "percentile": rounded(pct, 1),

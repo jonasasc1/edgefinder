@@ -117,6 +117,33 @@ def _cmd_score(config: Config, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_cleanup(config: Config, args: argparse.Namespace) -> int:
+    """Rohdaten älter als `storage.raw_retention_days` löschen (Dateien + raw_files-Einträge)."""
+    from edgefinder.cleanup import cleanup_raw
+
+    days = args.days or config.storage.raw_retention_days
+    migrate_conn = connect(config.storage.database)
+    try:
+        migrate(migrate_conn)
+    finally:
+        migrate_conn.close()
+    conn = connect(config.storage.database)
+    try:
+        result = cleanup_raw(conn, config.storage.raw_dir, days, dry_run=args.dry_run)
+    finally:
+        conn.close()
+    log.info(
+        "Aufräumen%s: %d Dateien (%.1f MB) älter als %d Tage, %d Einträge, %d fehlende Dateien",
+        " (Probelauf)" if args.dry_run else "",
+        result.files,
+        result.bytes / 1e6,
+        days,
+        result.rows,
+        result.missing,
+    )
+    return 0
+
+
 def _iso_date(value: str) -> date:
     try:
         return date.fromisoformat(value)
@@ -162,6 +189,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     score.add_argument("--asset", action="append", help="nur dieses Asset (mehrfach möglich)")
     score.set_defaults(func=_cmd_score)
+    cleanup = commands.add_parser("cleanup", help="alte Rohdaten (data/raw) löschen")
+    cleanup.add_argument("--days", type=int, help="überschreibt storage.raw_retention_days")
+    cleanup.add_argument("--dry-run", action="store_true", help="nur zählen, nichts löschen")
+    cleanup.set_defaults(func=_cmd_cleanup)
     serve = commands.add_parser("serve", help="API und Frontend ausliefern")
     serve.add_argument("--host", help="überschreibt server.host")
     serve.add_argument("--port", type=int, help="überschreibt server.port")

@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 
-from edgefinder.scoring.factors import FactorResult, clamp, rounded, unavailable
+from edgefinder.scoring.factors import FactorResult, clamp, de, rounded, unavailable
 
 SCALE = 25.0  # Prozentpunkte Abstand von 50 %, ab denen der Teilscore ±1 erreicht
 MAX_AGE_DAYS = 7  # ältere Beobachtungen gelten als fehlend
@@ -37,7 +37,7 @@ def compute(
     score = clamp(-(mean_long - 50.0) / SCALE)
     contrarian = "bearish" if score < -0.15 else "bullish" if score > 0.15 else "neutral"
     reason = (
-        f"Privatanleger sind im Schnitt zu {mean_long:.0f} % long ({days}-Tage-Mittel, "
+        f"Privatanleger sind im Schnitt zu {de(mean_long, '.0f')} % long ({days}-Tage-Mittel, "
         f"{len(recent)} Messungen); die Masse liegt oft falsch, konträr daher {contrarian}."
     )
     return FactorResult(

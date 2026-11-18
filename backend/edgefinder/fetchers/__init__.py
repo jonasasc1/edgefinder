@@ -7,6 +7,7 @@ from edgefinder.fetchers.edgar import EdgarFetcher
 from edgefinder.fetchers.eurostat import EcbFetcher, EurostatFetcher
 from edgefinder.fetchers.finra import FinraFetcher
 from edgefinder.fetchers.fred import FredFetcher
+from edgefinder.fetchers.inflation import AbsFetcher, ImfFetcher, OnsFetcher, StatcanFetcher
 from edgefinder.fetchers.myfxbook import MyfxbookFetcher
 from edgefinder.fetchers.prices import PricesFetcher
 
@@ -20,6 +21,10 @@ FETCHERS: dict[str, type[Fetcher]] = {
     "aaii": AaiiFetcher,
     "edgar": EdgarFetcher,
     "finra": FinraFetcher,
+    "ons": OnsFetcher,
+    "statcan": StatcanFetcher,
+    "abs": AbsFetcher,
+    "imf": ImfFetcher,
 }
 
 __all__ = ["FETCHERS", "FetchError", "Fetcher", "RunResult"]
