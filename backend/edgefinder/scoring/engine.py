@@ -113,7 +113,9 @@ class ScoreEngine:
         params = profile.params
         dates, closes = self.store.prices(asset.id, as_of)
 
-        compute["trend"] = lambda: trend_factor.compute(closes, params.get("trend", {}))
+        trend_params = params.get("trend", {})
+        reverse = asset.asset_class.value in trend_params.get("reversal_classes", [])
+        compute["trend"] = lambda: trend_factor.compute(closes, trend_params, reverse=reverse)
         compute["seasonality"] = lambda: seasonality_factor.compute(
             dates, closes, as_of, params.get("seasonality", {})
         )

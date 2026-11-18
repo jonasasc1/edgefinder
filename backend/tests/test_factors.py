@@ -408,3 +408,15 @@ def test_insider_lookback_window() -> None:
     old = [insider_f.InsiderTrade("2025-01-01", "P", 1000, 50.0)] * 3
     assert insider_f.compute(old, True, AS_OF, {"lookback_days": 90}).subscore == 0.0
     assert insider_f.compute(old, True, AS_OF, {"lookback_days": 900}).subscore == 1.0
+
+
+def test_trend_reversal_mode_flips_sign() -> None:
+    params = {"sma_days": [20, 50], "roc_days": 20}
+    up = trend_f.compute(_prices(120, 0.004), params)
+    up_rev = trend_f.compute(_prices(120, 0.004), params, reverse=True)
+    down_rev = trend_f.compute(_prices(120, -0.004), params, reverse=True)
+    assert up_rev.subscore == pytest.approx(-up.subscore)
+    assert up_rev.subscore < -0.3 < 0.3 < down_rev.subscore
+    assert "Rückschlag" in up_rev.reason and "Erholung" in down_rev.reason
+    assert up_rev.inputs["mode"] == "reversal" and up.inputs["mode"] == "trend"
+    assert trend_f.compute(_prices(30, 0.01), params, reverse=True).subscore is None

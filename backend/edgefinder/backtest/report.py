@@ -57,6 +57,54 @@ def _significance(t: float | None) -> str:
     return de(t, "+.1f") + mark
 
 
+TREND_APPENDIX = """\
+## Anhang: Überarbeitung des Trend-Faktors (2026-11-18)
+
+**Anlass:** Der erste Backtest zeigte für Indizes und Aktien einen signifikant negativen IC des
+Trend-Faktors (Kurzfrist-Umkehr: der Trend-Score korreliert 0,86–0,92 mit der Vorperformance, diese
+negativ mit der Forward-Rendite).
+
+**Verfahren:** höchstens drei Varianten, **gewählt auf dem Trainingszeitraum 2013–2019**, danach
+einmalig auf **2020 bis heute (Out-of-Sample)** geprüft. Alle anderen Faktoren und Gewichte blieben
+unverändert (Teilscores aus dem Backfill, nur Trend ersetzt, Gewichte renormiert). Kennwert-Horizont
+(Swing 10 T, Langfristig 60 T), wöchentliche Stichtage, IC = Spearman des Gesamtscores; t-Werte mit
+effektiver Stichprobengröße (n_eff = n / (h / 5)). Die Zahlen unten sind IC des **Gesamtscores**.
+
+| Profil · Klasse | Variante | IC Training (t) | IC Out-of-Sample (t) | n_eff OOS |
+|---|---|---|---|---|
+| Swing · Indizes | Basis (Trend) | -0,114 (-3,5) | -0,072 (-2,1) | 892 |
+| Swing · Indizes | V1 Trend-Gewicht × 0,5 | -0,089 (-2,7) | -0,047 (-1,4) | 892 |
+| Swing · Indizes | **V2 Umkehr (−Trend)** | **+0,074 (+2,2)** | **+0,081 (+2,4)** | 892 |
+| Swing · Aktien | Basis (Trend) | -0,073 (-4,4) | -0,036 (-2,1) | 3570 |
+| Swing · Aktien | V1 Trend-Gewicht × 0,5 | -0,070 (-4,3) | -0,027 (-1,6) | 3570 |
+| Swing · Aktien | **V2 Umkehr (−Trend)** | **+0,077 (+4,6)** | **+0,022 (+1,3)** | 3570 |
+| Langfristig · Indizes | Basis | -0,018 (-0,2) | -0,263 (-3,3) | 144 |
+| Langfristig · Indizes | V3 12-1-Monats-Momentum | -0,032 (-0,4) | -0,248 (-3,1) | 144 |
+| Langfristig · Aktien | Basis | -0,029 (-0,7) | -0,085 (-2,1) | 578 |
+| Langfristig · Aktien | V3 12-1-Monats-Momentum | -0,041 (-1,0) | -0,051 (-1,2) | 578 |
+
+**Entscheidung**
+- **V2 übernommen (nur Swing, Indizes und Aktien):** Trend-Teilscore = −(bisheriger Trend-Score),
+  konfiguriert über `reversal_classes: [index, stock]` im Swing-Profil. Im Training klar positiv
+  (Aktien t = 4,6; Indizes t = 2,2) und Out-of-Sample gleichgerichtet besser als die Basis
+  (Indizes +0,081, signifikant; Aktien +0,022, nur schwach positiv, aber +0,058 gegenüber der Basis).
+  Ökonomisch plausibel: die Kurzfrist-Umkehr (Rendite der letzten Wochen sagt die nächsten
+  Wochen invers voraus) ist ein gut dokumentierter Effekt.
+- **V1 (Gewicht senken) verworfen:** mildert nur den Schaden, bleibt negativ.
+- **V3 (12-1-Momentum, Langfristig) verworfen:** im Training schlechter als die Basis, Out-of-Sample
+  kein klarer Gewinn (Indizes unverändert negativ). Langfristig bleibt der Trend unverändert;
+  der stark negative Langfrist-IC der Indizes 2020+ (n_eff nur 144) hat andere Ursachen
+  (u. a. Makro) und ist offen. Forex und Rohstoffe (Trend zeigt dort keinen stabilen Effekt) sind unverändert.
+
+**Ehrlicher Hinweis:** Die Wahl erfolgte am Trainingszeitraum; die Out-of-Sample-Periode 2020+ ist
+nur eine einzige Marktphase (Corona-Crash, V-Erholung, 2022-Bärenmarkt) mit wenigen unabhängigen
+Beobachtungen. Das Training und die Zeit vor 2020 wurden zudem schon im ersten Backtest gesehen
+(Anlass der Überarbeitung). Die Basisrate steigender Kurse bleibt hoch: Auch der verbesserte Swing-Score ist
+nur ein schwacher Hinweis (IC knapp 0,08), kein belastbares Handelssignal. Mit nur drei Varianten
+und ohne Parametersuche ist das Overfitting-Risiko klein, aber nicht null; fortlaufend prüfen.
+"""
+
+
 def render_markdown(result: dict[str, Any]) -> str:
     primary = result["primary_horizon"]
     lines = [
@@ -225,7 +273,7 @@ def render_markdown(result: dict[str, Any]) -> str:
     lines += ["## Abdeckung je Zeitraum", "",
               "Anteil der Scores (Profil Swing), in denen der Faktor einen Wert lieferte; Gewichte "
               "fehlender Faktoren werden renormiert. Retail-Sentiment, AAII und Short Interest "
-              "haben keine bzw. kaum Historie vor 2024-11, COT reicht 6 Jahre zurück.", ""]  # fmt: skip
+              "haben keine bzw. kaum Historie vor 2024-11, COT reicht 15 Jahre zurück (ab 2013).", ""]  # fmt: skip
     for asset_class in result["classes"]:
         block = [c for c in result["coverage"] if c["asset_class"] == asset_class]
         if not block:
@@ -244,7 +292,7 @@ def render_markdown(result: dict[str, Any]) -> str:
         lines += _table(
             ["Jahr", "Scores", "Ø Abdeckung", *[FACTOR_NAME.get(f, f) for f in factors]], rows
         )
-    return "\n".join(lines).rstrip() + "\n"
+    return "\n".join(lines).rstrip() + "\n\n" + TREND_APPENDIX
 
 
 def write_report(result: dict[str, Any], output_dir: Path, markdown: Path | None = None) -> dict:

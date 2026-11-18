@@ -25,8 +25,10 @@ Neu im Backend: `GET /api/sparklines` (Score-Verlauf aller Assets), `sw.js`/Mani
 **Etappe h (2026-11-18): fertig** (Nacharbeiten + Backtest, Tests 238). **Etappe g (2026-11-18): vorbereitet, Ausführung wartet auf Jonas' Freigabe.** `deploy/` ist geschrieben und lokal
 getestet (bash -n, systemd-Analyse, pytest); auf „trading“ wurde nichts ausgeführt oder geprüft. Ablauf: Jonas prüft
 `deploy/install.sh --dry-run` → Ersteinrichtung → `.env` selbst anlegen → `deploy/deploy.sh`. Pflicht-Checks vor Deploy
-stehen in `ERGEBNIS.md` (`/security-review` offen). **Nächster Schritt:** Freigabe/Rückfragen aus dem Etappe-g-Bericht;
-Tuning-Entscheidungen nach Backtest-Bericht.
+stehen in `ERGEBNIS.md` (`/security-review` offen). **Nächster Schritt:** Freigabe/Rückfragen aus dem Etappe-g-Bericht; `/security-review` (Pflicht-Check 4) offen.
+**Entscheidungen Jonas 2026-11-18:** CFTC 15 Jahre (geladen, COT ab 2011), Trend-Faktor überarbeitet (siehe Score-Engine),
+Kein Cloudflare-JWT-Check in der App (Schutz nur über Cloudflare Access, Firewall: 8420 nur von 10.10.20.20),
+kein App-Backup mehr (Jonas sichert CT 122 per Proxmox-Snapshot/-Backup), ICMP in nftables bleibt offen.
 
 **Nächster Schritt:** Jonas trägt die drei fehlenden Werte in die `.env` ein; danach je einmal
 `uv run edgefinder fetch myfxbook` und `… edgar` live prüfen (Symbolliste von Myfxbook ansehen,
@@ -106,9 +108,8 @@ backend/edgefinder/
   notify/       ✓  Notifier-Schnittstelle (noch ohne Kanal)
   backtest/     ✓  analysis.py (Forward-Rendite, Buckets, Kennzahlen, Faktor-IC), stats.py, report.py (Markdown/JSON)
   cleanup.py    ✓  Rohdaten-Aufbewahrung (`edgefinder cleanup`)
-  backup.py     ✓  SQLite-Online-Backup mit Rotation (`edgefinder backup`)
   systemd.py    ✓  erzeugt Units/Timer aus config.yaml (`edgefinder gen-systemd [--out DIR] [--check]`)
-  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | backtest | cleanup | backup | gen-systemd`
+  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | backtest | cleanup | gen-systemd`
 backend/tests/     pytest; fixtures/ = aufgezeichnete API-Antworten (ohne Keys), support.py = Hilfen
 frontend/          React + TypeScript + Vite, Tailwind mit eigenen Tokens
 deploy/            install.sh (Ersteinrichtung trading, --dry-run/--apply-firewall), deploy.sh (läuft auf der
@@ -169,7 +170,7 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   Vorabstände (`vintage_date` = `realtime_start`). Tägliche Marktdaten (DGS2, DGS10) sprengen
   das ALFRED-Limit von 2000 Vintage-Daten (HTTP 400) und werden nur mit aktuellem Stand
   gespeichert (nicht revidiert). Eurostat/EZB liefern nur den aktuellen Stand.
-- CFTC: ein Abruf für alle Kontrakte (Legacy – Futures Only, `6dca-aqww`, 6 Jahre); ein
+- CFTC: ein Abruf für alle Kontrakte (Legacy – Futures Only, `6dca-aqww`, 15 Jahre); ein
   konfigurierter Kontrakt ohne Daten oder mit letzter Meldung > 45 Tage gibt `partial`.
 - Kurse: Tagesdaten ab `history_years`, danach nur ab letztem Kurs minus 10 Tage (Korrekturen).
   Der Eintrag des laufenden Tages ist bis zum Handelsschluss ein Zwischenstand und wird beim
@@ -214,6 +215,7 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
 - **Rohdaten-Aufbewahrung:** `storage.raw_retention_days: 30`. `uv run edgefinder cleanup [--days N] [--dry-run]`
   löscht Dateien und `raw_files`-Einträge, die älter sind (nie außerhalb `raw_dir`, leere Ordner werden entfernt);
   normalisierte Tabellen bleiben. Timer: `edgefinder-cleanup.timer` (wöchentlich, siehe `maintenance:`).
+- **Sicherung:** kein App-eigenes Backup (`edgefinder backup` entfernt, 2026-11-18); Jonas sichert CT 122 per Proxmox-Snapshot/-Backup.
 
 ### Score-Engine (Etappe d)
 - Aufruf: `uv run edgefinder score [--as-of YYYY-MM-DD] [--asset ID ...] [--from D --to D]`.
@@ -240,7 +242,13 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
     (`safe_haven`: US-Inflation, Zinsen (Leitzins, Realrendite DFII10, 10J-Rendite, gespiegelt) und Dollar-Stärke (DTWEXBGS, gespiegelt) als eigene Kategorien; `cyclical`: US-Wachstum + Arbeitsmarkt).
     Serien älter als `max_age_days` entfallen.
   - **trend:** Abstand zum langsamen SMA, SMA-Kreuz und ROC, je durch Volatilität × √Horizont
-    geteilt, tanh(z/2), Mittel der drei.
+    geteilt, tanh(z/2), Mittel der drei. **Umkehr-Modus (2026-11-18):** Swing-Profil, Indizes und Aktien
+    (`params.trend.reversal_classes: [index, stock]`) nutzen das *Negative* dieses Scores (Kurzfrist-Umkehr: stark
+    gestiegen/überdehnt → bearish). Begründung: Backtest zeigte dort signifikant negativen IC (Trend ≈ Vorperformance).
+    Drei Varianten, gewählt auf 2013–2019, geprüft auf 2020–heute (Out-of-Sample): V2 Umkehr übernommen (Swing-IC
+    Indizes −0,072 → +0,081, Aktien −0,036 → +0,022), V1 Gewicht halbieren und V3 12-1-Momentum (Langfristig) verworfen.
+    Wahl am Trainingszeitraum, OOS = nur eine Marktphase; Details und Zahlen im Anhang von `docs/backtest-report.md`.
+    Langfristig, Forex, Rohstoffe unverändert (Trend dort ohne stabilen Effekt).
   - **seasonality:** Rendite über `forward_days` ab gleichem Kalendertag in den letzten `years`
     Jahren; t-Statistik, tanh(t/3); mindestens 3 Jahre.
   - **aaii:** konträr moderat (max ±0,6): Perzentil von Bullish−Bearish über `history_weeks`; bei
@@ -259,7 +267,7 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   (`currencies` in `config.yaml`); der Kurs-/Trend-Faktor nutzt die Kursreihe des Paares.
 
 ### Backtest (Etappe h)
-- **Backfill:** `uv run edgefinder score --from 2013-01-01 --to 2026-11-13 [--weekday fr|all]` – Standard sind die
+- **Backfill:** `uv run edgefinder score --from 2013-01-04 --to 2026-11-13 [--weekday fr|all]` – Standard sind die
   Stichtage des Wochentags `backtest.score_weekday` (Freitag), `--weekday all` = jeder Werktag. Dauer ≈ 4 Min.
   (`nice -n 19 ionice -c3`), ≈ 62 000 Scores, DB ≈ 47 MB. Backfill speichert nur Teilscores/Gewichte
   (`reason` leer, `inputs` `{}`), sonst wären es Hunderte MB; Details gibt es nur für `score --as-of`-Läufe.
@@ -376,14 +384,12 @@ Bestätigung abwarten.
   Konfiguration (im Label vermerkt). 2-Jahres-Renditen gibt es nur für USA und EZ.
 - **Euroraum-Zusammensetzung:** Eurostat-Reihen nutzen `geo=EA21` (Euroraum mit Bulgarien seit
   2026), HICP `geo=EA`. Ändert sich die Mitgliederzahl, muss `config.yaml` angepasst werden.
-- **Backtest-Ergebnis (2026-11-18, 2013–2026, wöchentlich, `docs/backtest-report.md`):** Die Scores haben
-  **keinen positiven Vorhersagewert**; Indizes/Aktien zeigen signifikant *negativen* IC (Swing 10 T: Indizes −0,09,
-  Aktien −0,05; Langfristig 60 T: Indizes −0,15). Haupttreiber: der Trend-Faktor (Kurzfrist-Umkehr: IC Indizes −0,12,
-  Aktien −0,06, Forex −0,03; geprüft: Trend korreliert 0,86–0,92 mit der Vorperformance, also kein Vorzeichenfehler).
-  Forex/Rohstoffe: IC ≈ 0. Makro (Indizes langfristig −0,15) fällt negativ auf. COT (Forex) −0,08 (nur 2021–2026
-  verfügbar). Sehr hohe Scores (Stark bullish) sind selten (n klein). Tuning-Kandidaten (nicht geändert): Trend-Gewicht
-  senken/Vorzeichen für Indizes/Aktien prüfen, Makro-Gewicht Indizes, COT-Interpretation (Trendfolger vs. Konträr).
-  CFTC lädt nur 6 Jahre (`history_years: 6`); 15 Jahre würden den COT-Backtest ab 2013 ermöglichen (offen, Jonas fragen).
+- **Backtest-Ergebnis (2026-11-18, 2013–2026, wöchentlich, `docs/backtest-report.md`, mit COT ab 2013 und
+  überarbeitetem Swing-Trend):** Swing Indizes IC +0,078 (t +3,3), Aktien +0,041 (t +3,5), Forex −0,021, Rohstoffe −0,023
+  (nicht signifikant). **Langfristig bleibt negativ/ohne Vorhersagewert:** Indizes IC −0,139 (t −2,4; 2020+ −0,26,
+  n_eff nur 144), Aktien −0,059, Forex/Rohstoffe ≈ 0. Offene Tuning-Kandidaten: Makro-Gewicht Indizes
+  (langfristig negativ), COT-Interpretation (Trendfolger vs. Konträr), Langfrist-Trend. Sehr hohe Scores sind selten (n klein).
+  Der Vergleich der Basisrate (Indizes/Aktien steigen meist) bleibt Pflicht beim Lesen der Trefferquote.
 - **Rohdaten wachsen:** `data/raw` bekommt je Lauf neue Dateien (FRED mit Vintages ≈ 20 MB je
   Lauf). Regel: 30 Tage, `edgefinder cleanup`; Timer `edgefinder-cleanup` ist in `deploy/systemd` vorbereitet.
 - **yfinance** ist eine inoffizielle Schnittstelle (kann ohne Vorwarnung brechen); Forex-Volumen

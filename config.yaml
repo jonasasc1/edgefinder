@@ -24,7 +24,7 @@ sources:
     options:
       base_url: https://publicreporting.cftc.gov/resource
       dataset: 6dca-aqww          # „Legacy - Futures Only“ (live geprüft 2026-11-17)
-      history_years: 6
+      history_years: 15
   fred:
     schedule: "*-*-* 06:30:00 Europe/Vienna"
     stale_after_hours: 48
@@ -347,7 +347,7 @@ profiles:
       cot:              {percentile_weeks: 156, change_weeks: 4}
       retail_sentiment: {smoothing_days: 3}
       macro:            {change_months: 3, history_years: 10, max_age_days: 270, rates_max_age_days: 120}
-      trend:            {sma_days: [20, 50], roc_days: 20}
+      trend:            {sma_days: [20, 50], roc_days: 20, reversal_classes: [index, stock]}
       seasonality:      {years: 10, forward_days: 21}
       aaii:             {smoothing_weeks: 1, history_weeks: 156, min_weeks: 26, fallback_mean: 6.5, fallback_std: 16.0}
       fundamentals:     {growth_quarters: 4, valuation_years: 5}
@@ -394,10 +394,7 @@ backtest:
   min_signals: 30           # weniger Beobachtungen: Wert wird als „zu wenig“ markiert
 
 # ---------------------------------------------------------------------------
-# Wartung (Etappe g): Timer für `edgefinder cleanup` und `edgefinder backup`
+# Wartung (Etappe g): Timer für `edgefinder cleanup` (Sicherung macht Jonas per Proxmox)
 # ---------------------------------------------------------------------------
 maintenance:
   cleanup_schedule: "Sun *-*-* 03:30:00 Europe/Vienna"
-  backup_schedule: "*-*-* 03:00:00 Europe/Vienna"   # SQLite-Online-Backup, kein Dienststopp nötig
-  backup_dir: data/backups
-  backup_keep: 14           # so viele Sicherungen bleiben erhalten

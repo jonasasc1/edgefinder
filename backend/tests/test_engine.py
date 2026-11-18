@@ -249,3 +249,19 @@ def test_failing_factor_becomes_unavailable(config: Config, seeded, monkeypatch)
     )
     comp = next(c for c in result.components if c.factor == "trend")
     assert comp.subscore is None
+
+
+def test_trend_reversal_only_for_configured_classes(config: Config, seeded) -> None:
+    """Swing: Umkehr nur für Indizes/Aktien (Backtest-Befund); Forex/Langfristig bleiben Trend."""
+    _seed_prices(seeded, "SPX", date(2025, 1, 1), date(2026, 11, 17), 0.002)
+    engine, day = ScoreEngine(config, seeded), date(2026, 11, 13)
+
+    def trend(asset: str, profile: str):
+        result = engine.score_asset(config.assets_by_id[asset], profile, day)
+        return next(c for c in result.components if c.factor == "trend")
+
+    assert trend("SPX", "swing").inputs["mode"] == "reversal"
+    assert trend("SPX", "swing").subscore < 0  # Aufwärtstrend → überdehnt → bearish
+    assert trend("SPX", "long_term").inputs["mode"] == "trend"
+    assert trend("SPX", "long_term").subscore > 0
+    assert trend("EURGBP", "swing").inputs["mode"] == "trend"

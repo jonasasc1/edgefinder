@@ -67,7 +67,7 @@ def test_fetch_stores_reports_and_logs_run(make_config, config_data, secrets, db
     assert "6dca-aqww" in seen[0].url.path
     assert "'099741'" in query["$where"]
     assert "'098662'" not in query["$where"]
-    assert "2020-11-1" in query["$where"]  # history_years = 6 ab 2026-11-17
+    assert "2011-11-1" in query["$where"]  # history_years = 15 ab 2026-11-17
     assert "x-app-token" not in seen[0].headers
     assert db.execute("SELECT COUNT(*) FROM raw_files WHERE source='cftc'").fetchone()[0] == 1
 

@@ -3,6 +3,11 @@
 Alle drei Maße werden durch die Volatilität (Std. der Tagesrenditen der letzten 60 Tage ×
 √Horizont) geteilt, damit Forex und Aktien vergleichbar sind, dann tanh(z / 2). Teilscore =
 Mittel der drei Komponenten.
+
+Umkehr-Modus (`reverse=True`, Swing-Profil für Indizes/Aktien, siehe `reversal_classes` in
+`config.yaml`): Der Backtest zeigt dort Kurzfrist-Umkehr (Rendite der letzten Wochen sagt die
+nächsten Wochen mit umgekehrtem Vorzeichen voraus). Der Teilscore ist dann das Negative des
+Trend-Scores: stark gestiegen/überdehnt → bearish, stark gefallen → bullish.
 """
 
 from __future__ import annotations
@@ -22,7 +27,7 @@ def _sma(closes: list[float], n: int) -> float:
     return sum(closes[-n:]) / n
 
 
-def compute(closes: list[float], params: dict[str, Any]) -> FactorResult:
+def compute(closes: list[float], params: dict[str, Any], reverse: bool = False) -> FactorResult:
     """closes: Schlusskurse aufsteigend bis zum Stichtag."""
     fast, slow = (int(x) for x in params.get("sma_days", [20, 50]))
     roc_days = int(params.get("roc_days", 20))
@@ -43,7 +48,8 @@ def compute(closes: list[float], params: dict[str, Any]) -> FactorResult:
     z_cross = cross / (vol * math.sqrt(slow))
     z_roc = roc / (vol * math.sqrt(roc_days))
     parts = [squash(z, Z_SCALE) for z in (z_dist, z_cross, z_roc)]
-    score = sum(parts) / len(parts)
+    trend_score = sum(parts) / len(parts)
+    score = -trend_score if reverse else trend_score
     above = "über" if dist >= 0 else "unter"
     reason = (
         f"Kurs {de(price, '.4g')} liegt {de(abs(dist) * 100, '.1f')} % {above} dem "
@@ -51,8 +57,16 @@ def compute(closes: list[float], params: dict[str, Any]) -> FactorResult:
         f"{fast}-Tage-Schnitt {'über' if cross >= 0 else 'unter'} {slow}-Tage-Schnitt "
         f"({de(cross * 100, '+.1f')} %); Veränderung über {roc_days} Tage "
         f"{de(roc * 100, '+.1f')} % → "
-        f"Trend {sign_word(score, 'aufwärts', 'abwärts')}."
     )
+    if reverse:
+        if abs(score) <= 0.15:
+            reason += "Kurzfrist-Umkehr: keine klare Überdehnung."
+        else:
+            direction = "nach oben" if trend_score > 0 else "nach unten"
+            outlook = "Rückschlag" if score < 0 else "Erholung"
+            reason += f"Kurzfrist-Umkehr: überdehnt {direction} → {outlook} wahrscheinlicher."
+    else:
+        reason += f"Trend {sign_word(score, 'aufwärts', 'abwärts')}."
     return FactorResult(
         score,
         reason,
@@ -65,5 +79,6 @@ def compute(closes: list[float], params: dict[str, Any]) -> FactorResult:
             "roc_pct": rounded(roc * 100, 3),
             "daily_vol_pct": rounded(vol * 100, 3),
             "components": [rounded(p, 3) for p in parts],
+            "mode": "reversal" if reverse else "trend",
         },
     )
