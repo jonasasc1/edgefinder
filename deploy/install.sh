@@ -146,7 +146,7 @@ fi
 
 # --- 5. Verzeichnisse -------------------------------------------------------------------------
 section "5. Verzeichnisse"
-# App-Code: ${APP_DIR}. Daten: ${STATE_DIR}/data (DB, raw/, backups/); config.yaml verwendet den
+# App-Code: ${APP_DIR}. Daten: ${STATE_DIR}/data (DB, raw/); config.yaml verwendet den
 # relativen Pfad data/…, daher ein Link ${APP_DIR}/data -> ${STATE_DIR}/data (Abschnitt 6).
 for spec in "$APP_DIR:0750" "$STATE_DIR:0750" "$STATE_DIR/data:0750" "$STATE_DIR/data/raw:0750" \
     "$STATE_DIR/cache:0750" "$SSH_DIR:0700"; do

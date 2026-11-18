@@ -91,10 +91,10 @@ Entwickelt wird nur auf der Agent-VM, auf „trading“ wird eingerichtet und au
 | Was | Wo auf „trading“ |
 |---|---|
 | App-Code (Git-Checkout, Besitzer `edgefinder`) | `/opt/edgefinder` |
-| Datenbank, Rohdaten, Sicherungen | `/var/lib/edgefinder/data` (`/opt/edgefinder/data` ist ein Link dorthin, weil `config.yaml` relative Pfade nutzt) |
+| Datenbank, Rohdaten | `/var/lib/edgefinder/data` (`/opt/edgefinder/data` ist ein Link dorthin, weil `config.yaml` relative Pfade nutzt) |
 | Geheimnisse | `/opt/edgefinder/.env` (Besitzer `edgefinder`, `chmod 600`, legt Jonas selbst an) |
 | Dienst | `edgefinder.service` (Port 8420, MemoryMax 600 MB) |
-| Jobs | `edgefinder-fetch@<quelle>`, `edgefinder-score`, `edgefinder-cleanup`, `edgefinder-backup` mit je eigenem Timer |
+| Jobs | `edgefinder-fetch@<quelle>`, `edgefinder-score`, `edgefinder-cleanup` mit je eigenem Timer |
 
 ### Ersteinrichtung (einmalig)
 
@@ -132,7 +132,7 @@ deploy/deploy.sh --yes      # ohne Rückfrage
 
 Schritte: Vorprüfung (`.env` vorhanden, freier Speicher) → `git fetch` und Checkout des Commits (bricht bei
 lokalen Änderungen ab) → `uv sync --frozen` → Frontend-Build (`npm ci`, `npm run build`; nur wenn sich
-`frontend/` geändert hat, mit `nice`/`ionice` und `--max-old-space-size=1024`) → `check-config`, DB-Sicherung,
+`frontend/` geändert hat, mit `nice`/`ionice` und `--max-old-space-size=1024`) → `check-config`,
 `edgefinder migrate` → Units synchronisieren (`daemon-reload`) → `systemctl restart edgefinder` →
 Health-Check (`/api/health`, bis 30 s) und Smoke-Test (Startseite, `/api/assets`).
 Exit-Codes: 10 Vorprüfung, 11 Code/uv, 12 Frontend, 13 Migration, 14 Neustart/Health, 15 Smoke-Test.
@@ -161,19 +161,16 @@ systemctl list-timers 'edgefinder*'     # nächste Läufe
 sudo systemctl start edgefinder-fetch@fred.service   # Quelle sofort holen
 ```
 
-### Logs, Backup, Rollback
+### Logs, Sicherung, Rollback
 
 - Logs: `journalctl -u edgefinder -f` (Dienst), `journalctl -u 'edgefinder-*' --since today` (Jobs),
   `journalctl -u edgefinder-fetch@myfxbook -n 50`.
-- Backup: `edgefinder-backup.timer` schreibt täglich eine geprüfte SQLite-Sicherung (Online-Backup, kein Stopp)
-  nach `/var/lib/edgefinder/data/backups` und behält die letzten 14. Vor jeder Migration sichert `deploy.sh`
-  zusätzlich. Wiederherstellen: `sudo systemctl stop edgefinder`, Sicherung nach
-  `/var/lib/edgefinder/data/edgefinder.db` kopieren (Besitzer `edgefinder`; alte `-wal`/`-shm`-Dateien löschen),
-  `sudo systemctl start edgefinder`. Vor größeren Eingriffen zusätzlich einen **Proxmox-Snapshot** machen;
-  die Sicherungen liegen im selben CT und ersetzen kein Backup auf einem anderen Host.
+- Sicherung: Jonas sichert den CT 122 per Proxmox-Snapshot/-Backup (kein App-eigenes Backup). Vor größeren
+  Eingriffen und vor jedem Deploy mit Migration einen **Proxmox-Snapshot** machen; Wiederherstellung = Snapshot
+  zurückspielen.
 - Rollback: `deploy/deploy.sh --rollback` rollt den Stand vor dem letzten Deploy aus; ein bestimmter Stand:
   `deploy/deploy.sh --ref <commit>`. Migrationen werden nicht zurückgedreht (nur additiv); bei Schema-Problemen
-  die DB-Sicherung einspielen.
+  den Proxmox-Snapshot zurückspielen.
 
 ### Fehlersuche
 
@@ -205,7 +202,5 @@ dann den Hostnamen veröffentlichen.** Auf der Agent-VM wird an Cloudflare und C
    darf nichts außer der Cloudflare-Anmeldeseite erscheinen.
 4. **Firewall:** `deploy/nftables.conf` lässt 8420 nur von 10.10.20.20 zu. Die Proxmox-Firewall auf CT-Ebene
    gilt zusätzlich und unabhängig – dort Port 8420 von 10.10.20.20 und SSH von 10.10.20.90 erlauben.
-5. **Offene Empfehlung (nicht gebaut):** Die App prüft kein Cloudflare-Access-JWT. Wer das Netz 10.10.20.0/24
-   erreicht, könnte die App ohne Access aufrufen. Wie bei Jonas' anderen Apps ließe sich der Header
-   `Cf-Access-Jwt-Assertion` gegen die Team-Domain (JWKS) und die Application-AUD prüfen (beides in der `.env`).
-   Das bräuchte eine kleine Middleware plus Abhängigkeit (PyJWT) – nur nach Rückfrage umsetzen.
+5. **Kein JWT-Check in der App (Entscheidung Jonas, 2026-11-18):** Der Schutz läuft nur über Cloudflare Access; die
+   Firewall lässt Port 8420 ausschließlich von 10.10.20.20 (cloudflared) zu.

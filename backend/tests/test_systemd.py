@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import shutil
-import sqlite3
 import subprocess
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from test_cli_fetch import cli_env  # noqa: F401
 
 from edgefinder import cli, systemd
-from edgefinder.backup import backup_database
 from edgefinder.config import load_config
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -47,7 +44,6 @@ def test_all_schedules_are_valid_calendar_expressions() -> None:
         pytest.skip("systemd-analyze nicht verfügbar")
     config = load_config(REPO_ROOT / "config.yaml")
     schedules = [config.scoring.schedule, config.maintenance.cleanup_schedule]
-    schedules += [config.maintenance.backup_schedule]
     schedules += [source.schedule for source in config.sources.values()]
     for entry in schedules:
         for expression in [entry] if isinstance(entry, str) else entry:
@@ -112,28 +108,3 @@ def test_gen_systemd_command_and_check(cli_env: Path, tmp_path: Path) -> None:  
     (out / "edgefinder-alt.timer").write_text("x", encoding="utf-8")
     assert cli.main(["gen-systemd", "--out", str(out)]) == 0  # entfernt Veraltetes
     assert not (out / "edgefinder-alt.timer").exists()
-
-
-def test_backup_consistent_and_rotates(tmp_path: Path) -> None:
-    db = tmp_path / "e.db"
-    conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE t (x)")
-    conn.execute("INSERT INTO t VALUES (1)")
-    conn.commit()
-    conn.close()
-    backups = tmp_path / "b"
-    for sec in range(3):
-        target = backup_database(
-            db, backups, keep=2, now=datetime(2026, 1, 1, 3, 0, sec, tzinfo=UTC)
-        )
-    assert sorted(p.name for p in backups.iterdir()) == [
-        "edgefinder-20260101T030001Z.db",
-        "edgefinder-20260101T030002Z.db",
-    ]
-    assert sqlite3.connect(target).execute("SELECT x FROM t").fetchone() == (1,)
-
-
-def test_backup_command(cli_env: Path) -> None:  # noqa: F811
-    assert cli.main(["backup"]) == 1  # keine Datenbank → Fehler, kein Absturz
-    assert cli.main(["migrate"]) == 0
-    assert cli.main(["backup"]) == 0

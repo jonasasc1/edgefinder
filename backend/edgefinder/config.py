@@ -247,9 +247,6 @@ class MaintenanceConfig(_Model):
     """Wartungsjobs (Timer werden mit `edgefinder gen-systemd` erzeugt)."""
 
     cleanup_schedule: str = "Sun *-*-* 03:30:00 Europe/Vienna"
-    backup_schedule: str = "*-*-* 03:00:00 Europe/Vienna"
-    backup_dir: Path = Path("data/backups")
-    backup_keep: int = Field(default=14, ge=1)
 
 
 class Config(_Model):

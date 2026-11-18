@@ -129,7 +129,6 @@ def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
         "edgefinder-cleanup.service": _job_service(
             "edgefinder: alte Rohdaten löschen", "cleanup", layout
         ),
-        "edgefinder-backup.service": _job_service("edgefinder: SQLite-Sicherung", "backup", layout),
     }
     for name, source in config.sources.items():
         if source.enabled:
@@ -145,11 +144,6 @@ def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
         "edgefinder: Rohdaten aufräumen",
         config.maintenance.cleanup_schedule,
         "edgefinder-cleanup.service",
-    )
-    files["edgefinder-backup.timer"] = _timer(
-        "edgefinder: Datenbank sichern",
-        config.maintenance.backup_schedule,
-        "edgefinder-backup.service",
     )
     return files
 

@@ -72,7 +72,7 @@ Deploy-Plan für $TARGET
      $TARGET_SHA
   3. uv sync --frozen --no-dev (als $APP_USER, nice/ionice)
   4. Frontend: npm ci + npm run build, nur wenn sich frontend/ geändert hat (--force-frontend erzwingt)
-  5. edgefinder check-config, DB-Sicherung, edgefinder migrate
+  5. edgefinder check-config, edgefinder migrate
   6. systemd-Units und Timer aus deploy/systemd synchronisieren (daemon-reload)
   7. sudo systemctl restart edgefinder
   8. Health-Check (/api/health, bis 30 s) und Smoke-Test (Startseite, /api/assets)
@@ -154,12 +154,10 @@ else
 fi
 
 # --- 5. Konfiguration und Migrationen ---------------------------------------------------------
-step "5. Konfiguration prüfen, Sicherung, Migrationen"
+step "5. Konfiguration prüfen, Migrationen"
 EF="cd $APP_DIR && .venv/bin/edgefinder"
 rsh "sudo -n -u $APP_USER bash -c '$EF check-config'" || fail 13 "check-config fehlgeschlagen"
-rsh "sudo -n -u $APP_USER bash -c 'if [ -f $STATE_DIR/data/edgefinder.db ]; then $EF backup; fi'" \
-    || fail 13 "DB-Sicherung vor Migration fehlgeschlagen"
-rsh "sudo -n -u $APP_USER bash -c '$EF migrate'" || fail 13 "Migration fehlgeschlagen (Sicherung: $STATE_DIR/data/backups)"
+rsh "sudo -n -u $APP_USER bash -c '$EF migrate'" || fail 13 "Migration fehlgeschlagen"
 
 # --- 6./7. systemd und Neustart ---------------------------------------------------------------
 step "6. systemd-Units synchronisieren"

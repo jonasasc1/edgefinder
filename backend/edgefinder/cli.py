@@ -70,20 +70,6 @@ def _cmd_fetch(config: Config, args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
-def _cmd_backup(config: Config, args: argparse.Namespace) -> int:
-    """SQLite-Online-Backup nach `maintenance.backup_dir`, ältere Sicherungen werden gelöscht."""
-    from edgefinder.backup import backup_database
-
-    keep = args.keep or config.maintenance.backup_keep
-    try:
-        target = backup_database(config.storage.database, config.maintenance.backup_dir, keep)
-    except (OSError, RuntimeError) as exc:
-        log.error("Sicherung fehlgeschlagen: %s", exc)
-        return 1
-    log.info("Sicherung geschrieben: %s (%.1f MB)", target, target.stat().st_size / 1e6)
-    return 0
-
-
 def _cmd_gen_systemd(config: Config, args: argparse.Namespace) -> int:
     """systemd-Units/-Timer aus config.yaml erzeugen (`--check`: nur auf Abweichung prüfen)."""
     from edgefinder import systemd
@@ -333,9 +319,6 @@ def build_parser() -> argparse.ArgumentParser:
     cleanup.add_argument("--days", type=int, help="überschreibt storage.raw_retention_days")
     cleanup.add_argument("--dry-run", action="store_true", help="nur zählen, nichts löschen")
     cleanup.set_defaults(func=_cmd_cleanup)
-    backup = commands.add_parser("backup", help="SQLite-Datenbank sichern (Online-Backup)")
-    backup.add_argument("--keep", type=int, help="überschreibt maintenance.backup_keep")
-    backup.set_defaults(func=_cmd_backup)
     gen = commands.add_parser("gen-systemd", help="systemd-Units/-Timer aus config.yaml erzeugen")
     gen.add_argument("--out", type=Path, default=Path("deploy/systemd"), help="Zielordner")
     gen.add_argument("--app-dir", default="/opt/edgefinder", help="App-Verzeichnis auf dem Server")
