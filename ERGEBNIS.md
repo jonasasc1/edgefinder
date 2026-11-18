@@ -40,3 +40,19 @@ False Positives, der Gitleaks-Fund ist ein Testwert (Zustimmung zur Ausnahme).
 - Hinweis (kein Fund): `server.host: 0.0.0.0` und die API hat keine eigene Anmeldung. Der Schutz besteht nur aus
   Firewall (8420 nur von 10.10.20.20) und Cloudflare Access. Bis die Firewall aktiv ist, ist Port 8420 im LAN offen
   (öffentliche Marktdaten, keine Secrets). Daher Firewall direkt nach dem ersten Deploy aktivieren.
+
+## Pflicht-Checks vor Deploy Nr. 2 (2026-11-18, Änderungen seit 8d6772d: Bugfix + Scorecard)
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Lint/Tests | `uv run ruff check .`, `uv run pytest` | grün |
+| Semgrep | `semgrep scan --config p/default --config p/secrets --metrics=off --severity ERROR .` | 0 Funde (ERROR) |
+| Gitleaks | `gitleaks git --redact .` | 0 Funde (22 Commits) |
+| pip-audit | `uv export --frozen --no-dev … \| pip-audit -r … --no-deps` | 0 Funde |
+| npm audit | `npm audit --omit=dev` | 0 Funde |
+| /security-review | gegen 8d6772d (26 Dateien) | 0 Funde |
+
+/security-review im Detail: neuer Endpunkt `/api/assets/{id}/scorecard` (`api/scorecard.py`): alle SQL-Abfragen mit
+festem Text und `?`-Parametern, Schlüssel (Symbol, Kontraktcode) stammen aus der Config, Asset-ID wird gegen die Config
+geprüft. Service Worker: nur gleiche Herkunft, HTML-/404-Antworten werden unter `/assets` weder gespeichert noch
+ausgeliefert, Cache-Version = Build-Hash. `chunkError.ts`: Auto-Reload höchstens 1× je 30 s (keine Schleife).
