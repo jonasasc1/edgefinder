@@ -197,10 +197,19 @@ if $SUDO test -d "$APP_DIR/.git" 2>/dev/null; then
     info "Checkout vorhanden: $APP_DIR"
 else
     if [[ -n "$($SUDO ls -A "$APP_DIR" 2>/dev/null || true)" ]]; then
-        die "$APP_DIR ist nicht leer und kein Git-Checkout – bitte manuell prüfen."
+        # Nicht leer (z. B. schon angelegte .env oder ~/.local des Users): einchecken statt klonen.
+        # `checkout` bricht ab, statt vorhandene Dateien zu überschreiben; .env bleibt unangetastet.
+        info "$APP_DIR enthält schon Dateien – Checkout an Ort und Stelle (nichts wird überschrieben)"
+        run as_app git -C "$APP_DIR" init -q -b "$BRANCH"
+        run as_app git -C "$APP_DIR" remote add origin "$REPO_URL"
+        run as_app git -C "$APP_DIR" config core.sshCommand "$(git_ssh)"
+        run as_app git -C "$APP_DIR" fetch -q origin "$BRANCH"
+        run as_app git -C "$APP_DIR" checkout -q -B "$BRANCH" "origin/$BRANCH"
+        run as_app git -C "$APP_DIR" branch -q --set-upstream-to="origin/$BRANCH" "$BRANCH"
+    else
+        run as_app env GIT_SSH_COMMAND="$(git_ssh)" git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
+        run as_app git -C "$APP_DIR" config core.sshCommand "$(git_ssh)"
     fi
-    run as_app env GIT_SSH_COMMAND="$(git_ssh)" git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
-    run as_app git -C "$APP_DIR" config core.sshCommand "$(git_ssh)"
 fi
 if [[ -L "$APP_DIR/data" ]]; then
     info "Link ok: $APP_DIR/data -> $(readlink "$APP_DIR/data")"
