@@ -42,8 +42,8 @@ export const IconChanges = (p: IconProps) => (
     <path d="M16 5v13M16 18l-3.5-3.5M16 18l3.5-3.5" />
   </Icon>
 );
-export const IconStar = (p: IconProps) => (
-  <Icon {...p}>
+export const IconStar = ({ filled, ...p }: IconProps & { filled?: boolean }) => (
+  <Icon {...p} fill={filled ? "currentColor" : "none"}>
     <path d="m12 4 2.4 5 5.4.7-4 3.7 1.1 5.4L12 16.1 7.1 18.8l1.1-5.4-4-3.7L9.6 9 12 4Z" />
   </Icon>
 );
@@ -118,6 +118,34 @@ export const IconSearch = (p: IconProps) => (
 export const IconClose = (p: IconProps) => (
   <Icon {...p}>
     <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
+  </Icon>
+);
+
+export const IconInfo = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 11v5M12 7.9v.2" />
+  </Icon>
+);
+export const IconBack = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m14.5 6-6 6 6 6" />
+  </Icon>
+);
+export const IconCompare = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 18V11M10 18V6M16 18v-5M21 18H3" />
+  </Icon>
+);
+export const IconPlus = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Icon>
+);
+export const IconKeyboard = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="6.5" width="18" height="11" rx="2.5" />
+    <path d="M7 10.5h.1M10.5 10.5h.1M14 10.5h.1M17 10.5h.1M8 14h8" />
   </Icon>
 );
 

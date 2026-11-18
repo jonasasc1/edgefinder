@@ -1,17 +1,30 @@
 import { NavLink } from "react-router";
 
-import { BrandMark } from "./icons";
+import { BrandMark, IconKeyboard, IconSearch } from "./icons";
+import { isMac } from "./ShortcutsSheet";
+import { useUi } from "./ui-context";
 import { NAV } from "./nav";
 import { ThemeToggle } from "./ThemeToggle";
 
 /** Seitenleiste ab Desktop-Breite: Glasfläche, Wortmarke, Navigation, Darstellung. */
 export function Sidebar() {
+  const { setPaletteOpen, setHelpOpen } = useUi();
   return (
     <aside className="glass fixed inset-y-0 left-0 z-30 hidden w-sidebar flex-col border-r border-line px-3 pb-4 pt-6 lg:flex">
       <NavLink to="/" className="mb-6 flex items-center gap-2.5 px-3 text-title3 font-bold tracking-title">
         <BrandMark />
         edgefinder
       </NavLink>
+      <button
+        type="button"
+        onClick={() => setPaletteOpen(true)}
+        aria-keyshortcuts="Control+K Meta+K"
+        className="mb-4 flex h-touch items-center gap-2.5 rounded-control bg-fill px-3 text-subhead text-ink-2"
+      >
+        <IconSearch size={18} />
+        Suchen
+        <kbd className="ml-auto font-sans text-footnote">{isMac() ? "⌘K" : "Strg K"}</kbd>
+      </button>
       <nav aria-label="Hauptnavigation" className="flex flex-col gap-0.5">
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
@@ -32,9 +45,15 @@ export function Sidebar() {
       <div className="mt-auto flex flex-col gap-3 px-1">
         <div className="px-2 text-caption font-medium text-ink-2">Darstellung</div>
         <ThemeToggle size="sm" className="-mt-2" />
-        <NavLink to="/design" className="px-2 py-1 text-caption text-ink-2 hover:text-ink">
-          Design-System
-        </NavLink>
+        <div className="flex items-center justify-between px-2">
+          <button type="button" onClick={() => setHelpOpen(true)} className="flex items-center gap-1.5 py-1 text-caption text-ink-2 hover:text-ink">
+            <IconKeyboard size={14} />
+            Tastenkürzel
+          </button>
+          <NavLink to="/design" className="py-1 text-caption text-ink-2 hover:text-ink">
+            Design-System
+          </NavLink>
+        </div>
       </div>
     </aside>
   );

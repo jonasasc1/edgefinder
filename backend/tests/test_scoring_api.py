@@ -102,6 +102,26 @@ def test_assets_empty_database(config: Config, db: sqlite3.Connection) -> None:
     assert all(a["scores"]["swing"] is None for a in body)
 
 
+def test_sparklines_bulk(client: TestClient) -> None:
+    body = client.get("/api/sparklines?days=5&profile=swing").json()
+    assert body["profile"] == "swing" and body["days"] == 5
+    eur = body["series"]["EURUSD"]
+    assert 5 <= len(eur) <= 6  # Stichtag minus 5 Tage bis heute
+    assert eur == sorted(eur) and eur[-1] == [TODAY.isoformat(), 2.5]
+    assert [d for d, _ in body["series"]["GOLD"]] == [
+        (TODAY - timedelta(days=1)).isoformat(),
+        TODAY.isoformat(),
+    ]
+    assert "SPX" not in body["series"]  # Assets ohne Score fehlen
+    assert client.get("/api/sparklines?profile=nope").status_code == 422
+    assert client.get("/api/sparklines?days=1").status_code == 422
+
+
+def test_sparklines_empty_database(config: Config, db: sqlite3.Connection) -> None:
+    body = TestClient(create_app(config, frontend_dist=None)).get("/api/sparklines").json()
+    assert body["series"] == {}
+
+
 def test_asset_detail(client: TestClient) -> None:
     body = client.get("/api/assets/GOLD").json()
     swing = body["profiles"]["swing"]

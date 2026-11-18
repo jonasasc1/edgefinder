@@ -11,6 +11,7 @@ import { ThemeToggle } from "../../components/ThemeToggle";
 import type { ProfileKey } from "../../lib/api";
 import { formatDate } from "../../lib/format";
 import { spring } from "../../lib/motion";
+import { splitFavorites, useFavorites } from "../../lib/favorites";
 import { usePersistentState } from "../../lib/usePersistentState";
 import { AssetCard } from "./AssetCard";
 import { AssetRow } from "./AssetRow";
@@ -24,6 +25,7 @@ import {
   sortRows,
   toRows,
   type ClassFilter,
+  type Row,
   type SortKey,
 } from "./model";
 import { CardSkeletons, RowSkeletons } from "./Skeletons";
@@ -44,6 +46,7 @@ export function OverviewPage() {
   const [sort, setSort] = usePersistentState<SortKey>("ef-sort", "score-desc", SORT_KEYS);
   const [filter, setFilter] = useState<ClassFilter>("all");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const favorites = useFavorites();
 
   const assets = state.status === "ready" ? state.assets : null;
   const profiles = state.status === "ready" ? state.profiles : null;
@@ -53,6 +56,7 @@ export function OverviewPage() {
     [allRows, filter, sort],
   );
   const counts = useMemo(() => countLevels(rows), [rows]);
+  const { pinned, rest } = useMemo(() => splitFavorites(rows, (row) => row.asset.id, favorites), [rows, favorites]);
   const classCount = (key: ClassFilter) => (key === "all" ? allRows.length : allRows.filter((row) => row.asset.asset_class === key).length);
   const stand = allRows.find((row) => row.entry)?.entry?.date;
   const horizon = profiles?.find((p) => p.key === profile)?.horizon;
@@ -138,48 +142,51 @@ export function OverviewPage() {
         )}
 
         {state.status === "ready" && rows.length > 0 && (
-          view === "cards" ? (
-            <ul className="asset-grid">
-              {rows.map((row) => (
-                <motion.li key={row.asset.id} layout="position" transition={spring} className="min-w-0">
-                  <AssetCard row={row} />
-                </motion.li>
-              ))}
-            </ul>
-          ) : (
-            <Card variant="group">
-              <ul className="divide-y divide-line">
-                <AnimatePresence initial={false}>
-                  {rows.map((row) => (
-                    <motion.li key={row.asset.id} layout="position" transition={spring}>
-                      <AssetRow row={row} />
-                    </motion.li>
-                  ))}
-                </AnimatePresence>
-              </ul>
-            </Card>
-          )
+          <>
+            {pinned.length > 0 && (
+              <section aria-labelledby="fav-title">
+                <h2 id="fav-title" className="mb-3 text-title3 font-bold tracking-title">Favoriten</h2>
+                <Collection rows={pinned} view={view} />
+              </section>
+            )}
+            {rest.length > 0 && (
+              <section aria-labelledby={pinned.length > 0 ? "all-title" : undefined}>
+                {pinned.length > 0 && <h2 id="all-title" className="mb-3 text-title3 font-bold tracking-title">Weitere Assets</h2>}
+                <Collection rows={rest} view={view} />
+              </section>
+            )}
+          </>
         )}
-
-        <footer className="mx-auto max-w-prose pb-4 pt-2 text-center text-footnote text-ink-2">
-          <p className="font-semibold text-ink">Keine Anlageberatung</p>
-          <p className="mt-1">
-            Die Scores fassen öffentliche Daten zusammen (COT, Sentiment, Makro, Trend) und sind keine Empfehlung zum Kauf
-            oder Verkauf.
-          </p>
-          <p className="mt-1">
-            Charts:{" "}
-            <a className="underline underline-offset-2" href="https://www.tradingview.com/" target="_blank" rel="noreferrer">
-              TradingView Lightweight Charts™
-            </a>
-          </p>
-        </footer>
       </div>
 
       <Sheet open={settingsOpen} onOpenChange={setSettingsOpen} title="Darstellung" description="Folgt dem System, wenn du nichts wählst.">
         <ThemeToggle />
       </Sheet>
     </>
+  );
+}
+
+function Collection({ rows, view }: { rows: Row[]; view: View }) {
+  return view === "cards" ? (
+    <ul className="asset-grid">
+      {rows.map((row) => (
+        <motion.li key={row.asset.id} layout="position" transition={spring} className="min-w-0">
+          <AssetCard row={row} />
+        </motion.li>
+      ))}
+    </ul>
+  ) : (
+    <Card variant="group">
+      <ul className="divide-y divide-line">
+        <AnimatePresence initial={false}>
+          {rows.map((row) => (
+            <motion.li key={row.asset.id} layout="position" transition={spring}>
+              <AssetRow row={row} />
+            </motion.li>
+          ))}
+        </AnimatePresence>
+      </ul>
+    </Card>
   );
 }
 

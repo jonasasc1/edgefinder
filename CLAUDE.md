@@ -16,9 +16,13 @@ Insider (Aktien) entfallen vorerst (Gewichte werden renormiert, Abdeckung ca. 55
 `edgefinder score`-Lauf (86 Scores, 43 Assets × 2 Profile) ist plausibel. Auf „trading“ wurde noch
 nichts verändert.
 
-**Etappe e (2026-11-17):** Design-System + Übersicht (echte Daten) + Seite `/design` gebaut; Screenshots
-unter `~/remote/edgefinder-shots/etappe-e/` (außerhalb des Repos). **Wartet auf Freigabe durch Jonas**,
-erst danach Etappe f (restliche Seiten). Bei Änderungswünschen nur Tokens/Komponenten anpassen.
+**Etappe e (2026-11-17):** Design-System + Übersicht von Jonas freigegeben.
+
+**Etappe f (2026-11-18): fertig.** Alle Seiten (Asset-Detail, Makro, Änderungen, Favoriten, Status,
+Vergleich), Command-Palette, Tastenkürzel, Tooltips/Erklär-Sheets, PWA. Screenshots (hell/dunkel ×
+Desktop/iPhone) unter `~/remote/edgefinder-shots/etappe-f/`; axe, Konsole und 320-px-Überlauf sauber.
+Neu im Backend: `GET /api/sparklines` (Score-Verlauf aller Assets), `sw.js`/Manifest ohne Cache.
+**Nächster Schritt:** Etappe g (Einrichtung „trading“, nur nach Freigabe), danach h (Backtest).
 
 **Nächster Schritt:** Jonas trägt die drei fehlenden Werte in die `.env` ein; danach je einmal
 `uv run edgefinder fetch myfxbook` und `… edgar` live prüfen (Symbolliste von Myfxbook ansehen,
@@ -32,8 +36,8 @@ siehe „Offen“). Dann Etappe e (Design-System, Beispielseite, Screenshots zur
 | b | Fetcher: CFTC, FRED/Eurostat/ECB, yfinance | fertig (Datenlücken siehe „Offen“) |
 | c | Fetcher: Myfxbook, AAII, SEC EDGAR, FINRA | fertig (Myfxbook/EDGAR noch ohne Live-Lauf, siehe „Offen“) |
 | d | Score-Engine mit beiden Profilen, FastAPI-Endpunkte | fertig |
-| e | Design-System und eine Beispielseite – **Screenshots zur Freigabe durch Jonas** | im Code fertig, wartet auf Freigabe |
-| f | Restliches Frontend mit allen Seiten und Funktionen | offen |
+| e | Design-System und eine Beispielseite | fertig, von Jonas freigegeben |
+| f | Restliches Frontend mit allen Seiten und Funktionen | fertig |
 | g | Einrichtung „trading“ (install.sh vorher zeigen), systemd, deploy.sh, Cloudflare-Doku | offen |
 | h | Backtest (Trefferquote/Rendite nach Score-Bereich, je Profil und Assetklasse) | offen |
 
@@ -230,7 +234,8 @@ Eingangswerten, Abdeckung), `/assets/{id}/history?days|from|to`, `/assets/{id}/c
 `/assets/{id}/sentiment` (Retail + AAII), `/assets/{id}/fundamentals?profile` (Aktien: SEC-Werte,
 Earnings, Short Interest, Insider; sonst Makrodaten der beteiligten Volkswirtschaften), `/macro`
 (Heatmap je Land/Indikator mit Wert, Änderung, Score, Frische), `/changes?since=1d|7d`,
-`/status` (letzte erfolgreiche Aktualisierung je Quelle, `stale` aus `stale_after_hours`), `/health`.
+`/status` (letzte erfolgreiche Aktualisierung je Quelle, `stale` aus `stale_after_hours`),
+`/sparklines?days&profile` (Score-Verlauf aller Assets in einem Abruf), `/health`.
 Favoriten gibt es nur clientseitig (localStorage).
 
 ### Frontend
@@ -240,12 +245,27 @@ Favoriten gibt es nur clientseitig (localStorage).
 - Grün/Rot nur mit Bedeutung (bullish/bearish). `tabular-nums` für Zahlen.
 - `prefers-reduced-motion` respektieren. iPhone-first.
 - Gestaltung nach Skill `jonas-design` (+ `frontend-design`).
-- **Struktur `frontend/src/`:** `design/tokens.css` (alle Rohwerte, hell+dunkel), `index.css` (Tailwind,
-  Inter, Basis, `.glass`, `.skeleton`, `.asset-grid`), `lib/` (api, format, score, motion, theme,
-  useSpringValue, usePersistentState), `components/` (ScoreRing, SegmentedControl, Card/PressCard,
-  Badge, Delta, Sidebar, TabBar, AppShell, Sheet, Tooltip, Skeleton, Sparkline, AnimatedNumber,
-  ThemeToggle, icons, nav), `pages/` (`overview/` = Beispielseite, `DesignPage`, `PlaceholderPage`).
-  Routen in `App.tsx` (react-router, BrowserRouter); neue Seite = Route + Eintrag in `components/nav.tsx`.
+- **Struktur `frontend/src/`:** `design/tokens.css` (alle Rohwerte, hell+dunkel, inkl. `--c-series-1..4` für
+  Mehrfach-Diagramme), `index.css`, `lib/` (api, useApi [Laden/Fehler/Reload], assets [geteilte Asset-Liste],
+  favorites [localStorage `ef-favorites`, useSyncExternalStore], glossary [ALLE Erklärtexte, Faktor-/Quellen-/
+  Indikatornamen], format, stats, search, score, theme, offline, pwa, useShortcuts, chartColors),
+  `components/` (Design-System wie in Etappe e + InfoTip/ExplainSheet, CommandPalette, ShortcutsSheet,
+  ui-context, ScoreBar, Table, SectionTitle, ErrorState/NoData, StarButton, Footer, OfflineBanner,
+  `charts/TimeChart` = Lightweight Charts mit Panes, Legende, Token-Farben), `pages/` (`overview`, `asset`
+  [Detail: Hero, FactorList, PriceScoreChart, CotCard, SentimentCard, FundamentalsCard], `macro` [Heatmap],
+  `changes`, `favorites`, `status`, `compare`, `DesignPage`). Routen in `App.tsx`; Asset- und
+  Vergleichsseite sind lazy. Neue Seite = Route + ggf. Eintrag in `components/nav.tsx`.
+- **Navigation:** Übersicht, Makro, Änderungen, Favoriten, Status (Tab-Bar/Sidebar). Vergleich (`/vergleich?ids=A,B`,
+  2–4 Assets) über Detailseite, Favoriten, Palette oder `g v`.
+- **Tastenkürzel:** Strg/⌘+K Palette (Assets, Seiten, Darstellung), `/` Suche, `?` Hilfe, `g` dann `o`/`m`/`c`/`f`/`s`/`v`
+  Navigation; in Textfeldern und offenen Dialogen inaktiv. Palette: ↑↓, ↵, ⇧↵ = Vergleich.
+- **Tooltips/Erklärungen:** `InfoTip term="…"` (Hover = Kurztext, Tippen = Sheet). Texte nur in `lib/glossary.ts`.
+- **PWA:** `public/manifest.webmanifest`, Icons in `public/icons` (erzeugt mit `scripts/make-icons.mjs` aus der
+  Wortmarke, maskable + apple-touch-icon), `public/sw.js` (App-Shell/Assets Cache-first, Navigation und API
+  network-first; API-Fallback nur offline, max. 24 h, Header `x-ef-cached-at` → Offline-Banner), Registrierung nur im
+  Produktionsbuild (`lib/pwa.ts`). Push nur vorbereitet (push/notificationclick im SW, nichts abonniert/gesendet).
+  `theme-color` folgt der gewählten Darstellung (`lib/theme.tsx`). Backend liefert sw.js/Manifest mit `no-cache`.
+- **Tests Frontend:** `npm test` (vitest, nur reine Logik: Favoriten, Formatierung, Sortierung, Suche, Statistik).
 - **Token-Konventionen:** Farben als `--c-*` (Modus per `[data-theme="dark"]`, gesetzt von
   `public/theme-init.js` und `lib/theme.tsx`; Wahl in localStorage `ef-theme`). Tailwind-Namen
   (`bg-surface`, `text-ink-2`, `text-bull-ink`, `rounded-card`, `text-largetitle`, `shadow-card`) kommen
@@ -257,9 +277,10 @@ Favoriten gibt es nur clientseitig (localStorage).
   (`lib/score.ts`). Zahlen/Ring laufen federnd (`useSpringValue`), sofort bei `prefers-reduced-motion`.
 - **Screenshots/Prüfung:** `node frontend/scripts/screenshots.mjs [Ordner] [URL]` (Backend mit Build muss
   laufen; Playwright + axe-core aus `~/tools/playwright`, Chromium notfalls per `CHROMIUM_PATH`). Macht
-  Übersicht, Liste, Filter, Langfristig, Design, Platzhalter, Zustände (Fehler/leer/laden), Sheets in
-  hell/dunkel × Desktop 1440×900/iPhone 14 und prüft Konsole, Überlauf (auch 320 px) und axe-core. Dauert ca. 3 Min.
-- Charts: TradingView Lightweight Charts (Attribution als Link im Footer der Übersicht).
+  alle Seiten (Detail je Assetklasse, Makro, Änderungen, Favoriten leer/gefüllt, Status, Vergleich, Palette,
+  Hilfe, Erklärung, Fehler-/Leer-/Ladezustände) in hell/dunkel × Desktop 1440×900/iPhone 14 (Service Worker
+  geblockt) und prüft Konsole, Überlauf (auch 320 px) und axe-core. Dauert ca. 4 Min.
+- Charts: TradingView Lightweight Charts (Attribution als Link im Footer jeder Seite, `components/Footer`).
 - Lizenz Inter: OFL, per `@fontsource-variable/inter` selbst gehostet (kein CDN).
 
 ### Git
@@ -331,10 +352,11 @@ Bestätigung abwarten.
   - `data/raw` wächst durch EDGAR (gzip) zusätzlich; Aufräumregel weiter offen.
 - Bekannte Lücke: kein COT für den DAX (Eurex) → Teilscore entfällt, Gewichte werden renormiert.
   Nikkei: COT jetzt über den Yen-Kontrakt 240743 (der USD-Kontrakt 240741 meldet seit 2026-03-03 nicht mehr).
-- **Etappe f:** `npm audit` erneut prüfen. Stand heute: 1 Meldung „moderate“ in `minimatch`,
-  nur über ESLint/typescript-eslint (Dev), nicht im Build; Fix würde ESLint auf 9 zurücksetzen.
+- **Etappe f:** `npm audit --omit=dev`: 0 Funde (2026-11-18). Mit Dev-Paketen: 1 „moderate“ in `minimatch` (ESLint, nicht im Build).
+  Score-Verlauf hat erst 2 Tage Historie (Diagramm blendet ihn unter 5 Punkten aus); `reason`-Texte der Engine
+  nutzen Punkt als Dezimalzeichen; Favoriten nur lokal; Push nur Struktur.
 - **Etappe e:** Im Skill `jonas-design` ist der Abschnitt „Marke“ noch offen (Marke hier aus der Vorgabe
-  „Apple-native“ abgeleitet). Score-Verlauf/Sparklines je Asset folgen mit den Detailseiten (Etappe f).
+  „Apple-native“ abgeleitet). 
 - Testwarnung: Starlette empfiehlt `httpx2` statt `httpx` für den TestClient; vor einem
   Wechsel Herkunft des Pakets prüfen.
 - `.claude/settings.local.json` ist lokal und nicht im Repo (in `.gitignore`).

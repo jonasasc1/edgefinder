@@ -2,10 +2,20 @@ import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router";
 
 import { AppShell } from "./components/AppShell";
+import { Skeleton } from "./components/Skeleton";
+import { NotFound } from "./pages/asset/NotFound";
+import { ChangesPage } from "./pages/changes/ChangesPage";
+import { FavoritesPage } from "./pages/favorites/FavoritesPage";
+import { MacroPage } from "./pages/macro/MacroPage";
 import { OverviewPage } from "./pages/overview/OverviewPage";
-import { AssetPlaceholder, PlaceholderPage } from "./pages/PlaceholderPage";
+import { StatusPage } from "./pages/status/StatusPage";
 
-// Design-Seite mit Chart-Bibliothek erst bei Bedarf laden.
+// Seiten mit Diagrammen erst bei Bedarf laden (hält das erste Bundle klein).
+const AssetPage = lazy(() => import("./pages/asset/AssetPage").then((m) => ({ default: m.AssetPage })));
+const ComparePage = lazy(() => import("./pages/compare/ComparePage").then((m) => ({ default: m.ComparePage })));
+const later = (node: React.ReactNode) => <Suspense fallback={<Skeleton className="m-8 h-40" />}>{node}</Suspense>;
+
+// Design-Seite erst bei Bedarf laden.
 const DesignPage = lazy(() => import("./pages/DesignPage").then((m) => ({ default: m.DesignPage })));
 
 export function App() {
@@ -13,13 +23,14 @@ export function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<OverviewPage />} />
-        <Route path="makro" element={<PlaceholderPage title="Makro" text="Die Heatmap der Volkswirtschaften folgt in Etappe f." />} />
-        <Route path="aenderungen" element={<PlaceholderPage title="Änderungen" text="Hier siehst du später, welche Scores sich seit gestern oder seit einer Woche am stärksten bewegt haben." />} />
-        <Route path="favoriten" element={<PlaceholderPage title="Favoriten" text="Favoriten speicherst du später direkt im Browser; die Seite folgt in Etappe f." />} />
-        <Route path="status" element={<PlaceholderPage title="Status" text="Die Aktualität der Datenquellen folgt in Etappe f." />} />
-        <Route path="asset/:id" element={<AssetPlaceholder />} />
-        <Route path="design" element={<Suspense fallback={null}><DesignPage /></Suspense>} />
-        <Route path="*" element={<PlaceholderPage title="Nicht gefunden" text="Diese Adresse gibt es nicht. Wähle eine Seite in der Navigation." />} />
+        <Route path="makro" element={<MacroPage />} />
+        <Route path="aenderungen" element={<ChangesPage />} />
+        <Route path="favoriten" element={<FavoritesPage />} />
+        <Route path="status" element={<StatusPage />} />
+        <Route path="vergleich" element={later(<ComparePage />)} />
+        <Route path="asset/:id" element={later(<AssetPage />)} />
+        <Route path="design" element={<Suspense fallback={<Skeleton className="m-8 h-40" />}><DesignPage /></Suspense>} />
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   );

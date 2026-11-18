@@ -61,6 +61,12 @@
   --c-track: rgb(118 118 128 / 0.18);
   --c-on-solid: #ffffff;
 
+  /* Linienfarben für Diagramme mit mehreren Reihen (keine Signalfarben) */
+  --c-series-1: #0a6cd6;
+  --c-series-2: #c76a00;
+  --c-series-3: #8e3fc4;
+  --c-series-4: #12849b;
+
   /* Schatten */
   --sh-card: 0 0 0 0.5px rgb(0 0 0 / 0.04), 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 20px rgb(0 0 0 / 0.05);
   --sh-thumb: 0 1px 1px rgb(0 0 0 / 0.06), 0 3px 8px rgb(0 0 0 / 0.12);
@@ -107,6 +113,11 @@
   --c-flat-ink: #b0b0b7;
   --c-track: rgb(118 118 128 / 0.3);
   --c-on-solid: #000000;
+
+  --c-series-1: #5eb0ff;
+  --c-series-2: #ffb340;
+  --c-series-3: #c98cf0;
+  --c-series-4: #4fd1e6;
 
   --sh-card: 0 0 0 0 transparent;
   --sh-thumb: 0 1px 2px rgb(0 0 0 / 0.5), 0 3px 8px rgb(0 0 0 / 0.4);
@@ -198,6 +209,10 @@
   --color-flat-ink: var(--c-flat-ink);
   --color-track: var(--c-track);
   --color-on-solid: var(--c-on-solid);
+  --color-series-1: var(--c-series-1);
+  --color-series-2: var(--c-series-2);
+  --color-series-3: var(--c-series-3);
+  --color-series-4: var(--c-series-4);
 
   --shadow-card: var(--sh-card);
   --shadow-thumb: var(--sh-thumb);

@@ -63,6 +63,12 @@ class HistoryOut(BaseModel):
     prices: list[tuple[str, float]]  # [(Datum, Schlusskurs)]
 
 
+class SparklinesOut(BaseModel):
+    profile: str
+    days: int
+    series: dict[str, list[tuple[str, float]]]  # Asset → [(Datum, Score)]
+
+
 class CotPointOut(BaseModel):
     report_date: str
     long: int

@@ -21,6 +21,7 @@ from edgefinder.scoring.factors import macro as macro_factor
 SINCE_DAYS = {"1d": 1, "7d": 7}
 WINDOW_DAYS = 14  # Rückblick für Veränderung 1d/7d (Wochenenden/Feiertage überbrücken)
 MAX_HISTORY_DAYS = 3650
+MAX_SPARKLINE_DAYS = 365
 
 
 def _asset_or_404(config: Config, asset_id: str) -> Asset:
@@ -180,6 +181,29 @@ def create_router(config: Config) -> APIRouter:
                 )
             )
         return out
+
+    @router.get("/sparklines", response_model=s.SparklinesOut)
+    def sparklines(
+        days: Annotated[int, Query(ge=2, le=MAX_SPARKLINE_DAYS)] = 30,
+        profile: str = default_profile,
+    ) -> s.SparklinesOut:
+        """Score-Verlauf aller Assets in einem Abruf (für Mini-Verläufe in Listen und Karten)."""
+        _profile_or_422(profile)
+        with db() as conn:
+            latest = _latest_score_date(conn)
+            series: dict[str, list[tuple[str, float]]] = {}
+            if latest:
+                start = (date.fromisoformat(latest) - timedelta(days=days)).isoformat()
+                for row in conn.execute(
+                    "SELECT asset_id, date, score FROM scores WHERE profile = ? AND date >= ?"
+                    " AND date <= ? ORDER BY date",
+                    (profile, start, latest),
+                ):
+                    if row["asset_id"] in config.assets_by_id:
+                        series.setdefault(row["asset_id"], []).append(
+                            (row["date"], round(row["score"], 3))
+                        )
+        return s.SparklinesOut(profile=profile, days=days, series=series)
 
     @router.get("/assets/{asset_id}", response_model=s.AssetDetailOut)
     def asset_detail(

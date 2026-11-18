@@ -34,6 +34,7 @@ def test_spa_serves_files_and_falls_back_to_index(config: Config, tmp_path: Path
     (dist / "index.html").write_text("<!doctype html><title>edgefinder</title>", encoding="utf-8")
     (dist / "assets" / "app.js").write_text("console.log(1)", encoding="utf-8")
     (dist / "manifest.webmanifest").write_text("{}", encoding="utf-8")
+    (dist / "sw.js").write_text("// sw", encoding="utf-8")
     (tmp_path / "secret.txt").write_text("geheim", encoding="utf-8")
     client = TestClient(create_app(config, frontend_dist=dist))
 
@@ -41,6 +42,8 @@ def test_spa_serves_files_and_falls_back_to_index(config: Config, tmp_path: Path
     assert "edgefinder" in client.get("/asset/EURUSD").text
     assert client.get("/assets/app.js").text == "console.log(1)"
     assert client.get("/manifest.webmanifest").text == "{}"
+    assert client.get("/sw.js").headers["cache-control"] == "no-cache"
+    assert "cache-control" not in client.get("/assets/app.js").headers
     assert client.get("/api/unknown").status_code == 404
     assert client.get("/api/health").status_code == 200
     # Kein Ausbruch aus dem Build-Verzeichnis

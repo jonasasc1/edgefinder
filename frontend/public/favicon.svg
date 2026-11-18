@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28">
+  <style>
+    .t{stroke:#c7c7cc}
+    @media (prefers-color-scheme: dark){.t{stroke:#48484a}}
+  </style>
+  <g fill="none" stroke-width="3.4" stroke-linecap="round">
+    <path class="t" d="M7.2 21.2a10 10 0 1 1 13.6 0"/>
+    <path d="M14 4a10 10 0 0 1 9.5 6.9" stroke="#30d158"/>
+  </g>
+</svg>

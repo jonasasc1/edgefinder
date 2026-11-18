@@ -34,6 +34,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = resolved;
+    // Statusleiste/Adressleiste folgen der Wahl (nicht nur dem System): ein Eintrag ohne media-Bedingung.
+    const canvas = getComputedStyle(document.documentElement).getPropertyValue("--c-canvas").trim();
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.remove());
+    const meta = document.createElement("meta");
+    meta.name = "theme-color";
+    meta.content = canvas;
+    document.head.append(meta);
   }, [resolved]);
 
   const setPref = useCallback((next: ThemePref) => {

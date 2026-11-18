@@ -15,8 +15,8 @@ den Profilen „Swing“ und „Langfristig“.
 | b | Fetcher: CFTC, FRED/Eurostat/ECB, yfinance | offen |
 | c | Fetcher: Myfxbook, AAII, SEC EDGAR, FINRA | offen |
 | d | Score-Engine, API-Endpunkte | offen |
-| e | Design-System und Beispielseite | wartet auf Freigabe |
-| f | Restliches Frontend | offen |
+| e | Design-System und Beispielseite | fertig |
+| f | Restliches Frontend (Seiten, Palette, PWA) | fertig |
 | g | Einrichtung „trading“, systemd, Deploy, Cloudflare-Doku | offen |
 | h | Backtest | offen |
 

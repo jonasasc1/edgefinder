@@ -7,6 +7,8 @@ import { BrowserRouter } from "react-router";
 
 import { App } from "./App";
 import { TooltipProvider } from "./components/Tooltip";
+import { UiProvider } from "./components/ui-context";
+import { registerServiceWorker } from "./lib/pwa";
 import { ThemeProvider } from "./lib/theme";
 
 createRoot(document.getElementById("root")!).render(
@@ -15,10 +17,14 @@ createRoot(document.getElementById("root")!).render(
       <ThemeProvider>
         <TooltipProvider>
           <BrowserRouter>
-            <App />
+            <UiProvider>
+              <App />
+            </UiProvider>
           </BrowserRouter>
         </TooltipProvider>
       </ThemeProvider>
     </MotionConfig>
   </StrictMode>,
 );
+
+registerServiceWorker();

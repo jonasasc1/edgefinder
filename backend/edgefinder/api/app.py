@@ -14,6 +14,7 @@ from edgefinder.config import Config
 from edgefinder.db import applied_versions, connect
 
 FRONTEND_DIST = Path("frontend/dist")
+REVALIDATE = {"sw.js", "manifest.webmanifest", "theme-init.js"}
 
 
 def create_app(config: Config, frontend_dist: Path | None = FRONTEND_DIST) -> FastAPI:
@@ -60,5 +61,8 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
             raise HTTPException(status_code=404)
         candidate = (root / path).resolve()
         if path and candidate.is_file() and candidate.is_relative_to(root):
-            return FileResponse(candidate)
+            # Service Worker und Manifest müssen immer neu geprüft werden (sonst bleibt eine
+            # alte App-Version hängen); gehashte Dateien unter /assets sind davon nicht betroffen.
+            headers = {"Cache-Control": "no-cache"} if path in REVALIDATE else None
+            return FileResponse(candidate, headers=headers)
         return FileResponse(root / "index.html", headers={"Cache-Control": "no-cache"})
