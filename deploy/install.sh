@@ -20,7 +20,7 @@ STATE_DIR=/var/lib/edgefinder          # Daten (data/), Cache, Deploy-Key; einzi
 REPO_URL=git@github.com:jonasasc1/edgefinder.git
 BRANCH=main
 UV_VERSION=0.13.4
-UV_SHA256=a7fbaff2b9a271d85c1bdb540941090fd1ce011797b4abeb48e4dcd39c2471d5   # x86_64-unknown-linux-gnu
+UV_SHA256=2b428396f12572d4429cf210ca234dd599a33b3af0958a4d5ed569d63e3f344f   # x86_64-unknown-linux-gnu
 UV_URL=https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz
 NODE_VERSION=22.23.5                   # LTS „Jod“; vite 8 braucht Node >= 20.19 bzw. 22.12
 NODE_SHA256=cdeb8670a0c81f51b4dc4ac61919f9b1ad917b304bf8221eb939570663d240f8   # linux-x64.tar.xz
