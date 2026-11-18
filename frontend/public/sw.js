@@ -4,7 +4,8 @@
 // - API: immer zuerst ans Netz (keine alten Daten, solange der Server antwortet). Nur ohne Verbindung
 //   gibt es die letzte Antwort (max. 24 h alt) mit Header x-ef-cached-at; die App zeigt dann einen Hinweis.
 // - Push: nur Struktur (Empfang + Klick); gesendet wird derzeit nichts.
-const VERSION = "v1";
+// Der Platzhalter unten wird beim Build (scripts/sw-build-id.mjs) durch einen Hash der Build-Dateien ersetzt.
+const VERSION = "__BUILD_ID__";
 const SHELL = `ef-shell-${VERSION}`;
 const API = `ef-api-${VERSION}`;
 const API_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -56,9 +57,11 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       caches.open(SHELL).then(async (cache) => {
         const hit = await cache.match(request);
-        if (hit) return hit;
+        // Nur echte Dateien aus dem Cache: eine als index.html gespeicherte Antwort wäre ein toter Chunk.
+        if (hit && !(hit.headers.get("content-type") || "").includes("text/html")) return hit;
         const response = await fetch(request);
-        if (response.ok) cache.put(request, response.clone());
+        // Fehlende Dateien (404 nach einem Deploy) und HTML-Antworten nie speichern.
+        if (response.ok && !(response.headers.get("content-type") || "").includes("text/html")) cache.put(request, response.clone());
         return response;
       }),
     );
