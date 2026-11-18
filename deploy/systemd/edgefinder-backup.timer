@@ -1,0 +1,13 @@
+# ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
+# Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
+[Unit]
+Description=edgefinder: Datenbank sichern
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 Europe/Vienna
+Persistent=true
+RandomizedDelaySec=60
+Unit=edgefinder-backup.service
+
+[Install]
+WantedBy=timers.target

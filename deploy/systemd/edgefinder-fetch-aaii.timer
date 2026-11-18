@@ -1,0 +1,13 @@
+# ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
+# Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
+[Unit]
+Description=edgefinder: Quelle aaii holen
+
+[Timer]
+OnCalendar=Thu,Fri *-*-* 08:00:00 Europe/Vienna
+Persistent=true
+RandomizedDelaySec=60
+Unit=edgefinder-fetch@aaii.service
+
+[Install]
+WantedBy=timers.target

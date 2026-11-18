@@ -1,0 +1,14 @@
+# ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
+# Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
+[Unit]
+Description=edgefinder: Quelle prices holen
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 Europe/Vienna
+OnCalendar=*-*-* 23:15:00 Europe/Vienna
+Persistent=true
+RandomizedDelaySec=60
+Unit=edgefinder-fetch@prices.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,37 @@
+# ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
+# Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
+[Unit]
+Description=edgefinder (API und Frontend, Port 8420)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=edgefinder
+Group=edgefinder
+WorkingDirectory=/opt/edgefinder
+ExecStart=/opt/edgefinder/.venv/bin/edgefinder serve
+Restart=on-failure
+RestartSec=5
+# 2 GB RAM auf „trading“: der Webprozess ist klein, Jobs laufen getrennt.
+MemoryMax=600M
+TasksMax=64
+SyslogIdentifier=edgefinder
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/edgefinder
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

@@ -22,7 +22,11 @@ nichts verändert.
 Vergleich), Command-Palette, Tastenkürzel, Tooltips/Erklär-Sheets, PWA. Screenshots (hell/dunkel ×
 Desktop/iPhone) unter `~/remote/edgefinder-shots/etappe-f/`; axe, Konsole und 320-px-Überlauf sauber.
 Neu im Backend: `GET /api/sparklines` (Score-Verlauf aller Assets), `sw.js`/Manifest ohne Cache.
-**Etappe h (2026-11-18): fertig** (Nacharbeiten + Backtest, Tests 238). **Nächster Schritt:** Etappe g (Einrichtung „trading“, nur nach Freigabe); Tuning-Entscheidungen nach Backtest-Bericht.
+**Etappe h (2026-11-18): fertig** (Nacharbeiten + Backtest, Tests 238). **Etappe g (2026-11-18): vorbereitet, Ausführung wartet auf Jonas' Freigabe.** `deploy/` ist geschrieben und lokal
+getestet (bash -n, systemd-Analyse, pytest); auf „trading“ wurde nichts ausgeführt oder geprüft. Ablauf: Jonas prüft
+`deploy/install.sh --dry-run` → Ersteinrichtung → `.env` selbst anlegen → `deploy/deploy.sh`. Pflicht-Checks vor Deploy
+stehen in `ERGEBNIS.md` (`/security-review` offen). **Nächster Schritt:** Freigabe/Rückfragen aus dem Etappe-g-Bericht;
+Tuning-Entscheidungen nach Backtest-Bericht.
 
 **Nächster Schritt:** Jonas trägt die drei fehlenden Werte in die `.env` ein; danach je einmal
 `uv run edgefinder fetch myfxbook` und `… edgar` live prüfen (Symbolliste von Myfxbook ansehen,
@@ -38,7 +42,7 @@ siehe „Offen“). Dann Etappe e (Design-System, Beispielseite, Screenshots zur
 | d | Score-Engine mit beiden Profilen, FastAPI-Endpunkte | fertig |
 | e | Design-System und eine Beispielseite | fertig, von Jonas freigegeben |
 | f | Restliches Frontend mit allen Seiten und Funktionen | fertig |
-| g | Einrichtung „trading“ (install.sh vorher zeigen), systemd, deploy.sh, Cloudflare-Doku | offen |
+| g | Einrichtung „trading“ (install.sh vorher zeigen), systemd, deploy.sh, Cloudflare-Doku | vorbereitet, wartet auf Freigabe |
 | h | Backtest (Trefferquote/Rendite nach Score-Bereich, je Profil und Assetklasse) | fertig (Ergebnisse siehe „Offen“, `docs/backtest-report.md`) |
 
 ### Arbeitsweise (von Jonas vorgegeben)
@@ -102,10 +106,17 @@ backend/edgefinder/
   notify/       ✓  Notifier-Schnittstelle (noch ohne Kanal)
   backtest/     ✓  analysis.py (Forward-Rendite, Buckets, Kennzahlen, Faktor-IC), stats.py, report.py (Markdown/JSON)
   cleanup.py    ✓  Rohdaten-Aufbewahrung (`edgefinder cleanup`)
-  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | backtest | cleanup`
+  backup.py     ✓  SQLite-Online-Backup mit Rotation (`edgefinder backup`)
+  systemd.py    ✓  erzeugt Units/Timer aus config.yaml (`edgefinder gen-systemd [--out DIR] [--check]`)
+  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | backtest | cleanup | backup | gen-systemd`
 backend/tests/     pytest; fixtures/ = aufgezeichnete API-Antworten (ohne Keys), support.py = Hilfen
 frontend/          React + TypeScript + Vite, Tailwind mit eigenen Tokens
-deploy/            systemd-Units und -Timer, sudoers, nftables, install.sh, deploy.sh
+deploy/            install.sh (Ersteinrichtung trading, --dry-run/--apply-firewall), deploy.sh (läuft auf der
+                   Agent-VM, per SSH), sync-units.sh (Units nach /etc/systemd/system), nftables.conf,
+                   systemd/ (ERZEUGT aus config.yaml, nicht von Hand ändern; Test prüft Aktualität)
+                   Kein sudoers (claude hat vollen sudo). Layout auf trading: Code /opt/edgefinder,
+                   Daten /var/lib/edgefinder/data (Link /opt/edgefinder/data), Deploy-Key
+                   /var/lib/edgefinder/.ssh, Node 22 (Tarball, gepinnt) und uv (gepinnt) in /usr/local
 config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
 ```
 
@@ -127,8 +138,12 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
 - Zeiten in UTC (ISO 8601) speichern, im Frontend lokal anzeigen.
 - `asset_id` in der DB = ID aus `config.yaml`, bewusst ohne Fremdschlüssel (Historie bleibt,
   wenn ein Asset entfernt wird).
-- Zeitpläne stehen als systemd-`OnCalendar` in `config.yaml`; die Timer-Units werden daraus
-  erzeugt (Etappe g), nicht von Hand gepflegt.
+- Zeitpläne stehen als systemd-`OnCalendar` in `config.yaml` (String oder Liste; mehrere Uhrzeiten mit
+  verschiedenen Minuten gehen nur als Liste, `07:00,23:15:00` ist ungültig); die Units entstehen daraus mit
+  `uv run edgefinder gen-systemd` und liegen eingecheckt in `deploy/systemd/`. Nach jeder Änderung der Zeitpläne
+  neu erzeugen (sonst schlägt `test_committed_units_match_config` an). Wartungs-Zeitpläne: `maintenance:`.
+- Deploy: nur nach Freigabe; vorher Pflicht-Checks (ERGEBNIS.md). `deploy.sh` rollt einen auf origin/main liegenden
+  Commit aus, Rollback `--rollback`. Jobs laufen nacheinander (flock), nice 19, MemoryMax 1G.
 - Tests: pytest, nur aufgezeichnete Beispieldaten, **keine Live-API-Calls**.
 
 ### Fetcher-Konventionen
@@ -198,7 +213,7 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   Vintages) überschreibt die Verzögerungsschätzung nach Frequenz (Japan/IMF: 75 Tage).
 - **Rohdaten-Aufbewahrung:** `storage.raw_retention_days: 30`. `uv run edgefinder cleanup [--days N] [--dry-run]`
   löscht Dateien und `raw_files`-Einträge, die älter sind (nie außerhalb `raw_dir`, leere Ordner werden entfernt);
-  normalisierte Tabellen bleiben. Timer folgt in Etappe g.
+  normalisierte Tabellen bleiben. Timer: `edgefinder-cleanup.timer` (wöchentlich, siehe `maintenance:`).
 
 ### Score-Engine (Etappe d)
 - Aufruf: `uv run edgefinder score [--as-of YYYY-MM-DD] [--asset ID ...] [--from D --to D]`.
@@ -370,7 +385,7 @@ Bestätigung abwarten.
   senken/Vorzeichen für Indizes/Aktien prüfen, Makro-Gewicht Indizes, COT-Interpretation (Trendfolger vs. Konträr).
   CFTC lädt nur 6 Jahre (`history_years: 6`); 15 Jahre würden den COT-Backtest ab 2013 ermöglichen (offen, Jonas fragen).
 - **Rohdaten wachsen:** `data/raw` bekommt je Lauf neue Dateien (FRED mit Vintages ≈ 20 MB je
-  Lauf). Regel: 30 Tage, `edgefinder cleanup`; in Etappe g als täglicher systemd-Timer einrichten.
+  Lauf). Regel: 30 Tage, `edgefinder cleanup`; Timer `edgefinder-cleanup` ist in `deploy/systemd` vorbereitet.
 - **yfinance** ist eine inoffizielle Schnittstelle (kann ohne Vorwarnung brechen); Forex-Volumen
   ist immer 0. Mini-Zeitverzug und Zwischenstände des Tages sind möglich.
 - **Etappe b/h:** Für den Backtest die Vintages aus `macro_observations` nutzen

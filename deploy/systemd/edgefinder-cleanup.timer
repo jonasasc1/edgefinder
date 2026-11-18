@@ -1,0 +1,13 @@
+# ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
+# Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
+[Unit]
+Description=edgefinder: Rohdaten aufräumen
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00 Europe/Vienna
+Persistent=true
+RandomizedDelaySec=60
+Unit=edgefinder-cleanup.service
+
+[Install]
+WantedBy=timers.target

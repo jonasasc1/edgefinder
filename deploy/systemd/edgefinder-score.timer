@@ -1,0 +1,14 @@
+# ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
+# Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
+[Unit]
+Description=edgefinder: Scores berechnen
+
+[Timer]
+OnCalendar=*-*-* 07:30:00 Europe/Vienna
+OnCalendar=*-*-* 23:45:00 Europe/Vienna
+Persistent=true
+RandomizedDelaySec=60
+Unit=edgefinder-score.service
+
+[Install]
+WantedBy=timers.target

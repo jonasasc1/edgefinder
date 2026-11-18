@@ -70,6 +70,44 @@ def _cmd_fetch(config: Config, args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def _cmd_backup(config: Config, args: argparse.Namespace) -> int:
+    """SQLite-Online-Backup nach `maintenance.backup_dir`, ältere Sicherungen werden gelöscht."""
+    from edgefinder.backup import backup_database
+
+    keep = args.keep or config.maintenance.backup_keep
+    try:
+        target = backup_database(config.storage.database, config.maintenance.backup_dir, keep)
+    except (OSError, RuntimeError) as exc:
+        log.error("Sicherung fehlgeschlagen: %s", exc)
+        return 1
+    log.info("Sicherung geschrieben: %s (%.1f MB)", target, target.stat().st_size / 1e6)
+    return 0
+
+
+def _cmd_gen_systemd(config: Config, args: argparse.Namespace) -> int:
+    """systemd-Units/-Timer aus config.yaml erzeugen (`--check`: nur auf Abweichung prüfen)."""
+    from edgefinder import systemd
+
+    files = systemd.generate(config, systemd.Layout(app_dir=args.app_dir, state_dir=args.state_dir))
+    if args.check:
+        stale = [
+            n
+            for n, c in files.items()
+            if not (args.out / n).is_file() or (args.out / n).read_text(encoding="utf-8") != c
+        ]
+        extra = [p.name for p in args.out.glob("edgefinder*.[st]*") if p.name not in files]
+        if stale or extra:
+            log.error("%s weicht von config.yaml ab: %s", args.out, ", ".join(stale + extra))
+            return 1
+        log.info("%d Dateien in %s sind aktuell", len(files), args.out)
+        return 0
+    removed = systemd.write(files, args.out)
+    log.info(
+        "%d Dateien nach %s geschrieben, %d veraltete entfernt", len(files), args.out, len(removed)
+    )
+    return 0
+
+
 def _cmd_score(config: Config, args: argparse.Namespace) -> int:
     """Scores berechnen: ein Stichtag (Standard heute) oder Zeitraum (--from/--to, Backtest)."""
     from edgefinder.scoring.engine import ScoreEngine
@@ -295,6 +333,17 @@ def build_parser() -> argparse.ArgumentParser:
     cleanup.add_argument("--days", type=int, help="überschreibt storage.raw_retention_days")
     cleanup.add_argument("--dry-run", action="store_true", help="nur zählen, nichts löschen")
     cleanup.set_defaults(func=_cmd_cleanup)
+    backup = commands.add_parser("backup", help="SQLite-Datenbank sichern (Online-Backup)")
+    backup.add_argument("--keep", type=int, help="überschreibt maintenance.backup_keep")
+    backup.set_defaults(func=_cmd_backup)
+    gen = commands.add_parser("gen-systemd", help="systemd-Units/-Timer aus config.yaml erzeugen")
+    gen.add_argument("--out", type=Path, default=Path("deploy/systemd"), help="Zielordner")
+    gen.add_argument("--app-dir", default="/opt/edgefinder", help="App-Verzeichnis auf dem Server")
+    gen.add_argument(
+        "--state-dir", default="/var/lib/edgefinder", help="Datenverzeichnis (schreibbar)"
+    )
+    gen.add_argument("--check", action="store_true", help="nichts schreiben, nur Abweichung melden")
+    gen.set_defaults(func=_cmd_gen_systemd)
     serve = commands.add_parser("serve", help="API und Frontend ausliefern")
     serve.add_argument("--host", help="überschreibt server.host")
     serve.add_argument("--port", type=int, help="überschreibt server.port")

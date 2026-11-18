@@ -72,7 +72,8 @@ class RetryConfig(_Model):
 
 class SourceConfig(_Model):
     enabled: bool = True
-    schedule: str
+    # OnCalendar-Ausdruck oder Liste davon (mehrere Uhrzeiten mit verschiedenen Minuten)
+    schedule: str | list[str]
     stale_after_hours: int = Field(gt=0)
     min_interval_seconds: float = Field(ge=0)
     daily_request_limit: int | None = Field(default=None, gt=0)
@@ -167,7 +168,7 @@ class ScoreLabel(_Model):
 
 
 class ScoringConfig(_Model):
-    schedule: str
+    schedule: str | list[str]
     labels: tuple[ScoreLabel, ...]
 
     @model_validator(mode="after")
@@ -242,6 +243,15 @@ class BacktestConfig(_Model):
         return self
 
 
+class MaintenanceConfig(_Model):
+    """Wartungsjobs (Timer werden mit `edgefinder gen-systemd` erzeugt)."""
+
+    cleanup_schedule: str = "Sun *-*-* 03:30:00 Europe/Vienna"
+    backup_schedule: str = "*-*-* 03:00:00 Europe/Vienna"
+    backup_dir: Path = Path("data/backups")
+    backup_keep: int = Field(default=14, ge=1)
+
+
 class Config(_Model):
     server: ServerConfig
     storage: StorageConfig
@@ -253,6 +263,7 @@ class Config(_Model):
     scoring: ScoringConfig
     profiles: dict[str, Profile]
     backtest: BacktestConfig = Field(default_factory=BacktestConfig)
+    maintenance: MaintenanceConfig = Field(default_factory=MaintenanceConfig)
 
     @model_validator(mode="after")
     def _check_references(self) -> Config:

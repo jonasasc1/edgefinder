@@ -48,7 +48,7 @@ sources:
       base_url: https://data-api.ecb.europa.eu/service/data
       history_years: 15
   prices:
-    schedule: "*-*-* 07:00,23:15:00 Europe/Vienna"
+    schedule: ["*-*-* 07:00:00 Europe/Vienna", "*-*-* 23:15:00 Europe/Vienna"]
     stale_after_hours: 36
     min_interval_seconds: 1.5
     options:
@@ -331,7 +331,7 @@ assets:
 # Gewichte je Assetklasse müssen sich zu 1 summieren.
 # ---------------------------------------------------------------------------
 scoring:
-  schedule: "*-*-* 07:30,23:45:00 Europe/Vienna"
+  schedule: ["*-*-* 07:30:00 Europe/Vienna", "*-*-* 23:45:00 Europe/Vienna"]
   labels:            # absteigend; erstes Label, dessen `min` erreicht wird
     - {min: 6.0,   label: "Stark bullish"}
     - {min: 2.0,   label: "Bullish"}
@@ -392,3 +392,12 @@ backtest:
     long_term: [20, 60, 120]
   primary_horizon: {swing: 10, long_term: 60}   # Kennwert in Übersichtstabellen
   min_signals: 30           # weniger Beobachtungen: Wert wird als „zu wenig“ markiert
+
+# ---------------------------------------------------------------------------
+# Wartung (Etappe g): Timer für `edgefinder cleanup` und `edgefinder backup`
+# ---------------------------------------------------------------------------
+maintenance:
+  cleanup_schedule: "Sun *-*-* 03:30:00 Europe/Vienna"
+  backup_schedule: "*-*-* 03:00:00 Europe/Vienna"   # SQLite-Online-Backup, kein Dienststopp nötig
+  backup_dir: data/backups
+  backup_keep: 14           # so viele Sicherungen bleiben erhalten
