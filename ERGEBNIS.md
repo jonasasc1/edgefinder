@@ -56,3 +56,19 @@ False Positives, der Gitleaks-Fund ist ein Testwert (Zustimmung zur Ausnahme).
 festem Text und `?`-Parametern, Schlüssel (Symbol, Kontraktcode) stammen aus der Config, Asset-ID wird gegen die Config
 geprüft. Service Worker: nur gleiche Herkunft, HTML-/404-Antworten werden unter `/assets` weder gespeichert noch
 ausgeliefert, Cache-Version = Build-Hash. `chunkError.ts`: Auto-Reload höchstens 1× je 30 s (keine Schleife).
+
+## Pflicht-Checks vor Deploy Nr. 3 (2026-11-20, Änderungen seit 3e2c8e9: Makro, COT-Pille, E-Giant-Redesign)
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Lint/Tests | ruff, pytest (258), `npm run lint`, `npm test` (18), Build, `check:nav` | grün |
+| Semgrep | `semgrep scan --config p/default --config p/secrets --metrics=off --severity ERROR .` | 0 Funde (ERROR) |
+| Gitleaks | `gitleaks git --redact .` | 0 Funde |
+| pip-audit | Lockfile ohne dev | 0 Funde |
+| npm audit | `npm audit --omit=dev` | 0 Funde |
+| /security-review | gegen 3e2c8e9 (65 Dateien) | 0 Funde |
+
+/security-review im Detail: keine XSS-Senken im neuen Frontend (kein `dangerouslySetInnerHTML`, `innerHTML`, `eval`,
+`document.write`, `postMessage`); Storage nur `sessionStorage`-Flag fürs Intro; Battery-API nur lesend; Service Worker nur
+umbenannt; Backend: keine neuen SQL-Abfragen (Scorecard-Erweiterung nur Textformatierung aus vorhandenen Eingangswerten);
+neue Konfig-Serien sind statische Werte aus `config.yaml`.
