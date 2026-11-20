@@ -32,12 +32,13 @@ export function Sheet({ open, onOpenChange, title, description, children }: Prop
             <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center sm:inset-0 sm:items-center">
               <Dialog.Content asChild>
                 <motion.div
-                  className="glass pointer-events-auto w-full max-w-lg rounded-t-sheet px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 shadow-pop ring-1 ring-edge sm:rounded-sheet sm:pb-6"
+                  className="glass pointer-events-auto relative w-full max-w-lg rounded-t-sheet px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 shadow-pop ring-1 ring-edge sm:rounded-sheet sm:pb-6"
                   initial={{ y: "100%" }}
                   animate={{ y: 0 }}
                   exit={{ y: "100%" }}
                   transition={springSheet}
                 >
+                  <span className="zap-edge" aria-hidden="true" />
                   <div className="mx-auto mb-3 h-1.5 w-10 rounded-chip bg-fill-strong sm:hidden" aria-hidden="true" />
                   <div className="mb-4 flex items-start justify-between gap-4">
                     <div>

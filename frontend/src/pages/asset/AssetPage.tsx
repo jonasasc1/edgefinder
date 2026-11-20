@@ -5,7 +5,7 @@ import { Card } from "../../components/Card";
 import { Delta } from "../../components/Delta";
 import { Button, EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
-import { IconBack, IconCompare, IconSearch } from "../../components/icons";
+import { IconBack, IconCompare } from "../../components/icons";
 import { InfoTip } from "../../components/InfoTip";
 import { PageHeader } from "../../components/PageHeader";
 import { ScoreRing } from "../../components/ScoreRing";
@@ -162,7 +162,7 @@ export function AssetPage() {
                 {detail.profiles[profile] ? (
                   <FactorList detail={detail.profiles[profile]!} />
                 ) : (
-                  <EmptyState icon={<IconSearch size={26} />} title="Noch kein Score" text="Für dieses Profil liegt noch keine Berechnung vor. Sie erscheint nach dem nächsten Score-Lauf." />
+                  <EmptyState art="empty" title="Noch kein Score" text="Für dieses Profil liegt noch keine Berechnung vor. Sie erscheint nach dem nächsten Score-Lauf." />
                 )}
               </Card>
             </section>
@@ -186,7 +186,7 @@ function UnknownAsset({ id }: { id: string }) {
     <div className="px-4 sm:px-8">
       <Card>
         <EmptyState
-          icon={<IconSearch size={26} />}
+          art="miss"
           title={`„${id}“ gibt es nicht`}
           text="Dieses Asset ist nicht in der Liste. Suche es über die Suche oder gehe zurück zur Übersicht."
           action={<Button onClick={() => navigate("/")}>Zur Übersicht</Button>}

@@ -2,7 +2,6 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 
 import { Card } from "./Card";
 import { Button, EmptyState } from "./EmptyState";
-import { IconWarning } from "./icons";
 import { isChunkError, reloadOnce } from "../lib/chunkError";
 
 type Props = { children: ReactNode; resetKey?: string; fullPage?: boolean };
@@ -38,7 +37,7 @@ export class RouteErrorBoundary extends Component<Props, State> {
       <div className={this.props.fullPage ? "mx-auto max-w-xl p-6 pt-24" : "p-4 lg:p-8"} role="alert">
         <Card>
           <EmptyState
-            icon={<IconWarning size={26} />}
+            art="error"
             title="Diese Seite konnte nicht angezeigt werden"
             text={
               chunk

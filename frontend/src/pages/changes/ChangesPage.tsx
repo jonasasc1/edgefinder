@@ -6,7 +6,7 @@ import { Card } from "../../components/Card";
 import { Delta } from "../../components/Delta";
 import { Button, EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
-import { IconChevron, IconSearch } from "../../components/icons";
+import { IconChevron } from "../../components/icons";
 import { PageHeader } from "../../components/PageHeader";
 import { ScoreRing } from "../../components/ScoreRing";
 import { SegmentedControl } from "../../components/SegmentedControl";
@@ -100,7 +100,7 @@ export function ChangesPage() {
         {data && rows.length === 0 && (
           <Card>
             <EmptyState
-              icon={<IconSearch size={26} />}
+              art="empty"
               title="Keine Veränderungen"
               text={data.changes.length === 0 ? "Für diesen Zeitraum gibt es noch keinen Vergleichswert. Der Score-Verlauf baut sich täglich auf." : "In diesem Zeitraum hat sich bei keinem Asset der Score spürbar bewegt."}
             />

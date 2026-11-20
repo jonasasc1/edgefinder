@@ -114,12 +114,13 @@ function PaletteBody() {
             <div className="pointer-events-none fixed inset-0 z-50 flex items-start justify-center px-3 pt-[max(1rem,env(safe-area-inset-top))] sm:px-4 sm:pt-[12vh]">
               <Dialog.Content asChild aria-describedby={undefined}>
                 <motion.div
-                  className="pointer-events-auto flex max-h-[min(34rem,calc(100dvh-2rem))] w-full max-w-xl flex-col overflow-hidden rounded-sheet bg-raised shadow-pop ring-1 ring-edge"
+                  className="pointer-events-auto relative flex max-h-[min(34rem,calc(100dvh-2rem))] w-full max-w-xl flex-col overflow-hidden rounded-sheet bg-raised shadow-pop ring-1 ring-edge"
                   initial={{ opacity: 0, y: -12, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.98 }}
                   transition={springSheet}
                 >
+                  <span className="zap-edge" aria-hidden="true" />
                   <Dialog.Title className="sr-only">Suchen und navigieren</Dialog.Title>
                   <div className="flex items-center gap-3 border-b border-line px-4">
                     <IconSearch size={20} className="shrink-0 text-ink-2" />

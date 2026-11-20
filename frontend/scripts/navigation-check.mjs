@@ -55,6 +55,7 @@ for (const [name, viewport] of [["desktop", { width: 1440, height: 900 }]]) {
   // 1) Alle Seiten über die Sidebar, Service Worker aktiv
   const context = await browser.newContext({ viewport, serviceWorkers: "allow" });
   const page = await context.newPage();
+  await page.addInitScript(() => sessionStorage.setItem("ef-intro", "1"));
   watch(page, `${name}/nav`);
   await page.goto(base + "/", { waitUntil: "networkidle" });
   await page.evaluate(() => navigator.serviceWorker.ready);
@@ -80,6 +81,7 @@ for (const [name, viewport] of [["desktop", { width: 1440, height: 900 }]]) {
   // Service Worker aus: Playwright kann Anfragen des Workers selbst nicht umleiten.
   const stale = await browser.newContext({ viewport, serviceWorkers: "block" });
   const sp = await stale.newPage();
+  await sp.addInitScript(() => sessionStorage.setItem("ef-intro", "1"));
   watch(sp, `${name}/stale`, (t) => /404|Failed to load resource|Seitenfehler|dynamically imported/i.test(t));
   await sp.goto(base + "/", { waitUntil: "networkidle" });
   for (const chunk of ["AssetPage", "ComparePage", "DesignPage"]) await sp.route(`**/assets/${chunk}-*.js`, (r) => r.fulfill({ status: 404, body: "nf" }));

@@ -42,4 +42,13 @@ export const RING_COLOR: Record<Tone, string> = {
   "bear-strong": "var(--c-bear-ring-strong)",
 };
 
+/** Heller Kern des Energiebogens je Stufe (helle Tönung der Signalfarbe). */
+export const CORE_COLOR: Record<Tone, string> = {
+  "bull-strong": "var(--c-bull-core)",
+  bull: "var(--c-bull-core)",
+  flat: "var(--c-flat-core)",
+  bear: "var(--c-bear-core)",
+  "bear-strong": "var(--c-bear-core)",
+};
+
 export const clampScore = (score: number) => Math.min(SCORE_MAX, Math.max(SCORE_MIN, score));

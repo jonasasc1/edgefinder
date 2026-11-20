@@ -1,4 +1,4 @@
-# edgefinder
+# E-Giant (Repo/Paket/Dienst: edgefinder)
 
 Kostenloses Makro-, Sentiment- und Fundamental-Dashboard (Vorbild: A1 Trading EdgeFinder).
 Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie COT englisch).
@@ -8,7 +8,7 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
-**Stand (2026-11-20, noch NICHT deployt): mehr Makrodaten, COT-Pille, Indizes „nur Info“.**
+**Stand (2026-11-20, noch NICHT deployt): Redesign zu E-Giant (siehe Frontend „Marke E-Giant“); davor: mehr Makrodaten, COT-Pille, Indizes „nur Info“.**
 - **Neue Makro-Reihen (live geprüft 2026-11-20, `config.yaml`, vorhandene Fetcher, ALFRED-Vintages vollständig):** US
   Verbrauchervertrauen (UMCSENT), PPI Endnachfrage (PPIFIS), PCE/Kern-PCE (PCEPI/PCEPILFE), Auftragseingang Langlebige
   Güter (DGORDER), Baubeginne (HOUST), JOLTS (JTSJOL), ADP (ADPMNUSNERSA, Monatsänderung; Vintages erst ab 2022-08, davor
@@ -386,15 +386,38 @@ Favoriten gibt es nur clientseitig (localStorage).
   keine `[…]`-Arbitrary-Values in Komponenten; fehlt ein Wert, erst Token anlegen. Text auf Flächen:
   `*-ink` (AA-Kontrast), `*-ring` nur für Grafik. Bullish/Bearish: `soft` (Fläche), `ring`, `ring-strong`,
   `solid` + `on-solid` (gefüllte Marke). `ink-3` nur Deko (Kontrast < 4,5).
+- **Marke E-Giant (2026-11-20, Redesign „Elektroriese“, noch NICHT deployt):** Produktname überall E-Giant (Titel, Wortmarke,
+  Manifest, Footer); Repo, Python-Paket, Dienste und Pfade heißen weiter `edgefinder`. Inspiration: der Elektroriese als Idee
+  („groß denken“, Markt aus Riesenperspektive, Strom/Spannung), KEINE fremden Assets/Figuren. Bildmarke (selbst gezeichnet,
+  `components/Brand.tsx`, `public/favicon.svg`, `scripts/make-icons.mjs`): Panzerplatte mit zwei abgeschrägten Ecken + monumentales „E“,
+  dessen Mittelarm ein Blitz ist. Dieselbe Platte formt die Karten (`.plate`, abgeschrägte Ecken TL/BR, Neon-Kante).
+  **Farben:** Nachtblau-Violett-Schwarz (dunkel) / Eisblau-Weiß (hell, eigenständig, nicht invertiert); Marken-Akzente nur für
+  Marke, Fokus, Bedienung, Effekte: `accent`/`arc` (Elektro-Blau/Cyan), `volt` (Blitzgelb, nie als Text auf Weiß, dafür `volt-ink`).
+  Grün/Rot bleiben ausschließlich bullish/bearish (+ `*-core` als heller Kern des Energiebogens). **Schrift:** Saira (OFL,
+  `@fontsource-variable/saira`) für h1–h3, Zahlen, Wortmarke (`font-display`); Fließtext Systemschrift/Inter. Tokens: `volt*`, `arc`,
+  `glow`, `edge-hi`, `*-core`, `--c-mark-*`, `--plate-cut`, `text-giant`, `shadow-glow`, `--ring-glow`, `--fx-*`.
+- **Effekte (`design/fx.css`, `components/fx/`, `lib/fx.ts`):** Spannungs-Gauge (`ScoreRing`: Glühen, heller Kern, Blitz entlang des Bogens
+  bei Wertänderung und beim Laden großer Ringe, Funken ab |Score| ≥ 6), Zahl blitzt grün/rot bei Änderung (`useFlash`), `.zap`
+  (Lichtbogen am Rand bei Hover/Tap, Glühen am Zeiger via `lib/pointerGlow.ts`, leerer touchstart für iOS-:active), Blitz-Wisch beim
+  Seitenwechsel (`ZapTransition`, 300 ms), `zap-edge` bei Palette/Sheets, Strom-Shimmer-Skeleton, `BoltLoader`, Hero „E-Giant sieht …“
+  (`GiantHero`, Zellen-Energiebalken), Intro 1× je Sitzung (`Intro`, ≤ 780 ms, sessionStorage `ef-intro`, überspringbar),
+  Easter Egg Taste „z“/Konami (`ZapEgg`), Illustrationen (`illustrations.tsx`: Offline = leere Batterie, Fehler = Blitz getrennt,
+  404 = Blitz ins Leere, Leer = Pole ohne Strom). **Regeln:** nur transform/opacity/Hintergrundposition animieren; jede Animation
+  einmalig oder langsam (WCAG 2.3.1, < 3 Blitze/s); unter `prefers-reduced-motion` ruht alles (statisch, gleiche Farben, Intro/Egg/Blitze
+  weg, kein Canvas). Hintergrund (`BackgroundFx`): statisches CSS-Raster + Canvas mit ~8–26 Funkenpunkten, 24 fps Cap, 1× Auflösung,
+  pausiert bei versteckter Seite/niedrigem Akku (<20 %), stoppt selbst bei zu hoher Frame-Zeit; `html[data-fx]` = running|paused|off.
+  Screenshot-/Nav-Skripte setzen `ef-intro`, damit das Intro nicht stört.
 - **Score-Ring:** 270°-Gauge, Null oben, Bogen wächst von der Nullmarke; Stufe aus dem API-Label
   (`lib/score.ts`). Zahlen/Ring laufen federnd (`useSpringValue`), sofort bei `prefers-reduced-motion`.
 - **Screenshots/Prüfung:** `node frontend/scripts/screenshots.mjs [Ordner] [URL]` (Backend mit Build muss
   laufen; Playwright + axe-core aus `~/tools/playwright`, Chromium notfalls per `CHROMIUM_PATH`). Macht
   alle Seiten (Detail je Assetklasse, Makro, Änderungen, Favoriten leer/gefüllt, Status, Vergleich, Palette,
   Hilfe, Erklärung, Fehler-/Leer-/Ladezustände) in hell/dunkel × Desktop 1440×900/iPhone 14 (Service Worker
-  geblockt) und prüft Konsole, Überlauf (auch 320 px) und axe-core. Dauert ca. 4 Min.
+  geblockt) und prüft Konsole, Überlauf (auch 320 px) und axe-core. Dauert ca. 6 Min. Ablage: `~/remote/edgefinder-shots/etappe-j/`.
+  `node frontend/scripts/fx-evidence.mjs` erzeugt Animations-Bildfolgen (Intro, Ring-Blitz) und misst rAF/s (normal ≈ 60 Callbacks,
+  reduzierte Bewegung 0, versteckt 0).
 - Charts: TradingView Lightweight Charts (Attribution als Link im Footer jeder Seite, `components/Footer`).
-- Lizenz Inter: OFL, per `@fontsource-variable/inter` selbst gehostet (kein CDN).
+- Lizenz Inter und Saira: OFL, per `@fontsource-variable/*` selbst gehostet (kein CDN).
 
 ### Git
 - Ein sauberer Commit je Etappe (bei Bedarf weitere kleine), klare Message auf Deutsch.
@@ -474,7 +497,7 @@ Bestätigung abwarten.
 - **Etappe f:** `npm audit --omit=dev`: 0 Funde (2026-11-18). Mit Dev-Paketen: 1 „moderate“ in `minimatch` (ESLint, nicht im Build).
   Score-Verlauf hat erst 2 Tage Historie (Diagramm blendet ihn unter 5 Punkten aus); `reason`-Texte nutzen jetzt Dezimalkomma; Favoriten nur lokal; Push nur Struktur.
 - **Etappe e:** Im Skill `jonas-design` ist der Abschnitt „Marke“ noch offen (Marke hier aus der Vorgabe
-  „Apple-native“ abgeleitet). 
+  „E-Giant/Elektroriese“ abgeleitet, siehe Frontend).
 - Testwarnung: Starlette empfiehlt `httpx2` statt `httpx` für den TestClient; vor einem
   Wechsel Herkunft des Pakets prüfen.
 - `.claude/settings.local.json` ist lokal und nicht im Repo (in `.gitignore`).

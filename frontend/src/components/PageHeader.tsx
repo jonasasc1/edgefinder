@@ -12,7 +12,7 @@ export function SearchButton() {
       onClick={() => setPaletteOpen(true)}
       aria-label="Suchen und navigieren"
       aria-keyshortcuts="Control+K Meta+K"
-      className="grid size-touch shrink-0 place-items-center rounded-chip bg-surface text-ink-2 shadow-card ring-1 ring-edge"
+      className="zap grid size-touch shrink-0 place-items-center rounded-control bg-surface text-ink-2 shadow-card ring-1 ring-edge"
     >
       <IconSearch size={20} />
     </button>
@@ -26,7 +26,7 @@ export function PageHeader({ title, subtitle, actions, before }: { title: string
       {before}
       <div className="flex items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-largetitle font-bold tracking-title">{title}</h1>
+          <h1 className="text-largetitle font-extrabold tracking-title">{title}</h1>
           {subtitle && <p className="mt-1 text-subhead text-ink-2">{subtitle}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2">

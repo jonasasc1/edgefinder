@@ -1,4 +1,4 @@
-// Service Worker von edgefinder.
+// Service Worker von E-Giant (Repo/Paket/Dienst heißen weiterhin edgefinder).
 // - App-Shell: gehashte Dateien unter /assets (unveränderlich) werden beim ersten Abruf gespeichert,
 //   Seiten (Navigation) gehen zuerst ans Netz und fallen offline auf die gespeicherte index.html zurück.
 // - API: immer zuerst ans Netz (keine alten Daten, solange der Server antwortet). Nur ohne Verbindung
@@ -81,7 +81,7 @@ self.addEventListener("push", (event) => {
     data = {};
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || "edgefinder", {
+    self.registration.showNotification(data.title || "E-Giant", {
       body: data.body || "",
       icon: "/icons/icon-192.png",
       data: { url: data.url || "/" },

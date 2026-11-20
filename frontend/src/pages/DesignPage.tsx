@@ -2,9 +2,12 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { Badge, Tag } from "../components/Badge";
-import { Card } from "../components/Card";
+import { BrandMark, Wordmark } from "../components/Brand";
+import { Card, PressCard } from "../components/Card";
 import { Delta } from "../components/Delta";
 import { Button } from "../components/EmptyState";
+import { BoltLoader } from "../components/fx/BoltLoader";
+import { Illustration, type ArtKind } from "../components/illustrations";
 import { IconGrid, IconList } from "../components/icons";
 import { PageHeader } from "../components/PageHeader";
 import { ScoreRing } from "../components/ScoreRing";
@@ -26,6 +29,19 @@ const SURFACES = [
   { name: "fill", cls: "bg-fill", note: "Segmente, Chips" },
   { name: "track", cls: "bg-track", note: "Ring-Spur" },
 ];
+const BRAND = [
+  { name: "accent", cls: "bg-accent", note: "Strom: Bedienung, Fokus" },
+  { name: "arc", cls: "bg-arc", note: "Lichtbogen" },
+  { name: "volt", cls: "bg-volt", note: "Blitzkern (nie als Text)" },
+  { name: "volt-soft", cls: "bg-volt-soft", note: "Energie-Fläche" },
+  { name: "glow", cls: "bg-glow", note: "Glühen, Fokus" },
+];
+const ARTS: { kind: ArtKind; name: string }[] = [
+  { kind: "offline", name: "Offline: leere Batterie" },
+  { kind: "error", name: "Fehler: Blitz getrennt" },
+  { kind: "miss", name: "404: Blitz ins Leere" },
+  { kind: "empty", name: "Leer: Pole ohne Strom" },
+];
 const INKS = [
   { name: "ink", cls: "text-ink", note: "Text" },
   { name: "ink-2", cls: "text-ink-2", note: "Zweittext" },
@@ -40,7 +56,8 @@ const SIGNALS = [
 const STEP_NAMES = ["Fläche", "Ring", "Ring stark", "Gefüllt"];
 
 const TYPE = [
-  { cls: "text-largetitle font-bold tracking-title", name: "Large Title 34/40 Bold", sample: "Übersicht" },
+  { cls: "text-giant font-extrabold tracking-title", name: "Giant 76/72 Saira ExtraBold", sample: "+7,2" },
+  { cls: "text-largetitle font-extrabold tracking-title", name: "Large Title 34/40 Saira ExtraBold", sample: "Übersicht" },
   { cls: "text-title1 font-bold tracking-title", name: "Title 1 28/34 Bold", sample: "EURUSD" },
   { cls: "text-title3 font-bold tracking-title", name: "Title 3 20/24 Bold", sample: "Marktbild" },
   { cls: "text-body font-semibold tracking-tight", name: "Body 17/22 Semibold", sample: "Euro / US-Dollar" },
@@ -104,12 +121,21 @@ export function DesignPage() {
           <div className="max-w-md"><ThemeToggle /></div>
         </Section>
 
-        <Section title="Farben" text="Grün und Rot tragen Bedeutung (bullish/bearish) in je vier Stufen. Blau steht nur für Bedienung und Fokus.">
+        <Section title="Farben" text="Grün und Rot tragen Bedeutung (bullish/bearish) in je vier Stufen. Elektro-Blau und Blitzgelb gehören der Marke: Bedienung, Fokus, Energie-Effekte.">
           <Card className="p-4 sm:p-5">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {SURFACES.map((s) => (
                 <div key={s.name}>
                   <div className={`h-16 rounded-control ring-1 ring-line ${s.cls}`} />
+                  <div className="mt-1.5 text-footnote font-semibold">{s.name}</div>
+                  <div className="text-caption text-ink-2">{s.note}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {BRAND.map((s) => (
+                <div key={s.name}>
+                  <div className={`h-12 rounded-control ring-1 ring-line ${s.cls}`} />
                   <div className="mt-1.5 text-footnote font-semibold">{s.name}</div>
                   <div className="text-caption text-ink-2">{s.note}</div>
                 </div>
@@ -142,7 +168,7 @@ export function DesignPage() {
           </Card>
         </Section>
 
-        <Section title="Typografie" text="Systemschrift (SF Pro auf Apple-Geräten), sonst Inter, selbst gehostet. Zahlen sind tabellarisch.">
+        <Section title="Typografie" text="Saira (OFL, eckig-technisch) für Titel und Zahlen, Fließtext in der Systemschrift (SF Pro auf Apple-Geräten), sonst Inter. Alles selbst gehostet, Zahlen tabellarisch.">
           <Card className="divide-y divide-line">
             {TYPE.map((t) => (
               <div key={t.name} className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6 sm:px-5">
@@ -156,7 +182,7 @@ export function DesignPage() {
           </Card>
         </Section>
 
-        <Section title="Score-Ring" text="270°-Gauge von −10 bis +10, Null oben. Der Bogen wächst von der Nullmarke; Farbe und Füllung zeigen die Stärke.">
+        <Section title="Score-Ring" text="Spannungs-Gauge: 270°-Energiebogen von −10 bis +10, Null oben, mit hellem Kern. Bei Wertänderung entlädt sich ein Blitz entlang des Bogens, ab ±6 knistern Funken.">
           <Card className="p-4 sm:p-5">
             <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-5">
               {RING_STATES.map((s) => (
@@ -174,10 +200,44 @@ export function DesignPage() {
               <div className="flex flex-col items-center gap-2"><ScoreRing score={demo} size="lg" showLabel label={demo >= 6 ? "Stark bullish" : demo >= 2 ? "Bullish" : demo > -2 ? "Neutral" : demo > -6 ? "Bearish" : "Stark bearish"} /><span className="text-caption text-ink-2">Groß mit Label</span></div>
               <div className="flex flex-col items-start gap-2">
                 <Button onClick={nextDemo}>Wert wechseln</Button>
-                <span className="text-caption text-ink-2">Ring und Zahl laufen federnd mit.</span>
+                <span className="text-caption text-ink-2">Ring und Zahl laufen federnd mit, die Zahl blitzt grün (mehr) oder rot (weniger) auf.</span>
               </div>
             </div>
           </Card>
+        </Section>
+
+        <Section title="Marke" text="Eine Panzerplatte mit zwei abgeschrägten Ecken und ein monumentales E, dessen mittlerer Arm ein Blitz ist. Dieselbe Platte formt die Karten.">
+          <Card className="flex flex-wrap items-center gap-8 p-4 sm:p-6">
+            <BrandMark size={96} />
+            <div className="flex flex-col gap-3">
+              <Wordmark size={40} />
+              <Wordmark size={24} />
+            </div>
+            <p className="max-w-xs text-footnote text-ink-2">Taste „z“ auf dem Desktop lässt einen großen Blitz über den Bildschirm fahren.</p>
+          </Card>
+        </Section>
+
+        <Section title="Strom-Effekte" text="Lichtbogen am Rand bei Hover und Tap, Glühen am Zeiger, Blitz am Score-Ring, Schimmer beim Laden. Bei reduzierter Bewegung ruht alles.">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <PressCard className="p-5">
+              <div className="font-display text-title3 font-bold">Zap-Karte</div>
+              <p className="mt-1 text-footnote text-ink-2">Zeiger darüber bewegen oder antippen: der Lichtbogen läuft einmal um den Rand.</p>
+            </PressCard>
+            <Card className="flex flex-col justify-center gap-2 p-5">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </Card>
+            <Card className="p-2"><BoltLoader label="Ladeanzeige" /></Card>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {ARTS.map((a) => (
+              <Card key={a.kind} className="flex flex-col items-center p-3 text-center">
+                <Illustration kind={a.kind} />
+                <span className="text-caption text-ink-2">{a.name}</span>
+              </Card>
+            ))}
+          </div>
         </Section>
 
         <Section title="Bedienelemente">

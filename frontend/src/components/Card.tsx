@@ -3,13 +3,13 @@ import type { ElementType, ReactNode } from "react";
 
 import { spring } from "../lib/motion";
 
-// Flächen: „card“ (Kachel, 20 px), „group“ (Listenblock wie iOS-Gruppe, 16 px).
-// Hell: dezenter Schatten, dunkel: feine Kante (Token --c-edge).
+// Flächen: „card“ = Panzerplatte (zwei abgeschrägte Ecken, Neon-Kante, siehe design/fx.css `.plate`),
+// „group“ = Listenblock mit weichen Ecken. Die Platte trägt ihre Kante selbst (inset), die Gruppe Schatten + Ring.
 type Variant = "card" | "group";
 
 const VARIANT: Record<Variant, string> = {
-  card: "rounded-card",
-  group: "rounded-group overflow-hidden",
+  card: "plate",
+  group: "rounded-group overflow-hidden shadow-card ring-1 ring-edge",
 };
 
 type Props = {
@@ -21,19 +21,19 @@ type Props = {
 
 export function Card({ as: Tag = "div", variant = "card", className, children }: Props) {
   return (
-    <Tag className={`bg-surface shadow-card ring-1 ring-edge ${VARIANT[variant]} ${className ?? ""}`}>
+    <Tag className={`bg-surface ${VARIANT[variant]} ${className ?? ""}`}>
       {children}
     </Tag>
   );
 }
 
-/** Karte, die auf Druck reagiert (leichtes Einfedern) – für Kacheln, die Links sind. */
+/** Karte, die auf Druck reagiert (Einfedern + Lichtbogen am Rand, Glühen am Zeiger) – für Kacheln, die Links sind. */
 export function PressCard({ className, children, ...rest }: HTMLMotionProps<"div">) {
   return (
     <motion.div
       whileTap={{ scale: 0.98 }}
       transition={spring}
-      className={`rounded-card bg-surface shadow-card ring-1 ring-edge ${className ?? ""}`}
+      className={`plate zap bg-surface ${className ?? ""}`}
       {...rest}
     >
       {children}

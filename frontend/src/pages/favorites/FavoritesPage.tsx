@@ -5,7 +5,7 @@ import { Card } from "../../components/Card";
 import { Delta } from "../../components/Delta";
 import { Button, EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
-import { IconChevron, IconCompare, IconStar } from "../../components/icons";
+import { IconChevron, IconCompare } from "../../components/icons";
 import { PageHeader } from "../../components/PageHeader";
 import { ScoreRing } from "../../components/ScoreRing";
 import { SegmentedControl } from "../../components/SegmentedControl";
@@ -89,7 +89,7 @@ export function FavoritesPage() {
         {favorites.length === 0 && (
           <Card>
             <EmptyState
-              icon={<IconStar size={26} />}
+              art="empty"
               title="Noch keine Favoriten"
               text="Tippe auf einer Detailseite auf den Stern, um ein Asset hier zu merken. Deine Favoriten erscheinen auch oben in der Übersicht."
               action={<Button onClick={() => navigate("/")}>Assets ansehen</Button>}

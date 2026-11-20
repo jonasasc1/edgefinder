@@ -15,7 +15,7 @@ const require = createRequire(join(toolsDir, "package.json"));
 const { chromium, devices } = require("playwright");
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 
-const out = process.argv[2] ?? join(homedir(), "remote", "edgefinder-shots", "etappe-i");
+const out = process.argv[2] ?? join(homedir(), "remote", "edgefinder-shots", "etappe-j");
 const base = process.argv[3] ?? "http://127.0.0.1:8420";
 mkdirSync(out, { recursive: true });
 
@@ -96,6 +96,7 @@ const scenarios = [
   },
   { id: "detail-fehler", path: "/asset/EURUSD", api: [["**/api/assets/EURUSD/cot*", (route) => route.abort()]], full: true },
   { id: "detail-unbekannt", path: "/asset/GIBTSNICHT" },
+  { id: "404", path: "/gibt-es-nicht" },
   { id: "makro", path: "/makro", full: true },
   { id: "makro-detail", path: "/makro", prepare: async (page) => { await page.locator("tbody button").nth(2).click(); await page.waitForTimeout(700); } },
   { id: "aenderungen", path: "/aenderungen", full: true },
@@ -151,6 +152,8 @@ for (const target of targets) {
       });
       page.on("pageerror", (error) => problems.push(`${tag}: Fehler: ${error.message}`));
       // Jedes Szenario startet mit Standardwerten (Profil/Ansicht/Sortierung liegen in localStorage).
+      // Intro nur im eigenen Szenario zeigen; sonst als „schon gesehen“ markieren.
+      await page.addInitScript(() => sessionStorage.setItem("ef-intro", "1"));
       await page.addInitScript(() => ["ef-profile", "ef-view", "ef-sort", "ef-favorites", "ef-range", "ef-since"].forEach((k) => localStorage.removeItem(k)));
       if (scenario.favorites) await page.addInitScript((ids) => localStorage.setItem("ef-favorites", JSON.stringify(ids)), scenario.favorites);
       if (scenario.route) await page.route("**/api/assets", scenario.route);

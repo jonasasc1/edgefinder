@@ -149,24 +149,15 @@ export const IconKeyboard = (p: IconProps) => (
   </Icon>
 );
 
-/** Wortmarke: Gauge-Bogen (270°) mit Nullmarke, gleiche Geometrie wie der Score-Ring. */
-export function BrandMark({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" aria-hidden="true" focusable="false">
-      <path
-        d="M7.2 21.2a10 10 0 1 1 13.6 0"
-        fill="none"
-        stroke="var(--c-track)"
-        strokeWidth="3.4"
-        strokeLinecap="round"
-      />
-      <path
-        d="M14 4a10 10 0 0 1 9.5 6.9"
-        fill="none"
-        stroke="var(--c-bull-ring)"
-        strokeWidth="3.4"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+export const IconBolt = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M13.5 3.5 6 13.5h5l-1 7 7.5-10h-5l1-7Z" />
+  </Icon>
+);
+export const IconBatteryEmpty = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="8" width="16" height="9" rx="2" />
+    <path d="M21.5 11v3" />
+    <path d="M6.5 12.5h1.5" />
+  </Icon>
+);

@@ -1,4 +1,4 @@
-// Erzeugt die PWA-Icons (PNG) aus der Wortmarke (Gauge-Bogen, gleiche Geometrie wie BrandMark).
+// Erzeugt die PWA-Icons (PNG) aus der Bildmarke von E-Giant (gleiche Geometrie wie BrandMark).
 //
 //   node scripts/make-icons.mjs
 //
@@ -16,24 +16,26 @@ const { chromium } = require("playwright");
 const out = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "icons");
 mkdirSync(out, { recursive: true });
 
-const BG = "#1c1c1e";
-const TRACK = "#48484a";
-const BULL = "#30d158";
-
+// Geometrie wie components/Brand.tsx und public/favicon.svg (Panzerplatte + E mit Blitz-Arm).
 // scale < 1 lässt Rand für die „maskable“-Sicherheitszone (Kreis mit 80 % Durchmesser)
-const svg = (scale) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="100%" height="100%">
-  <rect width="28" height="28" fill="${BG}"/>
-  <g transform="translate(14 14) scale(${scale}) translate(-14 -14)" fill="none" stroke-width="3.4" stroke-linecap="round">
-    <path d="M7.2 21.2a10 10 0 1 1 13.6 0" stroke="${TRACK}"/>
-    <path d="M14 4a10 10 0 0 1 9.5 6.9" stroke="${BULL}"/>
+const svg = (scale) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">
+  <defs>
+    <linearGradient id="e" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8ff0ff"/><stop offset="1" stop-color="#2f7bff"/></linearGradient>
+    <radialGradient id="bg" cx="0.3" cy="0.2" r="1"><stop offset="0" stop-color="#14205e"/><stop offset="0.6" stop-color="#080b20"/><stop offset="1" stop-color="#060814"/></radialGradient>
+  </defs>
+  <rect width="32" height="32" fill="url(#bg)"/>
+  <g transform="translate(16 16) scale(${scale}) translate(-16 -16)">
+    <path d="M9 1.5H30.5V23L23 30.5H1.5V9Z" fill="#101640" stroke="#5ee7ff" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M8 7H24.5V10.4H11.5V21.6H24.5V25H8Z" fill="url(#e)"/>
+    <path d="M11.5 13.7H19L17 15.7H24.5L15.5 21.4 18.2 17.1H11.5Z" fill="#ffd426" transform="translate(0 -0.6)"/>
   </g>
 </svg>`;
 
 const icons = [
-  { file: "icon-192.png", size: 192, scale: 0.92 },
-  { file: "icon-512.png", size: 512, scale: 0.92 },
-  { file: "icon-maskable-512.png", size: 512, scale: 0.78 },
-  { file: "apple-touch-icon.png", size: 180, scale: 0.92 },
+  { file: "icon-192.png", size: 192, scale: 0.86 },
+  { file: "icon-512.png", size: 512, scale: 0.86 },
+  { file: "icon-maskable-512.png", size: 512, scale: 0.68 },
+  { file: "apple-touch-icon.png", size: 180, scale: 0.86 },
 ];
 
 function findChromium() {

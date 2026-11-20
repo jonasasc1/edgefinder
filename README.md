@@ -1,4 +1,6 @@
-# edgefinder
+# E-Giant (edgefinder)
+
+**E-Giant** ist der Produktname der App; Repo, Python-Paket, Dienste und Pfade heißen weiterhin `edgefinder`.
 
 Kostenloses Makro-, Sentiment- und Fundamental-Dashboard für Forex, Indizes, Rohstoffe und
 US-Aktien. Aus COT-Positionierung, Retail-Sentiment, Makrodaten, Trend, Saisonalität und

@@ -7,7 +7,7 @@ import { TimeChart, type SeriesSpec } from "../../components/charts/TimeChart";
 import { Delta } from "../../components/Delta";
 import { Button, EmptyState } from "../../components/EmptyState";
 import { ErrorState, NoData } from "../../components/ErrorState";
-import { IconClose, IconCompare, IconPlus, IconSearch } from "../../components/icons";
+import { IconClose, IconPlus, IconSearch } from "../../components/icons";
 import { InfoTip } from "../../components/InfoTip";
 import { PageHeader } from "../../components/PageHeader";
 import { ScoreBar } from "../../components/ScoreBar";
@@ -138,7 +138,7 @@ export function ComparePage() {
         {!waiting && assetsState.status !== "error" && ids.length < 2 && (
           <Card>
             <EmptyState
-              icon={<IconCompare size={26} />}
+              art="empty"
               title={ids.length === 0 ? "Wähle Assets zum Vergleichen" : "Wähle ein zweites Asset"}
               text="Du kannst zwei bis vier Assets nebeneinanderstellen, zum Beispiel EURUSD und GOLD. Auch über die Suche (Strg+K) geht das schnell."
               action={<Button onClick={() => setPickerOpen(true)}>Asset hinzufügen</Button>}

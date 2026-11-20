@@ -5,7 +5,7 @@ import { IconChanges, IconMacro, IconOverview, IconStar, IconStatus } from "./ic
 export type NavItem = {
   to: string;
   label: string;
-  icon: ComponentType<{ size?: number }>;
+  icon: ComponentType<{ size?: number; className?: string }>;
   end?: boolean;
 };
 

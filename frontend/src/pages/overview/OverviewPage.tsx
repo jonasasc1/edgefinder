@@ -2,8 +2,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
 
 import { Button, EmptyState } from "../../components/EmptyState";
-import { IconChevronUpDown, IconGrid, IconList, IconSearch, IconSliders, IconWarning } from "../../components/icons";
+import { IconChevronUpDown, IconGrid, IconList, IconSliders } from "../../components/icons";
 import { Card } from "../../components/Card";
+import { connectionArt } from "../../components/illustrations";
 import { PageHeader } from "../../components/PageHeader";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { Sheet } from "../../components/Sheet";
@@ -15,7 +16,7 @@ import { splitFavorites, useFavorites } from "../../lib/favorites";
 import { usePersistentState } from "../../lib/usePersistentState";
 import { AssetCard } from "./AssetCard";
 import { AssetRow } from "./AssetRow";
-import { Distribution } from "./Distribution";
+import { GiantHero } from "./GiantHero";
 import {
   CLASS_LABEL,
   countLevels,
@@ -111,14 +112,14 @@ export function OverviewPage() {
           </div>
         </div>
 
-        {state.status === "ready" && rows.length > 0 && <Distribution counts={counts} total={rows.length} />}
+        {state.status === "ready" && rows.length > 0 && <GiantHero counts={counts} total={rows.length} />}
 
         {state.status === "loading" && (view === "cards" ? <CardSkeletons /> : <RowSkeletons />)}
 
         {state.status === "error" && (
           <Card>
             <EmptyState
-              icon={<IconWarning size={26} />}
+              art={connectionArt()}
               title="Die Daten konnten nicht geladen werden"
               text="Der Server antwortet nicht. Prüfe die Verbindung und lade die Übersicht neu."
               action={<Button onClick={reload}>Erneut laden</Button>}
@@ -129,7 +130,7 @@ export function OverviewPage() {
         {state.status === "ready" && rows.length === 0 && (
           <Card>
             <EmptyState
-              icon={<IconSearch size={26} />}
+              art="empty"
               title={allRows.length === 0 ? "Noch keine Scores vorhanden" : `Keine Assets in „${CLASS_LABEL[filter as keyof typeof CLASS_LABEL]}“`}
               text={
                 allRows.length === 0

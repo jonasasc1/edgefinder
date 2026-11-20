@@ -1,6 +1,10 @@
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router";
 
+import { BackgroundFx } from "./fx/BackgroundFx";
+import { Intro } from "./fx/Intro";
+import { ZapEgg } from "./fx/ZapEgg";
+import { ZapTransition } from "./fx/ZapTransition";
 import { CommandPalette } from "./CommandPalette";
 import { ExplainSheet } from "./ExplainSheet";
 import { RouteErrorBoundary } from "./ErrorBoundary";
@@ -35,6 +39,7 @@ export function AppShell() {
       >
         Zum Inhalt springen
       </a>
+      <BackgroundFx />
       <Sidebar />
       <main id="inhalt" className="pb-[calc(var(--spacing-tabbar)+env(safe-area-inset-bottom)+1.5rem)] lg:pb-12 lg:pl-sidebar">
         <div className="mx-auto max-w-page">
@@ -49,6 +54,9 @@ export function AppShell() {
       <CommandPalette />
       <ShortcutsSheet />
       <ExplainSheet />
+      <ZapTransition />
+      <ZapEgg />
+      <Intro />
     </div>
   );
 }

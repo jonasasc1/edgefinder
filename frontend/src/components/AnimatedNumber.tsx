@@ -1,5 +1,6 @@
 import { motion, useTransform, type MotionValue } from "framer-motion";
 
+import { useFlash } from "../lib/useFlash";
 import { useSpringValue } from "../lib/useSpringValue";
 
 type Props = {
@@ -8,10 +9,15 @@ type Props = {
   className?: string;
 };
 
-/** Zahl, die beim Ändern federnd zum neuen Wert zählt (sofort bei reduzierter Bewegung). */
+/** Zahl, die beim Ändern federnd zum neuen Wert zählt und kurz aufblitzt (grün = mehr, rot = weniger; sofort bei reduzierter Bewegung). */
 export function AnimatedNumber({ value, format, className }: Props) {
   const spring = useSpringValue(value);
-  return <MotionText value={spring} format={format} className={className} />;
+  const flash = useFlash(value);
+  return (
+    <span key={flash.n} className={flash.dir === "up" ? "flash-up" : flash.dir === "down" ? "flash-down" : undefined}>
+      <MotionText value={spring} format={format} className={className} />
+    </span>
+  );
 }
 
 /** Zeigt einen vorhandenen MotionValue formatiert an (z. B. synchron zum Ring). */

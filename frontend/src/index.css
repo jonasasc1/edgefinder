@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/saira/wght.css";
 @import "./design/tokens.css";
+@import "./design/fx.css";
 
 @layer base {
   html {
@@ -17,6 +19,11 @@
     line-height: var(--text-subhead--line-height);
     overflow-wrap: anywhere;
   }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+  }
   button,
   select {
     font: inherit;
@@ -26,9 +33,11 @@
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
+  /* Elektro-Fokusring: Blau mit Glühen, in beiden Modi deutlich sichtbar */
   :focus-visible {
     outline: 2px solid var(--c-accent);
     outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--c-glow);
   }
   ::selection {
     background: var(--c-fill-strong);
@@ -58,27 +67,6 @@
   background: var(--c-glass);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
-}
-
-/* Schimmer der Skeletons; ruhend bei reduzierter Bewegung */
-@keyframes shimmer {
-  from {
-    background-position: 120% 0;
-  }
-  to {
-    background-position: -120% 0;
-  }
-}
-.skeleton {
-  background-color: var(--c-fill);
-  background-image: linear-gradient(100deg, transparent 30%, var(--c-fill) 50%, transparent 70%);
-  background-size: 200% 100%;
-  animation: shimmer 1.6s linear infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .skeleton {
-    animation: none;
-  }
 }
 
 .scroll-hidden {

@@ -1,5 +1,5 @@
 /*
- * Design-Tokens von edgefinder.
+ * Design-Tokens von E-Giant.
  *
  * Konvention: Rohwerte (Hex, px, Schatten) stehen NUR in dieser Datei. Komponenten nutzen
  * ausschließlich die Tailwind-Utilities, die unten aus den Tokens erzeugt werden
@@ -9,109 +9,141 @@
  * [data-theme="dark"]); `@theme inline` hängt Tailwind-Namen darauf. Den Modus setzt
  * public/theme-init.js vor dem ersten Rendern (System, oder die Wahl aus localStorage).
  *
- * Farbwelt: ruhige iOS-Grautöne (grouped background), Akzent nur mit Bedeutung:
- * Grün = bullish, Rot = bearish (je zwei Stärkestufen), Blau nur für Bedienung/Fokus.
+ * Farbwelt „Elektroriese“: Nachtblau-Violett-Schwarz (dunkel) bzw. Eisblau-Weiß (hell) als Grund.
+ * Marke = Elektro-Blau/Cyan (Strom: Bedienung, Fokus, Lichtbögen) und Elektro-Gelb („volt“, der
+ * Blitzkern: Marke und Energie-Effekte). Grün = bullish und Rot = bearish bleiben allein der
+ * Bedeutung vorbehalten (je Stufe soft/ring/ring-strong/ink/solid + helle „core“-Farbe für den
+ * Kern des Energiebogens). Gelb ist nie Textfarbe auf Weiß (dafür `volt-ink`).
  */
 
 :root {
   color-scheme: light;
 
   /* Flächen */
-  --c-canvas: #f2f2f7;
+  --c-canvas: #e7eefb;
   --c-surface: #ffffff;
   --c-raised: #ffffff;
   --c-thumb: #ffffff;
-  --c-fill: rgb(118 118 128 / 0.12);
-  --c-fill-strong: rgb(118 118 128 / 0.2);
-  --c-glass: rgb(249 249 251 / 0.74);
-  --c-scrim: rgb(0 0 0 / 0.32);
+  --c-fill: rgb(30 70 170 / 0.09);
+  --c-fill-strong: rgb(30 70 170 / 0.17);
+  --c-glass: rgb(240 245 255 / 0.78);
+  --c-scrim: rgb(8 16 48 / 0.38);
 
   /* Text und Linien */
-  --c-ink: #000000;
-  --c-ink-2: #5c5c63;
-  --c-ink-3: #8e8e93;
-  --c-line: rgb(60 60 67 / 0.14);
-  --c-edge: rgb(60 60 67 / 0);
+  --c-ink: #0a1230;
+  --c-ink-2: #465272;
+  --c-ink-3: #8a94b3;
+  --c-line: rgb(20 50 140 / 0.14);
+  --c-edge: rgb(30 80 220 / 0.14);
+  --c-edge-hi: rgb(10 92 255 / 0.5);
 
-  /* Bedienung */
-  --c-accent: #007aff;
-  --c-accent-ink: #005fcc;
-  --c-accent-solid: #0062d1;
+  /* Bedienung und Marke: Elektro-Blau, Blitzgelb, Lichtbogen-Cyan */
+  --c-accent: #0a5cff;
+  --c-accent-ink: #0743bd;
+  --c-accent-solid: #0a4fd8;
   --c-on-accent: #ffffff;
+  --c-arc: #0f8fe0;
+  --c-glow: rgb(10 92 255 / 0.22);
+  --c-volt: #ffc800;
+  --c-volt-soft: rgb(255 200 0 / 0.2);
+  --c-volt-ink: #7a5300;
+  --c-on-volt: #1a1300;
+  /* Bildmarke: in beiden Modi gleich (Platte dunkel, E blau-weiß verlaufend) */
+  --c-mark-plate: #101640;
+  --c-mark-a: #8ff0ff;
+  --c-mark-b: #2f7bff;
 
   /* bullish (grün): soft = Fläche, ring = Ring/Balken, ring-strong = starkes Signal,
-     ink = Text, solid = gefüllte Marke mit on-solid-Text */
-  --c-bull-soft: rgb(52 199 89 / 0.16);
-  --c-bull-ring: #34c759;
-  --c-bull-ring-strong: #248a3d;
-  --c-bull-ink: #1b7a34;
-  --c-bull-solid: #1c7c36;
+     ink = Text, solid = gefüllte Marke mit on-solid-Text, core = heller Kern des Energiebogens */
+  --c-bull-soft: rgb(30 190 80 / 0.16);
+  --c-bull-ring: #1fbf55;
+  --c-bull-ring-strong: #16933f;
+  --c-bull-ink: #17702f;
+  --c-bull-solid: #17772f;
+  --c-bull-core: #c9ffd8;
 
   /* bearish (rot) */
-  --c-bear-soft: rgb(255 59 48 / 0.12);
-  --c-bear-ring: #ff3b30;
-  --c-bear-ring-strong: #c9251b;
-  --c-bear-ink: #c3231a;
-  --c-bear-solid: #c3231a;
+  --c-bear-soft: rgb(240 50 50 / 0.12);
+  --c-bear-ring: #f23d3d;
+  --c-bear-ring-strong: #c52222;
+  --c-bear-ink: #bb1f1f;
+  --c-bear-solid: #bb1f1f;
+  --c-bear-core: #ffd4d0;
 
   /* neutral */
-  --c-flat-soft: rgb(118 118 128 / 0.14);
-  --c-flat-ring: #a4a4aa;
-  --c-flat-ink: #55555c;
-  --c-track: rgb(118 118 128 / 0.18);
+  --c-flat-soft: rgb(60 80 140 / 0.12);
+  --c-flat-ring: #9aa4c2;
+  --c-flat-ink: #4a5578;
+  --c-flat-core: #e8edfa;
+  --c-track: rgb(30 70 170 / 0.16);
   --c-on-solid: #ffffff;
 
   /* Linienfarben für Diagramme mit mehreren Reihen (keine Signalfarben) */
-  --c-series-1: #0a6cd6;
-  --c-series-2: #c76a00;
+  --c-series-1: #0a5cd6;
+  --c-series-2: #b86200;
   --c-series-3: #8e3fc4;
-  --c-series-4: #12849b;
+  --c-series-4: #0e7f9c;
 
-  /* Schatten */
-  --sh-card: 0 0 0 0.5px rgb(0 0 0 / 0.04), 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 20px rgb(0 0 0 / 0.05);
-  --sh-thumb: 0 1px 1px rgb(0 0 0 / 0.06), 0 3px 8px rgb(0 0 0 / 0.12);
-  --sh-pop: 0 8px 30px rgb(0 0 0 / 0.16), 0 0 0 0.5px rgb(0 0 0 / 0.08);
+  /* Schatten und Glühen */
+  --sh-card: 0 0 0 0.5px rgb(20 50 150 / 0.06), 0 1px 2px rgb(20 50 150 / 0.05), 0 10px 28px rgb(30 70 200 / 0.08);
+  --sh-thumb: 0 1px 1px rgb(20 50 150 / 0.08), 0 3px 8px rgb(20 50 150 / 0.14);
+  --sh-pop: 0 10px 34px rgb(10 30 110 / 0.2), 0 0 0 0.5px rgb(20 50 150 / 0.1);
+  --sh-glow: 0 0 0 1px rgb(10 92 255 / 0.5), 0 4px 22px rgb(10 92 255 / 0.28);
+  --ring-glow: 1.5px;
+  --fx-grid: rgb(20 80 200 / 0.07);
+  --fx-field-a: rgb(10 110 255 / 0.1);
+  --fx-field-b: rgb(120 70 255 / 0.07);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --c-canvas: #000000;
-  --c-surface: #1c1c1e;
-  --c-raised: #2c2c2e;
-  --c-thumb: #636366;
-  --c-fill: rgb(118 118 128 / 0.24);
-  --c-fill-strong: rgb(118 118 128 / 0.36);
-  --c-glass: rgb(22 22 24 / 0.72);
-  --c-scrim: rgb(0 0 0 / 0.55);
+  --c-canvas: #060814;
+  --c-surface: #0d1226;
+  --c-raised: #151b38;
+  --c-thumb: #2a3566;
+  --c-fill: rgb(120 150 255 / 0.12);
+  --c-fill-strong: rgb(120 150 255 / 0.22);
+  --c-glass: rgb(8 11 28 / 0.74);
+  --c-scrim: rgb(2 4 14 / 0.66);
 
-  --c-ink: #ffffff;
-  --c-ink-2: #a3a3aa;
-  --c-ink-3: #6e6e75;
-  --c-line: rgb(255 255 255 / 0.1);
-  --c-edge: rgb(255 255 255 / 0.08);
+  --c-ink: #f2f6ff;
+  --c-ink-2: #a6b1d2;
+  --c-ink-3: #6a7498;
+  --c-line: rgb(130 160 255 / 0.14);
+  --c-edge: rgb(110 170 255 / 0.17);
+  --c-edge-hi: rgb(94 231 255 / 0.55);
 
-  --c-accent: #0a84ff;
-  --c-accent-ink: #5eb0ff;
-  --c-accent-solid: #0a6cd6;
+  --c-accent: #3da9ff;
+  --c-accent-ink: #7cc6ff;
+  --c-accent-solid: #1b66dc;
   --c-on-accent: #ffffff;
+  --c-arc: #5ee7ff;
+  --c-glow: rgb(61 169 255 / 0.3);
+  --c-volt: #ffd426;
+  --c-volt-soft: rgb(255 212 38 / 0.18);
+  --c-volt-ink: #ffd426;
+  --c-on-volt: #1a1300;
 
   --c-bull-soft: rgb(48 209 88 / 0.2);
   --c-bull-ring: #30d158;
   --c-bull-ring-strong: #6df08f;
   --c-bull-ink: #5fe583;
   --c-bull-solid: #30d158;
+  --c-bull-core: #d6ffe2;
 
   --c-bear-soft: rgb(255 69 58 / 0.2);
   --c-bear-ring: #ff453a;
   --c-bear-ring-strong: #ff7a70;
   --c-bear-ink: #ff7b72;
   --c-bear-solid: #ff453a;
+  --c-bear-core: #ffdcd8;
 
-  --c-flat-soft: rgb(118 118 128 / 0.28);
-  --c-flat-ring: #7c7c83;
-  --c-flat-ink: #b0b0b7;
-  --c-track: rgb(118 118 128 / 0.3);
+  --c-flat-soft: rgb(130 150 220 / 0.2);
+  --c-flat-ring: #7d88ad;
+  --c-flat-ink: #b3bddc;
+  --c-flat-core: #dfe6fb;
+  --c-track: rgb(130 160 255 / 0.2);
   --c-on-solid: #000000;
 
   --c-series-1: #5eb0ff;
@@ -119,9 +151,14 @@
   --c-series-3: #c98cf0;
   --c-series-4: #4fd1e6;
 
-  --sh-card: 0 0 0 0 transparent;
+  --sh-card: inset 0 1px 0 rgb(150 190 255 / 0.07);
   --sh-thumb: 0 1px 2px rgb(0 0 0 / 0.5), 0 3px 8px rgb(0 0 0 / 0.4);
-  --sh-pop: 0 12px 40px rgb(0 0 0 / 0.6), 0 0 0 0.5px rgb(255 255 255 / 0.1);
+  --sh-pop: 0 14px 44px rgb(0 0 0 / 0.65), 0 0 0 0.5px rgb(130 180 255 / 0.2);
+  --sh-glow: 0 0 0 1px rgb(94 231 255 / 0.6), 0 0 26px rgb(61 169 255 / 0.4);
+  --ring-glow: 3.5px;
+  --fx-grid: rgb(110 150 255 / 0.07);
+  --fx-field-a: rgb(40 110 255 / 0.16);
+  --fx-field-b: rgb(130 60 255 / 0.12);
 }
 
 @theme {
@@ -133,6 +170,8 @@
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", system-ui,
     sans-serif;
+  /* Display: Saira (OFL, eckig-technisch) für Titel, Zahlen, Wortmarke */
+  --font-display: "Saira Variable", "Inter Variable", system-ui, sans-serif;
 
   /* Typografie (iOS-Stufen) */
   --text-tab: 0.6875rem;
@@ -153,18 +192,20 @@
   --text-title1--line-height: 2.125rem;
   --text-largetitle: 2.125rem;
   --text-largetitle--line-height: 2.5rem;
-  --text-display: 3rem;
+  --text-display: 3.25rem;
   --text-display--line-height: 1;
-  --tracking-title: -0.022em;
+  --text-giant: 4.75rem;
+  --text-giant--line-height: 0.95;
+  --tracking-title: -0.005em;
   --tracking-tight: -0.011em;
 
   /* Radien: Kapsel, Bedienelement, Gruppe, Karte, Sheet */
   --radius-chip: 999px;
-  --radius-control: 0.75rem;
-  --radius-thumb: 0.625rem;
-  --radius-group: 1rem;
-  --radius-card: 1.25rem;
-  --radius-sheet: 1.75rem;
+  --radius-control: 0.625rem;
+  --radius-thumb: 0.5rem;
+  --radius-group: 0.875rem;
+  --radius-card: 0.875rem;
+  --radius-sheet: 1.25rem;
 
   /* Maße */
   --spacing-touch: 2.75rem;
@@ -173,6 +214,9 @@
   --spacing-tabbar: 3.25rem;
   --container-page: 76rem;
   --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-zap: cubic-bezier(0.2, 0.9, 0.2, 1);
+  /* Panzerplatte: Maß der abgeschrägten Ecken (Karten, Bildmarke) */
+  --plate-cut: 0.875rem;
 }
 
 /* Tailwind-Namen auf die modusabhängigen Variablen */
@@ -191,9 +235,19 @@
   --color-line: var(--c-line);
   --color-edge: var(--c-edge);
   --color-accent: var(--c-accent);
+  --color-edge-hi: var(--c-edge-hi);
   --color-accent-ink: var(--c-accent-ink);
   --color-accent-solid: var(--c-accent-solid);
   --color-on-accent: var(--c-on-accent);
+  --color-arc: var(--c-arc);
+  --color-glow: var(--c-glow);
+  --color-volt: var(--c-volt);
+  --color-volt-soft: var(--c-volt-soft);
+  --color-volt-ink: var(--c-volt-ink);
+  --color-on-volt: var(--c-on-volt);
+  --color-bull-core: var(--c-bull-core);
+  --color-bear-core: var(--c-bear-core);
+  --color-flat-core: var(--c-flat-core);
   --color-bull-soft: var(--c-bull-soft);
   --color-bull-ring: var(--c-bull-ring);
   --color-bull-ring-strong: var(--c-bull-ring-strong);
@@ -217,4 +271,5 @@
   --shadow-card: var(--sh-card);
   --shadow-thumb: var(--sh-thumb);
   --shadow-pop: var(--sh-pop);
+  --shadow-glow: var(--sh-glow);
 }

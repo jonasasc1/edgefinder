@@ -16,13 +16,18 @@ export function TabBar() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex h-tabbar min-w-touch flex-col items-center justify-center gap-0.5 text-tab font-medium ${
+                `relative flex h-tabbar min-w-touch flex-col items-center justify-center gap-0.5 text-tab font-medium transition-colors active:text-accent-ink ${
                   isActive ? "text-accent-ink" : "text-ink-2"
                 }`
               }
             >
-              <Icon size={24} />
-              {label}
+              {({ isActive }) => (
+                <>
+                  {isActive && <span aria-hidden="true" className="absolute inset-x-5 top-0 h-0.5 rounded-chip bg-volt shadow-glow" />}
+                  <Icon size={24} />
+                  {label}
+                </>
+              )}
             </NavLink>
           </li>
         ))}

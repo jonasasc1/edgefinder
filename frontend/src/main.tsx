@@ -10,6 +10,7 @@ import { RouteErrorBoundary } from "./components/ErrorBoundary";
 import { TooltipProvider } from "./components/Tooltip";
 import { UiProvider } from "./components/ui-context";
 import { reloadOnce } from "./lib/chunkError";
+import { initPointerGlow } from "./lib/pointerGlow";
 import { registerServiceWorker } from "./lib/pwa";
 import { ThemeProvider } from "./lib/theme";
 
@@ -36,4 +37,5 @@ window.addEventListener("vite:preloadError", (event) => {
   if (reloadOnce()) event.preventDefault();
 });
 
+initPointerGlow();
 registerServiceWorker();

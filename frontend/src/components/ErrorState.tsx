@@ -2,14 +2,14 @@ import type { ReactNode } from "react";
 
 import { Card } from "./Card";
 import { Button, EmptyState } from "./EmptyState";
-import { IconWarning } from "./icons";
+import { connectionArt } from "./illustrations";
 
 /** Fehlerzustand eines Abschnitts: sagt, was passiert ist, und bietet „Erneut laden“ an. */
 export function ErrorState({ what, onRetry }: { what: string; onRetry: () => void }) {
   return (
     <Card>
       <EmptyState
-        icon={<IconWarning size={26} />}
+        art={connectionArt()}
         title={`${what} konnten nicht geladen werden`}
         text="Der Server antwortet nicht. Prüfe die Verbindung und versuche es noch einmal."
         action={<Button onClick={onRetry}>Erneut laden</Button>}
