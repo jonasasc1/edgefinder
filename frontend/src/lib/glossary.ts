@@ -67,7 +67,7 @@ export const TERMS: Record<TermKey, { title: string; text: string }> = {
   },
   longShort: {
     title: "Long- und Short-Anteil",
-    text: "Anteil der Long- bzw. Short-Positionen. COT: Long ÷ (Long + Short) der Non-Commercials. Retail: Anteil der Privatanleger-Positionen. Die Pille zeigt die Lesart des Scores (Perzentil gegen die eigene Historie), nicht den reinen Anteil.",
+    text: "Anteil der Long- bzw. Short-Positionen. COT: Long ÷ (Long + Short) der Non-Commercials. Retail: Anteil der Privatanleger-Positionen. Der Long-Anteil allein sagt nichts über die Richtung: Eine Währung kann 80 % Long sein und trotzdem bearish, wenn das für sie historisch wenig ist. Die Pille ist das Signal des Score-Teilscores und beruht auf dem Perzentil der Netto-Position gegen die letzten drei Jahre (Zeile „Perzentil“), nicht auf dem reinen Anteil. Stimmen Long-Anteil und Perzentil nicht überein, steht ein Hinweis in der Zeile.",
   },
   scoreHistory: {
     title: "Score-Verlauf",

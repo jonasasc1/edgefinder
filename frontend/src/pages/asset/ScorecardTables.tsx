@@ -45,6 +45,14 @@ function DateCell({ row }: { row: ScorecardRow }) {
   );
 }
 
+/** Hinweis, wenn Long-Anteil und Perzentil der Netto-Position auseinanderlaufen (sonst wirkt die Pille widersprüchlich). */
+function percentileHint(row: ScorecardRow): string | null {
+  if (row.percentile === null || row.percentile === undefined || row.long_pct === null) return null;
+  if (row.long_pct >= 50 && row.percentile <= 35) return "Perzentil niedrig";
+  if (row.long_pct < 50 && row.percentile >= 65) return "Perzentil hoch";
+  return null;
+}
+
 /** Long-/Short-Balken: grün = Long, rot = Short; die Zahlen stehen immer dabei. */
 function LongShort({ row }: { row: ScorecardRow }) {
   if (row.long_pct === null || row.short_pct === null) return <span className="text-ink-3">–</span>;
@@ -63,6 +71,12 @@ function LongShort({ row }: { row: ScorecardRow }) {
           Short <span className="font-semibold text-ink">{formatDecimal(row.short_pct, 1)} %</span>
         </span>
       </div>
+      {row.percentile !== null && row.percentile !== undefined && (
+        <p className="num mt-0.5 text-caption text-ink-2">
+          Perzentil <span className="font-semibold text-ink">{formatDecimal(row.percentile, 0)}</span>
+          {percentileHint(row) && <span className="ml-1 text-ink">· {percentileHint(row)}</span>}
+        </p>
+      )}
     </div>
   );
 }

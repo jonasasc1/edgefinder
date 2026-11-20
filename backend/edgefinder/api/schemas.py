@@ -203,6 +203,9 @@ class ScorecardRowOut(BaseModel):
     score: float | None = None  # −1…+1
     long_pct: float | None = None  # Long-Anteil (COT, Retail, AAII bullish)
     short_pct: float | None = None
+    percentile: float | None = (
+        None  # COT: Perzentil der Netto-Position in der eigenen Historie (0–100)
+    )
     estimate: float | None = None  # nur Earnings (EPS-Schätzung)
     surprise_pct: float | None = None  # nur Earnings
     text: str | None = None

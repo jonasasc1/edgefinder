@@ -115,3 +115,17 @@ def test_env_example_lists_every_secret() -> None:
     example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
     for field in Secrets.model_fields:
         assert f"{field.upper()}=" in example
+
+
+def test_us_extra_macro_indicators_and_pmi_substitute_is_labelled() -> None:
+    """Neue US-Reihen (live geprüft 2026-11-20); Regional-Fed-Indizes heißen PMI-Ersatz."""
+    from edgefinder.config import load_config
+
+    us = load_config().economies["US"].indicators
+    for key in ("consumer_confidence", "ppi", "pce", "core_pce", "durable_goods", "housing_starts"):
+        assert key in us
+    assert {"jolts", "adp"} <= set(us) and us["adp"].series == "ADPMNUSNERSA"
+    assert (
+        us["philly_fed"].series == "GACDFSA066MSFRBPHI" and "PMI-Ersatz" in us["philly_fed"].label
+    )
+    assert "ISM" not in " ".join(i.label for i in us.values())

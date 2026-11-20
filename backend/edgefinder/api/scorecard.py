@@ -36,10 +36,7 @@ SOON_DAYS = 2  # Stern, wenn der nächste Termin höchstens so viele Tage entfer
 EARNINGS_SOON_DAYS = 14
 COT_RELEASE_LAG_DAYS = 10  # Stichtag (Dienstag) → Veröffentlichung am übernächsten Freitag
 RETAIL_PREVIOUS_HOURS = 24
-INDEX_CATEGORIES = (
-    "growth",
-    "labor",
-)  # Inflation und Zinsen gehen bei Indizes nicht in den Score ein
+INDEX_SCORE_CATEGORIES = ("growth", "labor")  # nur diese gehen bei Indizes in den Score ein
 CATEGORY_ORDER = ("growth", "inflation", "labor", "rates")
 CATEGORY_LABEL = {
     "growth": "Wachstum",
@@ -47,7 +44,17 @@ CATEGORY_LABEL = {
     "labor": "Arbeitsmarkt",
     "rates": "Zinsen und Dollar",
 }
-UNIT_BY_KEY = {"payrolls": "k", "jobless": "count", "dollar_index": "index"}  # sonst Prozent
+UNIT_BY_KEY = {  # sonst Prozent
+    "payrolls": "k",
+    "jolts": "k",
+    "adp": "count",
+    "jobless": "count",
+    "dollar_index": "index",
+    "consumer_confidence": "index",
+    "philly_fed": "index",
+    "empire_state": "index",
+    "industry_confidence": "index",
+}
 
 
 @dataclass(frozen=True)
@@ -322,7 +329,12 @@ class Builder:
 
     # --- Institutionell ----------------------------------------------------------------------
     def _cot_row(
-        self, code: str, name: str, side: str | None, score: float | None
+        self,
+        code: str,
+        name: str,
+        side: str | None,
+        score: float | None,
+        inputs: dict[str, Any] | None = None,
     ) -> s.ScorecardRowOut | None:
         reports = self.conn.execute(
             "SELECT report_date, noncomm_long, noncomm_short FROM cot_reports WHERE contract_code ="
@@ -341,6 +353,16 @@ class Builder:
         release = date.fromisoformat(reports[0]["report_date"]) + timedelta(
             days=COT_RELEASE_LAG_DAYS
         )
+        net = reports[0]["noncomm_long"] - reports[0]["noncomm_short"]
+        inputs = inputs or {}
+        percentile = inputs.get("level_percentile")
+        years = round(inputs["weeks"] / 52) if inputs.get("weeks") else None
+        # Neutrale Kurzlesart (unabhängig von der Pille): Richtung, Netto und Perzentil der Historie
+        net_text = f"{net:+,}".replace(",", ".")
+        reading = f"Non-Commercials Netto-{'Long' if net >= 0 else 'Short'} ({net_text} Kontrakte)"
+        if percentile is not None:
+            window = f"{years}-Jahres-" if years else ""
+            reading += f", {percentile:.0f} % im {window}Perzentil der eigenen Historie"
         return s.ScorecardRowOut(
             key=f"cot-{code}",
             label=name,
@@ -355,9 +377,9 @@ class Builder:
             score=None if score is None else round(score, 3),
             next_date=release.isoformat(),
             soon=0 <= (release - self.as_of).days <= SOON_DAYS,
-            text=f"Netto {reports[0]['noncomm_long'] - reports[0]['noncomm_short']:+,}".replace(
-                ",", "."
-            ),
+            percentile=None if percentile is None else round(percentile, 1),
+            text=reading,
+            note=_reason(self.c, "cot") if side is None else None,
         )
 
     def institutional(self) -> list[s.ScorecardSectionOut]:
@@ -368,7 +390,17 @@ class Builder:
             for ccy in (asset.base, asset.quote):
                 code = self.config.currencies[ccy].cftc_code
                 sub = cot.inputs.get(ccy, {}).get("subscore") if cot else None
-                row = self._cot_row(code, f"COT Positionierung {ccy}", ccy, sub) if code else None
+                row = (
+                    self._cot_row(
+                        code,
+                        f"COT Positionierung {ccy}",
+                        ccy,
+                        sub,
+                        cot.inputs.get(ccy) if cot else None,
+                    )
+                    if code
+                    else None
+                )
                 if row:
                     rows.append(row)
             score = cot.subscore if cot else None
@@ -376,7 +408,12 @@ class Builder:
             score = None
         else:
             code = asset.cftc_code
-            row = self._cot_row(code, "COT Positionierung", None, self.sub("cot")) if code else None
+            inputs = self.c["cot"].inputs if "cot" in self.c else None
+            row = (
+                self._cot_row(code, "COT Positionierung", None, self.sub("cot"), inputs)
+                if code
+                else None
+            )
             if row:
                 rows.append(row)
             score = self.sub("cot")
@@ -468,13 +505,20 @@ class Builder:
             ]
             categories = CATEGORY_ORDER
         elif isinstance(asset, IndexAsset):
-            sides, categories = [(asset.economy, None)], INDEX_CATEGORIES
+            sides, categories = [(asset.economy, None)], CATEGORY_ORDER
         else:
             sides, categories = [("US", None)], CATEGORY_ORDER
         per_side = [(side, self._economy_rows(code, side, categories)) for code, side in sides]
         macro_inputs = self.c["macro"].inputs if "macro" in self.c else {}
         for category in categories:
             rows = [r for _, by_cat in per_side for r in by_cat.get(category, [])]
+            info_only_index = (
+                isinstance(asset, IndexAsset) and category not in INDEX_SCORE_CATEGORIES
+            )
+            if info_only_index:
+                # Die Richtung (`higher_is`) gilt für Währungen; für Aktienindizes wäre eine Pille
+                # irreführend. Nur Wert, Vorwert und Änderung zeigen.
+                rows = [r.model_copy(update={"signal": None, "score": None}) for r in rows]
             score = None
             if isinstance(asset, ForexAsset):  # Basis − Quote, wie in der Engine
                 mean = [
@@ -497,9 +541,12 @@ class Builder:
                     self.threshold,
                     score=score,
                     empty_reason="Keine aktuellen Daten für diese Kategorie.",
-                    in_score=isinstance(asset, ForexAsset)
-                    or category in macro_inputs
-                    or (category == "rates" and "dollar" in macro_inputs),
+                    in_score=not info_only_index
+                    and (
+                        isinstance(asset, ForexAsset)
+                        or category in macro_inputs
+                        or (category == "rates" and "dollar" in macro_inputs)
+                    ),
                 )
             )
         return sections

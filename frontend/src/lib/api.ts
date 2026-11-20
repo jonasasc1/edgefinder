@@ -176,6 +176,7 @@ export type ScorecardRow = {
   score: number | null;
   long_pct: number | null;
   short_pct: number | null;
+  percentile: number | null;
   estimate: number | null;
   surprise_pct: number | null;
   text: string | null;

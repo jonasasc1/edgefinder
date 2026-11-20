@@ -42,7 +42,10 @@ def client(config: Config, db: sqlite3.Connection) -> TestClient:
                 "cot",
                 0.6,
                 0.3,
-                {"EUR": {"subscore": 0.8}, "USD": {"subscore": -0.4}},
+                {
+                    "EUR": {"subscore": 0.8, "level_percentile": 91.0, "weeks": 156},
+                    "USD": {"subscore": -0.4, "level_percentile": 12.0, "weeks": 156},
+                },
             ),
             ("retail_sentiment", None, 0.0, {}),
         ],
@@ -54,6 +57,15 @@ def client(config: Config, db: sqlite3.Connection) -> TestClient:
                 " noncomm_short) VALUES (?, ?, 1000, ?, ?)",
                 (code, week.isoformat(), long_ + delta, short - delta),
             )
+    _score(db, "SPX", "swing", [("macro", 0.1, 1.0, {"growth": {"score": 0.1}})])
+    month = date(TODAY.year, TODAY.month, 1)
+    for i in range(15):  # US-Inflation (CPI): Index steigt 0,3 % je Monat
+        year, mon = divmod(month.year * 12 + month.month - 1 - (14 - i), 12)
+        db.execute(
+            "INSERT INTO macro_observations (source, series_id, date, vintage_date, value)"
+            " VALUES ('fred', 'CPIAUCSL', ?, '', ?)",
+            (date(year, mon + 1, 1).isoformat(), 300 * 1.003**i),
+        )
     now = datetime.now(UTC)
     for hours, long_ in ((30, 60.0), (0, 65.0)):
         db.execute(
@@ -130,9 +142,29 @@ def test_stock_earnings_have_estimate_actual_surprise(client: TestClient) -> Non
     assert _sections(body)["fundamentals"]["empty_reason"]
 
 
-def test_index_shows_only_growth_and_labor(client: TestClient) -> None:
-    keys = [k for k in _sections(client.get("/api/assets/SPX/scorecard").json()) if "macro-" in k]
-    assert keys == ["macro-growth", "macro-labor"]
+def test_index_shows_inflation_and_rates_as_info_only(client: TestClient) -> None:
+    secs = _sections(client.get("/api/assets/SPX/scorecard").json())
+    keys = [k for k in secs if "macro-" in k]
+    assert keys == ["macro-growth", "macro-inflation", "macro-labor", "macro-rates"]
+    assert secs["macro-growth"]["in_score"] is True
+    for key in ("macro-inflation", "macro-rates"):
+        assert secs[key]["in_score"] is False
+        assert secs[key]["signal"] is None and secs[key]["score"] is None
+    cpi = secs["macro-inflation"]["rows"][0]
+    assert cpi["label"] == "Inflation (CPI)" and cpi["value"] == pytest.approx(3.6, abs=0.1)
+    assert cpi["signal"] is None and cpi["score"] is None  # keine Währungs-Lesart bei Indizes
+
+
+def test_cot_row_has_percentile_and_neutral_reading(client: TestClient) -> None:
+    eur, usd = _sections(client.get("/api/assets/EURUSD/scorecard").json())["cot"]["rows"]
+    assert (eur["percentile"], usd["percentile"]) == (91.0, 12.0)
+    assert (
+        eur["text"] == "Non-Commercials Netto-Long (+240 Kontrakte), 91 % im 3-Jahres-Perzentil "
+        "der eigenen Historie"
+    )
+    # Widerspruch Long-Anteil vs. Pille: USD Long 30 % und Perzentil 12 % → bearish, konsistent
+    assert usd["long_pct"] == 30.0 and usd["signal"] == "bearish"
+    assert usd["text"].startswith("Non-Commercials Netto-Short")
 
 
 def test_unknown_asset_and_profile(client: TestClient) -> None:

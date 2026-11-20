@@ -8,7 +8,30 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
-**Stand (2026-11-18, nachts, noch NICHT deployt): Bugfix schwarzer Schirm + neue Asset-Detailseite (Scorecard).**
+**Stand (2026-11-20, noch NICHT deployt): mehr Makrodaten, COT-Pille, Indizes „nur Info“.**
+- **Neue Makro-Reihen (live geprüft 2026-11-20, `config.yaml`, vorhandene Fetcher, ALFRED-Vintages vollständig):** US
+  Verbrauchervertrauen (UMCSENT), PPI Endnachfrage (PPIFIS), PCE/Kern-PCE (PCEPI/PCEPILFE), Auftragseingang Langlebige
+  Güter (DGORDER), Baubeginne (HOUST), JOLTS (JTSJOL), ADP (ADPMNUSNERSA, Monatsänderung; Vintages erst ab 2022-08, davor
+  im Backtest nicht vorhanden), **Industrie-Stimmung Fed Philadelphia/Empire State (GACDFSA066MSFRBPHI/GACDISA066MSFRBNY)
+  als PMI-Ersatz** (ISM-PMI: bei FRED nicht mehr frei, `NAPM` existiert nicht; keine freie PMI-Quelle verifiziert).
+  EZ/DE (Eurostat): Verbrauchervertrauen (`ei_bsco_m`), Industrievertrauen (`ei_bsin_m_r2`), Erzeugerpreise (`sts_inpp_m`).
+  Kategorie = Mittel ihrer Reihen, daher überbetonen die neuen (teils ähnlichen) Reihen kein Thema: Inflation bleibt
+  ein Drittel (US jetzt 6 Reihen, EZ/DE 3). Stichprobe: Macro-Teilscores verschoben sich um höchstens ±0,1, Gesamtscores
+  ≤ ±0,3 (Kurse vom 18.→20.11. mit eingerechnet). Look-ahead: Vintages (FRED) bzw. 50 Tage Schätzung (Eurostat).
+  **Nicht verfügbar/kostenlos:** ISM Manufacturing/Services PMI, Philly/Empire nur als Ersatz; ADP wöchentlich
+  (ADPWNUSNERSA) endet 2026-09; OECD-Verbrauchervertrauen auf FRED endet 2024 (UK/JP/AU/CA/EZ/DE); Services-PMI,
+  Einzelhandel/PPI/Vertrauen für UK/JP/CA/AU/NZ ohne aktuelle Gratis-Reihe. Kein Retail Sales/PPI für Länder außer US/EZ/DE.
+- **COT-Pille (Best Practice):** Pille = Signal des Score-Teilscores (konsistent mit dem Gesamtscore, kein zweites
+  Urteil). Daneben Long-/Short-Balken, neues API-Feld `percentile` (= `level_percentile` aus `inputs`, Perzentil der
+  Netto-Position/Open Interest über 3 Jahre) und neutrale Kurzlesart in `text` („Non-Commercials Netto-Long (+240
+  Kontrakte), 91 % im 3-Jahres-Perzentil …“). Frontend zeigt „Perzentil NN“ und bei Abweichung Long-Anteil ↔ Perzentil
+  (Long ≥ 50 % und Perzentil ≤ 35, bzw. umgekehrt) den Hinweis „Perzentil niedrig/hoch“; Tooltip `longShort` erklärt,
+  dass der Long-Anteil allein nichts über die Richtung sagt. Begründung: eine Pille, die vom Score abweicht, würde
+  zwei Wahrheiten erzeugen; die Erklärung gehört daneben, nicht in ein anderes Urteil.
+- **Indizes:** Scorecard zeigt zusätzlich Inflation und Zinsen der Volkswirtschaft mit `in_score=false` („nur Info“, ohne
+  Pille, weil `higher_is` die Währungs-Lesart meint). Score unverändert (Engine: nur Wachstum + Arbeitsmarkt).
+
+**Stand (2026-11-18, nachts; live auf „trading“ bis origin/main 3e2c8e9): Bugfix schwarzer Schirm + neue Asset-Detailseite (Scorecard).**
 - **Bug „Klick in Sidebar → schwarzer Schirm bis F5“:** `AppShell` gab `window.scrollTo()` direkt aus `useEffect`
   zurück. Aktuelle Chromium-Versionen liefern von `scrollTo` ein Promise; React hält jeden Rückgabewert für eine
   Aufräumfunktion und wirft beim Seitenwechsel `TypeError: destroy is not a function`. Ohne Error Boundary verschwand
@@ -26,7 +49,7 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
   indicator|crowd|positioning|earnings, Zeilen mit value/previous/change/date/signal/score, long_pct/short_pct, estimate,
   surprise_pct, `soon`/`next_date` für den Stern, `in_score`). Signal-Schwelle `scoring.signal_threshold` (0.15) und
   `scoring.earnings_neutral_pct` (1.0) in config.yaml. Sterne nur bei COT (nächster Bericht ≤ 2 Tage) und Earnings (≤ 14 Tage).
-  Vorwert = vorherige Veröffentlichung der transformierten Reihe; Indizes zeigen nur Wachstum + Arbeitsmarkt.
+  Vorwert = vorherige Veröffentlichung der transformierten Reihe; Indizes zeigen Wachstum + Arbeitsmarkt (im Score) sowie Inflation und Zinsen als „nur Info“.
 - Screenshots: `~/remote/edgefinder-shots/etappe-i/` (`node scripts/screenshots.mjs`, enthält Szenarien mit gepatchter
   Scorecard, weil lokal Myfxbook/EDGAR-Daten fehlen).
 
@@ -272,7 +295,7 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   - **macro:** je Indikator z-Wert der `change_months`-Veränderung gegen 10 Jahre, tanh(z/2),
     Richtung laut `higher_is`; Kategorie = Mittel; Gesamt = Mittel der Kategorien. Forex:
     Differenz Basis − Quote je Kategorie plus Zinskategorie (Leitzins, 2J, 10J: tanh(Differenz/2 PP)).
-    Index: Wachstum + Arbeitsmarkt der eigenen Volkswirtschaft. Rohstoffe über `macro_driver`
+    Index: Wachstum + Arbeitsmarkt der eigenen Volkswirtschaft (Inflation/Zinsen nur Info in der Scorecard). Rohstoffe über `macro_driver`
     (`safe_haven`: US-Inflation, Zinsen (Leitzins, Realrendite DFII10, 10J-Rendite, gespiegelt) und Dollar-Stärke (DTWEXBGS, gespiegelt) als eigene Kategorien; `cyclical`: US-Wachstum + Arbeitsmarkt).
     Serien älter als `max_age_days` entfallen.
   - **trend:** Abstand zum langsamen SMA, SMA-Kreuz und ROC, je durch Volatilität × √Horizont
