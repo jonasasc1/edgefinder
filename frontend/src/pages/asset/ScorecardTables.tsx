@@ -87,6 +87,11 @@ function Label({ row }: { row: ScorecardRow }) {
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
         {row.side && <span className="rounded-chip bg-fill px-1.5 text-caption font-semibold">{row.side}</span>}
         <span className="text-subhead font-medium">{row.label}</span>
+        {row.counter_trend && (
+          <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-chip bg-accent/15 px-1.5 text-caption font-semibold text-accent-ink ring-1 ring-inset ring-accent/40">
+            Gegentrend-Signal <InfoTip term="counterTrend" />
+          </span>
+        )}
         {row.info_only && (
           <span className="whitespace-nowrap text-caption text-ink-2" title="Nur zur Information, geht nicht in den Score ein">
             nur Info

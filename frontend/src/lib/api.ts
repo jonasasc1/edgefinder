@@ -186,6 +186,7 @@ export type ScorecardRow = {
   next_date: string | null;
   soon: boolean;
   info_only?: boolean;
+  counter_trend?: boolean;
 };
 
 export type ScorecardSection = {
@@ -200,11 +201,27 @@ export type ScorecardSection = {
   in_score: boolean;
 };
 
+/** Faktor-Übereinstimmung: wie viele Faktoren (Gewichtsanteil) zeigen in Richtung des Gesamtscores. */
+export type Agreement = {
+  direction: -1 | 0 | 1;
+  total: number;
+  bullish: number;
+  bearish: number;
+  neutral: number;
+  same: number;
+  weight_share: number | null;
+  bullish_share: number;
+  bearish_share: number;
+  threshold: number;
+  high: boolean;
+};
+
 export type Scorecard = {
   asset_id: string;
   profile: ProfileKey;
   as_of: string | null;
   signal_threshold: number;
+  agreement?: Agreement | null;
   tiles: ScorecardTile[];
   sections: ScorecardSection[];
 };
@@ -251,3 +268,84 @@ async function putJson<T>(path: string, body: unknown, keepalive = false): Promi
 export const putPreferences = (patch: Partial<Prefs>, keepalive = false) => putJson<Prefs>("/api/me/preferences", patch, keepalive);
 export const putFavorites = (assetIds: string[], keepalive = false) =>
   putJson<{ favorites: string[] }>("/api/me/favorites", { asset_ids: assetIds }, keepalive);
+
+// --- Eichung (docs/calibration.json, siehe backend/edgefinder/backtest/calibration.py) ---
+
+export type Evidence = "belegt" | "schwach" | "kein_vorteil" | "zu_wenig_daten" | "neutral";
+
+/** Kennzahlen einer Zelle (Anteile 0–1, Renditen als Bruch); fehlt n_eff-Daten, stehen nur n und n_eff. */
+export type CalCell = {
+  n: number;
+  n_eff: number;
+  up?: number;
+  base_up?: number;
+  hit?: number | null;
+  base_hit?: number | null;
+  mean?: number;
+  median?: number;
+  base_mean?: number;
+  edge?: number | null;
+  t?: number | null;
+  ci?: [number, number];
+};
+export type CalPeriods = { all: CalCell; train: CalCell; oos: CalCell };
+export type CalBucket = { key: string; label: string; low: number; high: number; direction: -1 | 0 | 1; evidence: Evidence } & CalPeriods;
+
+export type CalMeta = {
+  available: boolean;
+  generated_at: string | null;
+  first_date: string | null;
+  data_through: string | null;
+  train_end: string | null;
+  min_t: number | null;
+  min_n_eff: number | null;
+};
+
+export type CalAgreement = {
+  group: "high" | "low";
+  threshold: number;
+  horizon: number;
+  evidence: Evidence;
+  other_evidence: Evidence;
+  stats: CalPeriods;
+  min_t: number | null;
+};
+
+export type AssetCalibration = CalMeta & {
+  asset_id: string;
+  profile: ProfileKey;
+  asset_class: AssetClass;
+  as_of: string;
+  score: number;
+  label: string;
+  horizon: number | null;
+  horizons: number[];
+  bucket: { label: string; low: number; high: number; direction: -1 | 0 | 1 } | null;
+  evidence: Evidence | null;
+  class_evidence: Evidence | null;
+  note: "proven" | "weak" | "no_edge" | "few_data" | "neutral" | "missing";
+  stats: CalPeriods | null;
+  class_directional: CalPeriods | null;
+  asset_stats: CalPeriods | null;
+  asset_status: "ok" | "zu_wenig_daten" | null;
+  asset_min_n_eff: number | null;
+  chart: CalBucket[];
+  agreement: CalAgreement | null;
+};
+
+export type CalSummaryEntry = {
+  horizon: number;
+  evidence: Evidence;
+  n_eff: number | null;
+  hit: number | null;
+  base_hit: number | null;
+  edge: number | null;
+  t: number | null;
+  edge_train: number | null;
+  edge_oos: number | null;
+};
+export type CalibrationSummary = CalMeta & { profiles: Partial<Record<ProfileKey, Partial<Record<AssetClass, CalSummaryEntry>>>> };
+
+export const fetchCalibration = (assetId: string, profile: ProfileKey, signal?: AbortSignal) =>
+  getJson<AssetCalibration>(`/api/assets/${encodeURIComponent(assetId)}/calibration?profile=${profile}`, signal);
+export const fetchCalibrationSummary = (signal?: AbortSignal) => getJson<CalibrationSummary>("/api/calibration/summary", signal);

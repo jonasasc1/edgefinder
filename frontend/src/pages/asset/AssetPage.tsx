@@ -14,13 +14,15 @@ import { SectionTitle } from "../../components/SectionTitle";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { Skeleton } from "../../components/Skeleton";
 import { StarButton } from "../../components/StarButton";
-import { fetchAssetDetail, fetchProfiles, fetchScorecard, type AssetDetail, type ProfileKey, type ProfileNotice } from "../../lib/api";
+import { fetchAssetDetail, fetchCalibration, fetchProfiles, fetchScorecard, type Agreement, type AssetCalibration, type AssetDetail, type ProfileKey, type ProfileNotice } from "../../lib/api";
 import { formatDateMedium, formatPct, formatPctSigned, formatPrice } from "../../lib/format";
 import { activeNotices } from "../../lib/notices";
 import { levelOf, toneOf } from "../../lib/score";
 import { useApi } from "../../lib/useApi";
 import { usePersistentState } from "../../lib/usePersistentState";
 import { CLASS_LABEL } from "../overview/model";
+import { agreementEvidenceText, agreementText } from "../../lib/calibration";
+import { CalibrationCard } from "./CalibrationCard";
 import { CotCard } from "./CotCard";
 import { FactorList } from "./FactorList";
 import { FundamentalsCard } from "./FundamentalsCard";
@@ -31,13 +33,46 @@ import { SentimentCard } from "./SentimentCard";
 
 const PROFILE_KEYS: readonly ProfileKey[] = ["swing", "long_term"];
 
-function Hero({ detail, profile, horizon, notices }: { detail: AssetDetail; profile: ProfileKey; horizon?: string; notices: ProfileNotice[] }) {
+/** Springt zur Karte „Einordnung“ (ohne Scroll-Animation, damit reduzierte Bewegung respektiert wird). */
+function scrollToEinordnung() {
+  document.getElementById("einordnung")?.scrollIntoView({ block: "start" });
+}
+
+/** Faktor-Übereinstimmung: „5 von 7 Faktoren bullish“ mit Gewichtsbalken (grün = bullish, rot = bearish, grau = neutral). */
+function AgreementMeter({ agreement, calibration }: { agreement: Agreement; calibration: AssetCalibration | null }) {
+  const neutralShare = Math.max(0, 1 - agreement.bullish_share - agreement.bearish_share);
+  const percent = agreement.weight_share !== null ? ` · ${formatPct(agreement.weight_share * 100, 0)} des Gewichts` : "";
+  const group = calibration?.agreement?.group ?? null;
+  return (
+    <div className="mt-5 border-t border-line pt-4">
+      <p className="flex items-center gap-1 text-footnote text-ink-2">
+        Faktor-Übereinstimmung <InfoTip term="agreement" />
+      </p>
+      <p className="mt-0.5 text-subhead font-semibold">
+        {agreementText(agreement)}
+        <span className="num font-normal text-ink-2">{percent}</span>
+      </p>
+      <div
+        role="img"
+        aria-label={`Gewichtsanteil bullish ${formatPct(agreement.bullish_share * 100, 0)}, neutral ${formatPct(neutralShare * 100, 0)}, bearish ${formatPct(agreement.bearish_share * 100, 0)}`}
+        className="mt-2 flex h-2.5 w-full gap-0.5 overflow-hidden rounded-chip"
+      >
+        <div className="bg-bull-ring" style={{ flexGrow: agreement.bullish_share, flexBasis: 0 }} />
+        <div className="bg-flat-ring" style={{ flexGrow: neutralShare, flexBasis: 0 }} />
+        <div className="bg-bear-ring" style={{ flexGrow: agreement.bearish_share, flexBasis: 0 }} />
+      </div>
+      {agreement.direction !== 0 && <p className="mt-1.5 text-caption text-ink-2">{agreementEvidenceText(group, calibration?.agreement?.evidence ?? null)}</p>}
+    </div>
+  );
+}
+
+function Hero({ detail, profile, horizon, notices, agreement, calibration }: { detail: AssetDetail; profile: ProfileKey; horizon?: string; notices: ProfileNotice[]; agreement: Agreement | null; calibration: AssetCalibration | null }) {
   const entry = detail.profiles[profile]?.score;
   const tone = entry ? toneOf(levelOf(entry.score, entry.label)) : "flat";
   const price = detail.last_price;
   return (
     <Card className="p-5 sm:p-6">
-      <ProfileNotices notices={notices} gap="mb-5" collapsedGap="mb-0" />
+      <ProfileNotices notices={notices} gap="mb-5" collapsedGap="mb-0" onMore={scrollToEinordnung} />
       <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-10">
         <div className="flex flex-col items-center gap-3">
           <ScoreRing score={entry?.score ?? null} label={entry?.label} size="xl" />
@@ -67,6 +102,7 @@ function Hero({ detail, profile, horizon, notices }: { detail: AssetDetail; prof
             )}
           </div>
         </dl>
+        {agreement && entry && <AgreementMeter agreement={agreement} calibration={calibration} />}
         <p className="mt-5 border-t border-line pt-4 text-footnote text-ink-2">
           {entry ? `Stand ${formatDateMedium(entry.date)}. ` : ""}
           {horizon}
@@ -95,6 +131,7 @@ export function AssetPage() {
   const profiles = useApi((signal) => fetchProfiles(signal), []);
   const [profile, setProfile] = usePersistentState<ProfileKey>("ef-profile", "swing", PROFILE_KEYS);
   const scorecard = useApi((signal) => fetchScorecard(id, profile, signal), [id, profile]);
+  const calibration = useApi((signal) => fetchCalibration(id, profile, signal), [id, profile]);
 
   const profileList = profiles.state.status === "ready" ? profiles.state.data : null;
   const options = (profileList ?? [{ key: "swing" as const, label: "Swing", horizon: "" }, { key: "long_term" as const, label: "Langfristig", horizon: "" }]).map((p) => ({ value: p.key, label: p.label }));
@@ -145,7 +182,17 @@ export function AssetPage() {
       {detail && (
         <div className="flex flex-col gap-6 px-4 sm:px-8">
           <SegmentedControl label="Profil" value={profile} onChange={setProfile} options={options} full className="sm:w-72" />
-          <Hero detail={detail} profile={profile} horizon={horizon} notices={activeNotices(profileList, profile, [detail.asset_class])} />
+          <Hero
+            detail={detail}
+            profile={profile}
+            horizon={horizon}
+            notices={activeNotices(profileList, profile, [detail.asset_class])}
+            agreement={scorecard.state.status === "ready" ? (scorecard.state.data.agreement ?? null) : null}
+            calibration={calibration.state.status === "ready" ? calibration.state.data : null}
+          />
+          {detail.profiles[profile] && (
+            <CalibrationCard state={calibration.state} reload={calibration.reload} assetClass={detail.asset_class} profileLabel={options.find((o) => o.value === profile)?.label ?? ""} />
+          )}
 
           {scorecard.state.status === "ready" && <GroupTiles tiles={scorecard.state.data.tiles} />}
           <PriceScoreChart assetId={detail.id} profile={profile} />

@@ -8,9 +8,10 @@ import { useUi } from "./ui-context";
  * Ruhiger Hinweis zu einem Profil (Quelle: config.yaml `profiles.<key>.notices`).
  * Der Platz klappt weich auf und zu (Grid-Zeile 0fr → 1fr), damit der Profilwechsel nichts springen lässt;
  * `motion-reduce` schaltet die Animation ab. Beim Zuklappen bleibt der letzte Text stehen.
+ * `onMore`: Verweis „Zur Einordnung“ (Detailseite: springt zur Karte mit den Backtest-Zahlen).
  * `gap`/`collapsedGap`: Außenabstand bei angezeigtem bzw. eingeklapptem Hinweis (z. B. negativ, um den Flex-Abstand des Elternelements auszugleichen).
  */
-export function ProfileNotices({ notices, gap = "", collapsedGap = "" }: { notices: ProfileNotice[]; gap?: string; collapsedGap?: string }) {
+export function ProfileNotices({ notices, gap = "", collapsedGap = "", onMore }: { notices: ProfileNotice[]; gap?: string; collapsedGap?: string; onMore?: () => void }) {
   const { explain } = useUi();
   const [last, setLast] = useState<ProfileNotice[]>(notices);
   if (notices.length > 0 && notices !== last && JSON.stringify(notices) !== JSON.stringify(last)) setLast(notices);
@@ -33,6 +34,14 @@ export function ProfileNotices({ notices, gap = "", collapsedGap = "" }: { notic
                 <button type="button" onClick={() => explain("longTermNotice")} className="inline min-h-6 font-semibold text-accent-ink underline underline-offset-2">
                   Warum?
                 </button>
+                {onMore && (
+                  <>
+                    {" "}
+                    <button type="button" onClick={onMore} className="inline min-h-6 font-semibold text-accent-ink underline underline-offset-2">
+                      Zur Einordnung
+                    </button>
+                  </>
+                )}
               </p>
             </li>
           ))}

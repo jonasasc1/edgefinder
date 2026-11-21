@@ -5,12 +5,13 @@ import { PressCard } from "../../components/Card";
 import { Delta } from "../../components/Delta";
 import { ScoreRing } from "../../components/ScoreRing";
 import { Tooltip } from "../../components/Tooltip";
+import type { Evidence } from "../../lib/api";
 import { formatPercent } from "../../lib/format";
 import { levelOf, toneOf } from "../../lib/score";
 import { CLASS_LABEL, type Row } from "./model";
 
 /** Kachel: Name, Score-Ring, Label, Änderung seit gestern/Woche. */
-export function AssetCard({ row }: { row: Row }) {
+export function AssetCard({ row, evidence }: { row: Row; evidence?: Evidence | null }) {
   const { asset, entry } = row;
   const tone = entry ? toneOf(levelOf(entry.score, entry.label)) : "flat";
   return (
@@ -43,6 +44,12 @@ export function AssetCard({ row }: { row: Row }) {
             <dd><Delta value={entry?.change_7d} /></dd>
           </div>
         </dl>
+        {entry && evidence === "kein_vorteil" && (
+          <span className="mt-2 inline-flex w-fit items-center gap-1.5 text-caption text-ink-2">
+            <span aria-hidden="true" className="size-2 rounded-full ring-2 ring-flat-ring" />
+            Kein belegter Vorteil
+          </span>
+        )}
         {entry && (
           <Tooltip content="Anteil der Datenquellen, die für diesen Score Werte geliefert haben. Fehlende Quellen werden nicht mitgerechnet.">
             <span className="num mt-2 w-fit cursor-help text-caption text-ink-2">Abdeckung {formatPercent(entry.coverage)}</span>

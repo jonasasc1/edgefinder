@@ -8,7 +8,7 @@ export function InfoTip({ term }: { term: TermKey }) {
   const { explain } = useUi();
   const { title, text } = TERMS[term];
   return (
-    <Tooltip content={<span>{text}</span>}>
+    <Tooltip content={<span>{text.split("\n\n")[0]}</span>}>
       <button
         type="button"
         onClick={() => explain(term)}

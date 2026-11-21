@@ -169,7 +169,7 @@ backend/edgefinder/
   backtest/     ✓  analysis.py (Forward-Rendite, Buckets, Kennzahlen, Faktor-IC), stats.py, report.py (Markdown/JSON)
   cleanup.py    ✓  Rohdaten-Aufbewahrung (`edgefinder cleanup`)
   systemd.py    ✓  erzeugt Units/Timer aus config.yaml (`edgefinder gen-systemd [--out DIR] [--check]`)
-  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | backtest | cleanup | gen-systemd`
+  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | backtest | calibrate | cleanup | gen-systemd`
 backend/tests/     pytest; fixtures/ = aufgezeichnete API-Antworten (ohne Keys), support.py = Hilfen
 frontend/          React + TypeScript + Vite, Tailwind mit eigenen Tokens
 deploy/            install.sh (Ersteinrichtung trading, --dry-run/--apply-firewall), deploy.sh (läuft auf der
@@ -365,6 +365,34 @@ Langfrist-Profil geprüft). **Hinweis entfernen:** den Eintrag unter `notices:` 
 neu starten; keine Codeänderung, kein Neubau. Frontend: `components/ProfileNotices.tsx` (weich ein-/ausklappend, ohne Layout-Sprung;
 „Warum?“ öffnet Glossar `longTermNotice`), Logik `lib/notices.ts` (`activeNotices`). Angezeigt auf Übersicht (unter dem
 Profil-Umschalter, abhängig vom Klassenfilter), Asset-Hero und Vergleich (wenn betroffene Assets dabei sind).
+
+### Eichung (Etappe n, 2026-11-21): „Was bedeutet die Zahl?“
+- **Ziel:** Eichung und Transparenz, kein Schönrechnen. Jede Score-Zahl bekommt eine belegte Bedeutung; die UI sagt klar „kein belegter Vorteil“,
+  wo es keinen gibt. Keine Handlungsempfehlung, Footer „Keine Anlageberatung“ bleibt.
+- **Erzeugen:** `uv run edgefinder calibrate --report docs/backtest-report.md` (`nice -n 19 ionice -c3`, ca. 3 s, braucht die lokale Backfill-DB).
+  Schreibt `backtest.calibration_file` (`docs/calibration.json`, im Git, ca. 380 KB, deterministisch) und ersetzt den Anhang zwischen den Markern
+  `<!-- calibration:start/end -->` im Report. **Wann neu:** nach jedem neuen Backfill, nach jeder Änderung an Faktoren/Gewichten/Labels und
+  etwa vierteljährlich (Datenstand wächst); dann committen und deployen. `trading` hat keine Backfill-DB, es liefert nur die Datei aus
+  (WorkingDirectory `/opt/edgefinder`, Datei wird bei geänderter Zeit neu gelesen).
+- **Inhalt (`backtest/calibration.py`):** je Profil × Klasse × Score-Bereich (Buckets aus `scoring.labels` + gepoolt „directional“) × Horizont:
+  n, n_eff (÷ h/5), Trefferquote, Basisrate, Ø/Median, `edge` (Ø Rendite in Signalrichtung minus Ø aller Fälle der Klasse im Zeitraum), t (mit n_eff),
+  95-%-Band; je Gesamt/Training (≤ `train_end` 2019-12-31)/OOS, nur wöchentliche Stichtage (`score_weekday`). Je Asset nur Kennwert-Horizont und nur
+  bei n_eff ≥ `asset_min_n_eff`. Zusatz `agreement`: Richtungssignale mit Faktor-Übereinstimmung ≥/< 70 %.
+- **Evidenzstufen (Regeln in `config.yaml: backtest.calibration`, nichts im Code):** `zu_wenig_daten` = n_eff < `floor_n_eff` (5) in Gesamt/Training/OOS;
+  `kein_vorteil` = `edge` nicht in allen drei Zeiträumen > 0; `belegt` = alle drei > 0, t ≥ `min_t` (2), n_eff ≥ 30 (je Zeitraum ≥ 10) und Trefferquote > Basis;
+  sonst `schwach`. Bucket Neutral = `neutral` (keine Richtungsaussage). Übereinstimmungs-Gruppen brauchen t ≥ `agreement_min_t` 2,7 (8 Tests, Bonferroni).
+- **Ergebnis (Kennwert-Horizont):** Swing Forex/Rohstoffe kein Vorteil, Indizes/Aktien schwach (Vorteil +0,2 % je 10 T, t 1,4/1,9); Langfristig alle vier
+  Klassen kein Vorteil (Indizes/Aktien OOS negativ). Kein einziger Bereich ist „belegt“. Zahlen: Anhang in `docs/backtest-report.md`.
+- **API:** `GET /api/assets/{id}/calibration?profile=` (Bucket des aktuellen Scores, Klassen- und Asset-Kennzahlen, Evidenz, `note`-Code, Chart-Daten,
+  Übereinstimmungs-Eichung; ohne Datei `available=false`), `GET /api/calibration/summary` (Stufe je Profil × Klasse). Scorecard: `agreement`
+  (`scoring/agreement.py`, Anteil gleichgerichteter Faktoren/Gewicht ab |Teilscore| ≥ Signalschwelle), Trend-Zeile `counter_trend` (Umkehr-Modus aktiv und Signal).
+- **Varianten (Train/OOS):** a) Crash-Dämpfung der Umkehr **verworfen** (Training 2013–2019 hat 0 Fälle mit ROC20 ≤ −35 %, OOS 17 Aktien-Fälle mit
+  Ø +5,4 % danach; Dämpfen verschlechtert leicht; Skript `backend/scripts/crash_research.py`). b) Gegentrend-Marke: nur Anzeige. c) Übereinstimmung:
+  nur Swing-Aktien schwacher Hinweis, sonst kein Zusammenhang → angezeigt, ausdrücklich als nicht belegt. Scores unverändert, kein neuer Backfill nötig.
+- **Frontend:** Karte „Einordnung“ unter dem Hero (`pages/asset/CalibrationCard.tsx`, `BucketChart.tsx`, Satz aus `lib/calibration.ts`, Evidenz-Marke
+  `components/EvidenceBadge.tsx` in Marken-Blau/Grau, nie Grün/Rot), Hero: Faktor-Übereinstimmung mit Balken, Profil-Hinweise verlinken „Zur Einordnung“,
+  Übersicht: „Aussagekraft der Scores“ je Klasse im Hero, Marke „Kein belegter Vorteil“ an Karten. Glossar: `calibration`, `evidence`, `baseRate`, `counterTrend`,
+  `agreement`, `trainOos`. Screenshots/Prüfung: `node scripts/shots-einordnung.mjs` (Server + Build nötig), Ablage `~/remote/edgefinder-shots/etappe-n/`.
 
 ### Konten (Etappe l, 2026-11-21)
 - **Entscheidung Jonas:** Cloudflare Access (Google-Anmeldung) ist die Zugangskontrolle; die App führt KEINE eigene Freigabeliste. Jede

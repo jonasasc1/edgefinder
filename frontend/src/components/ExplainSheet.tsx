@@ -8,7 +8,13 @@ export function ExplainSheet() {
   const entry = term ? TERMS[term] : null;
   return (
     <Sheet open={entry !== null} onOpenChange={(open) => !open && explain(null)} title={entry?.title ?? ""}>
-      <p className="text-body text-ink-2">{entry?.text}</p>
+      <div className="flex flex-col gap-3">
+        {entry?.text.split("\n\n").map((paragraph) => (
+          <p key={paragraph} className="text-body text-ink-2">
+            {paragraph}
+          </p>
+        ))}
+      </div>
     </Sheet>
   );
 }

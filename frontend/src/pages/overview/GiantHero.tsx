@@ -3,6 +3,10 @@ import { motion } from "framer-motion";
 import { MotionText } from "../../components/AnimatedNumber";
 import { BrandMark, SLOGAN } from "../../components/Brand";
 import { Card } from "../../components/Card";
+import { EvidenceBadge } from "../../components/EvidenceBadge";
+import { InfoTip } from "../../components/InfoTip";
+import type { AssetClass, CalSummaryEntry } from "../../lib/api";
+import { CLASS_LABEL } from "./model";
 import { spring } from "../../lib/motion";
 import type { Level } from "../../lib/score";
 import { useSpringValue } from "../../lib/useSpringValue";
@@ -31,7 +35,19 @@ export function mood(bull: number, bear: number, total: number): { title: string
  * (bullish grün, neutral grau, bearish rot) mit großen Zahlen. Die Bildmarke steht als
  * monumentales Wasserzeichen im Hintergrund.
  */
-export function GiantHero({ counts, total }: { counts: Record<Level, number>; total: number }) {
+export function GiantHero({
+  counts,
+  total,
+  evidence,
+  evidenceClasses = [],
+  profileLabel = "",
+}: {
+  counts: Record<Level, number>;
+  total: number;
+  evidence?: Partial<Record<AssetClass, CalSummaryEntry>> | null;
+  evidenceClasses?: AssetClass[];
+  profileLabel?: string;
+}) {
   const bull = counts[2] + counts[1];
   const bear = counts[-1] + counts[-2];
   const { title, text } = mood(bull, bear, total);
@@ -73,6 +89,21 @@ export function GiantHero({ counts, total }: { counts: Record<Level, number>; to
           <Stat label="Neutral" value={counts[0]} ink="text-flat-ink" />
           <Stat label="Bearish" value={bear} ink="text-bear-ink" />
         </dl>
+        {evidence && evidenceClasses.length > 0 && (
+          <div className="mt-4 border-t border-line pt-3">
+            <p className="flex items-center gap-1 text-footnote text-ink-2">
+              Aussagekraft der Scores ({profileLabel}) <InfoTip term="evidence" />
+            </p>
+            <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4" aria-label="Aussagekraft nach Assetklasse">
+              {evidenceClasses.map((klass) => (
+                <li key={klass} className="flex min-w-0 flex-col items-start gap-1">
+                  <span className="text-footnote font-medium">{CLASS_LABEL[klass]}</span>
+                  <EvidenceBadge evidence={evidence[klass]?.evidence ?? "zu_wenig_daten"} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <p className="mt-3 font-display text-[0.6875rem] font-medium tracking-[0.06em] text-ink-2">{SLOGAN}</p>
       </div>
     </Card>

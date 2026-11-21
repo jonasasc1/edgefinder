@@ -31,7 +31,13 @@ export type TermKey =
   | "noForecast"
   | "longShort"
   | "scoreHistory"
-  | "longTermNotice";
+  | "longTermNotice"
+  | "calibration"
+  | "evidence"
+  | "baseRate"
+  | "counterTrend"
+  | "agreement"
+  | "trainOos";
 
 export const TERMS: Record<TermKey, { title: string; text: string }> = {
   groupScores: {
@@ -92,7 +98,31 @@ export const TERMS: Record<TermKey, { title: string; text: string }> = {
   },
   longTermNotice: {
     title: "Warum dieser Hinweis?",
-    text: "Der Backtest vergleicht frühere Langfrist-Scores von Indizes und Aktien mit der Kursentwicklung danach. Dabei zeigte sich kein verlässlicher Zusammenhang. Die Scores erklären die aktuelle Lage, sagen aber nichts Belastbares über die Zukunft voraus.",
+    text: "Der Backtest vergleicht frühere Langfrist-Scores von Indizes und Aktien mit der Kursentwicklung danach. Dabei zeigte sich kein verlässlicher Zusammenhang. Die Scores erklären die aktuelle Lage, sagen aber nichts Belastbares über die Zukunft voraus. Die genauen Zahlen stehen in der Karte „Einordnung“ auf der Detailseite jedes Assets.",
+  },
+  calibration: {
+    title: "Wie lese ich die Einordnung?",
+    text: "Die Einordnung zeigt, was Scores in genau diesem Bereich in der Vergangenheit gebracht haben: Wie oft stieg der Kurs in den folgenden Tagen, und wie viel im Schnitt? Das ist ein Rückblick auf frühere Daten, keine Vorhersage und keine Anlageberatung.\n\nWichtig ist der Vergleich mit der Basis: In vielen Märkten steigt der Kurs ohnehin in mehr als der Hälfte der Fälle. Erst wenn ein Bereich dauerhaft besser abschneidet als diese Basis, steckt im Score überhaupt eine Information. Ist der Unterschied klein oder wechselt er das Vorzeichen, zeigt der Score dort keinen belegten Vorteil.\n\nDie Beobachtungen überlappen sich (Stichtag für Stichtag laufen die Zeiträume ineinander). Deshalb zählt nicht die Gesamtzahl, sondern die kleinere Zahl unabhängiger Fälle (n_eff). Das Konfidenzband im Diagramm zeigt, wie unsicher der Durchschnitt ist. Training (2013–2019) und Out-of-Sample (2020 bis heute) zeigen, ob ein Zusammenhang auch in einer späteren Marktphase gehalten hat.",
+  },
+  evidence: {
+    title: "Belegt, schwach, kein Vorteil",
+    text: "Belegt: Der Score-Bereich schnitt in Gesamt, Training und Out-of-Sample besser ab als die Basis, mit ausreichend vielen unabhängigen Fällen und einem t-Wert von mindestens 2. Schwach belegt: gleiche Richtung, aber zu wenige Fälle oder zu unsicher. Kein belegter Vorteil: Das Vorzeichen wechselt, ist null oder zeigt in die falsche Richtung. Zu wenig Daten: in einem der Zeiträume weniger als 5 unabhängige Fälle. Die Regeln stehen in config.yaml.",
+  },
+  baseRate: {
+    title: "Basisrate",
+    text: "Anteil der Fälle, in denen der Kurs im gleichen Zeitraum ohnehin gestiegen ist, egal welchen Score das Asset hatte. Aktien und Indizes steigen langfristig meist; ein bullisher Score muss diese Rate übertreffen, um etwas zu bedeuten.",
+  },
+  counterTrend: {
+    title: "Gegentrend-Signal",
+    text: "Der Score erwartet eine Erholung gegen den aktuellen Kurstrend (nach Kursverlusten eine Erholung, nach starkem Anstieg einen Rückschlag). Bei Aktien und Indizes im Swing-Profil liest der Trend-Faktor eine starke Bewegung als überdehnt (Kurzfrist-Umkehr). Das war im Backtest im Schnitt ein schwacher Effekt; bei außergewöhnlichen Einbrüchen kann es ein Regimewechsel sein.",
+  },
+  agreement: {
+    title: "Faktor-Übereinstimmung",
+    text: "Wie viele der Faktoren zeigen in dieselbe Richtung wie der Gesamtscore, und welcher Anteil des Gewichts steckt dahinter. Viele übereinstimmende Faktoren wirken überzeugender; im Backtest erhöhte das die Trefferquote aber nicht belastbar (nur bei Aktien im Swing-Profil ein schwacher Hinweis).",
+  },
+  trainOos: {
+    title: "Training und Out-of-Sample",
+    text: "Training sind die Jahre 2013–2019, Out-of-Sample (OOS) 2020 bis heute. Die Regeln wurden auf dem Training gewählt und danach an den späteren Daten geprüft. Hält ein Vorteil in beiden Zeiträumen, ist er verlässlicher; wechselt das Vorzeichen, ist er vermutlich Zufall.",
   },
   profile: {
     title: "Profil",

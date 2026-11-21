@@ -11,17 +11,19 @@ import { ProfileNotices } from "../../components/ProfileNotices";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { Sheet } from "../../components/Sheet";
 import { ThemeToggle } from "../../components/ThemeToggle";
-import type { ProfileKey } from "../../lib/api";
+import { fetchCalibrationSummary, type AssetClass, type CalSummaryEntry, type ProfileKey } from "../../lib/api";
 import { formatDate } from "../../lib/format";
 import { spring } from "../../lib/motion";
 import { activeNotices } from "../../lib/notices";
 import { splitFavorites, useFavorites } from "../../lib/favorites";
+import { useApi } from "../../lib/useApi";
 import { usePersistentState } from "../../lib/usePersistentState";
 import { AssetCard } from "./AssetCard";
 import { AssetRow } from "./AssetRow";
 import { GiantHero } from "./GiantHero";
 import {
   CLASS_LABEL,
+  CLASS_ORDER,
   countLevels,
   FILTERS,
   SORT_KEYS,
@@ -65,6 +67,8 @@ export function OverviewPage() {
   const stand = allRows.find((row) => row.entry)?.entry?.date;
   const notices = activeNotices(profiles, profile, filter === "all" ? allRows.map((row) => row.asset.asset_class) : [filter]);
   const horizon = profiles?.find((p) => p.key === profile)?.horizon;
+  const calibration = useApi((signal) => fetchCalibrationSummary(signal), []);
+  const evidence = calibration.state.status === "ready" && calibration.state.data.available ? (calibration.state.data.profiles[profile] ?? null) : null;
 
   const profileOptions = (profiles ?? [
     { key: "swing" as const, label: "Swing", horizon: "" },
@@ -117,7 +121,13 @@ export function OverviewPage() {
           </div>
         </div>
 
-        {state.status === "ready" && rows.length > 0 && <GiantHero counts={counts} total={rows.length} />}
+        {state.status === "ready" && rows.length > 0 && <GiantHero
+            counts={counts}
+            total={rows.length}
+            evidence={evidence}
+            evidenceClasses={CLASS_ORDER.filter((c) => (filter === "all" ? true : c === filter) && allRows.some((row) => row.asset.asset_class === c))}
+            profileLabel={profileOptions.find((o) => o.value === profile)?.label ?? ""}
+          />}
 
         {state.status === "loading" && (view === "cards" ? <CardSkeletons /> : <RowSkeletons />)}
 
@@ -152,13 +162,13 @@ export function OverviewPage() {
             {pinned.length > 0 && (
               <section aria-labelledby="fav-title">
                 <h2 id="fav-title" className="mb-3 text-title3 font-bold tracking-title">Favoriten</h2>
-                <Collection rows={pinned} view={view} />
+                <Collection rows={pinned} view={view} evidence={evidence} />
               </section>
             )}
             {rest.length > 0 && (
               <section aria-labelledby={pinned.length > 0 ? "all-title" : undefined}>
                 {pinned.length > 0 && <h2 id="all-title" className="mb-3 text-title3 font-bold tracking-title">Weitere Assets</h2>}
-                <Collection rows={rest} view={view} />
+                <Collection rows={rest} view={view} evidence={evidence} />
               </section>
             )}
           </>
@@ -173,12 +183,12 @@ export function OverviewPage() {
   );
 }
 
-function Collection({ rows, view }: { rows: Row[]; view: View }) {
+function Collection({ rows, view, evidence }: { rows: Row[]; view: View; evidence: Partial<Record<AssetClass, CalSummaryEntry>> | null }) {
   return view === "cards" ? (
     <ul className="asset-grid">
       {rows.map((row) => (
         <motion.li key={row.asset.id} layout="position" transition={spring} className="min-w-0">
-          <AssetCard row={row} />
+          <AssetCard row={row} evidence={evidence?.[row.asset.asset_class]?.evidence ?? null} />
         </motion.li>
       ))}
     </ul>
