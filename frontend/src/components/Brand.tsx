@@ -36,14 +36,32 @@ export function BrandMark({ size = 28, className, parts = false }: MarkProps) {
   );
 }
 
-/** Wortmarke: Bildmarke + „E-Giant“ in Saira (Versalien, weit gesetzt). */
-export function Wordmark({ size = 28, className }: { size?: number; className?: string }) {
+/** Slogan der Marke: Giant = groß denken, Elektro = Strom. */
+export const SLOGAN = "Groß denken. Unter Strom.";
+
+/** Slogan als ruhige Zeile (kleine Saira, Versalien-frei, weit gesetzt); Farbe `ink-2` (AA). */
+export function Slogan({ className }: { className?: string }) {
+  return <span className={`block font-display text-[0.6875rem] font-medium leading-tight tracking-[0.06em] text-ink-2 ${className ?? ""}`}>{SLOGAN}</span>;
+}
+
+/** Wortmarke: Bildmarke + „E-Giant“ in Saira (Versalien, weit gesetzt); optional mit Slogan darunter. */
+export function Wordmark({ size = 28, className, slogan = false }: { size?: number; className?: string; slogan?: boolean }) {
+  const word = (
+    <span className="block font-display font-extrabold uppercase leading-none tracking-wider" style={{ fontSize: size * 0.72 }}>
+      E-Giant
+    </span>
+  );
   return (
     <span className={`inline-flex items-center gap-2.5 ${className ?? ""}`}>
       <BrandMark size={size} />
-      <span className="font-display font-extrabold uppercase leading-none tracking-wider" style={{ fontSize: size * 0.72 }}>
-        E-Giant
-      </span>
+      {slogan ? (
+        <span className="flex min-w-0 flex-col gap-1">
+          {word}
+          <Slogan />
+        </span>
+      ) : (
+        word
+      )}
     </span>
   );
 }

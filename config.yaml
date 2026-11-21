@@ -191,7 +191,7 @@ economies:
       core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=EA", category: inflation, transform: level, higher_is: bullish}
       consumer_confidence: {label: "Verbrauchervertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsco_m?indic=BS-CSMCI&s_adj=SA&unit=BAL&geo=EA21", category: growth, transform: level, higher_is: bullish}
       industry_confidence: {label: "Industrievertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsin_m_r2?indic=BS-ICI&s_adj=SA&unit=BAL&geo=EA21", category: growth, transform: level, higher_is: bullish}
-      ppi:           {label: "Erzeugerpreise (Industrie)", source: eurostat, series: "sts_inpp_m?indic_bt=PRC_PRR&nace_r2=B-E36&s_adj=NSA&unit=I21&geo=EA21", category: inflation, transform: yoy, higher_is: bullish}
+      ppi:           {label: "Erzeugerpreise (Industrie)", source: eurostat, series: "sts_inpp_m?indic_bt=PRC_PRR&nace_r2=B-E36&s_adj=NSA&unit=I21&geo=EA21", category: inflation, transform: yoy, higher_is: bullish, info_only: true}
       unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=EA21", category: labor, transform: level, higher_is: bearish}
       policy_rate:   {label: "Leitzins (EZB Einlagesatz)", source: ecb, series: FM/D.U2.EUR.4F.KR.DFR.LEV, category: rates, transform: level, higher_is: bullish}
       yield_2y:      {label: "Rendite 2 Jahre (Euro-Staatsanleihen, AAA)", source: ecb, series: YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y, category: rates, transform: level, higher_is: bullish}
@@ -206,7 +206,7 @@ economies:
       core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=DE", category: inflation, transform: level, higher_is: bullish}
       consumer_confidence: {label: "Verbrauchervertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsco_m?indic=BS-CSMCI&s_adj=SA&unit=BAL&geo=DE", category: growth, transform: level, higher_is: bullish}
       industry_confidence: {label: "Industrievertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsin_m_r2?indic=BS-ICI&s_adj=SA&unit=BAL&geo=DE", category: growth, transform: level, higher_is: bullish}
-      ppi:           {label: "Erzeugerpreise (Industrie)", source: eurostat, series: "sts_inpp_m?indic_bt=PRC_PRR&nace_r2=B-E36&s_adj=NSA&unit=I21&geo=DE", category: inflation, transform: yoy, higher_is: bullish}
+      ppi:           {label: "Erzeugerpreise (Industrie)", source: eurostat, series: "sts_inpp_m?indic_bt=PRC_PRR&nace_r2=B-E36&s_adj=NSA&unit=I21&geo=DE", category: inflation, transform: yoy, higher_is: bullish, info_only: true}
       unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=DE", category: labor, transform: level, higher_is: bearish}
       yield_10y:     {label: "Rendite 10 Jahre (Bund, Monatswert)", source: fred, series: IRLTLT01DEM156N, category: rates, transform: level, higher_is: bullish}
   UK:

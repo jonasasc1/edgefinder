@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 
 import { MotionText } from "../../components/AnimatedNumber";
-import { BrandMark } from "../../components/Brand";
+import { BrandMark, SLOGAN } from "../../components/Brand";
 import { Card } from "../../components/Card";
 import { spring } from "../../lib/motion";
 import type { Level } from "../../lib/score";
@@ -73,6 +73,7 @@ export function GiantHero({ counts, total }: { counts: Record<Level, number>; to
           <Stat label="Neutral" value={counts[0]} ink="text-flat-ink" />
           <Stat label="Bearish" value={bear} ink="text-bear-ink" />
         </dl>
+        <p className="mt-3 font-display text-[0.6875rem] font-medium tracking-[0.06em] text-ink-2">{SLOGAN}</p>
       </div>
     </Card>
   );

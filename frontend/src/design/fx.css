@@ -284,6 +284,10 @@
   opacity: 0;
   animation: pop-in 240ms 360ms ease-out both;
 }
+.intro-slogan {
+  opacity: 0;
+  animation: pop-in 240ms 460ms ease-out both;
+}
 @keyframes draw {
   from { stroke-dashoffset: 1; }
   to { stroke-dashoffset: 0; }

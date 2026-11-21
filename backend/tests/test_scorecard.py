@@ -185,3 +185,24 @@ def test_signal_threshold_and_tile_weights() -> None:
     tiles = {t.key: t for t in tile_scores(comps, 0.15, False)}
     assert tiles["technical"].score is None  # Gewicht 0 zählt nicht
     assert tiles["institutional"].score == -5.0
+
+
+def test_info_only_indicator_row_is_marked_without_pill(
+    client: TestClient, db: sqlite3.Connection
+) -> None:
+    series = "sts_inpp_m?indic_bt=PRC_PRR&nace_r2=B-E36&s_adj=NSA&unit=I21&geo=EA21"
+    month = date(TODAY.year, TODAY.month, 1)
+    for i in range(30):
+        year, mon = divmod(month.year * 12 + month.month - 1 - (29 - i), 12)
+        db.execute(
+            "INSERT INTO macro_observations (source, series_id, date, vintage_date, value)"
+            " VALUES ('eurostat', ?, ?, '', ?)",
+            (series, date(year, mon + 1, 1).isoformat(), 100 + i * (i % 4)),
+        )
+    body = client.get("/api/assets/EURUSD/scorecard").json()
+    rows = [r for sec in body["sections"] for r in sec["rows"] if r["key"] == "EZ-ppi"]
+    assert len(rows) == 1
+    assert rows[0]["info_only"] is True
+    assert rows[0]["signal"] is None and rows[0]["score"] is None
+    others = [r for sec in body["sections"] for r in sec["rows"] if r["key"].startswith("US-")]
+    assert all(not r["info_only"] for r in others)

@@ -3,7 +3,8 @@
 Indikator-Score: Veränderung des (transformierten) Werts über `change_months`, gemessen als
 z-Wert gegen alle gleich langen Veränderungen der letzten `history_years`; Teilscore =
 Richtung × tanh(z / 2), Richtung aus `higher_is` der Konfiguration. Kategorie-Score = Mittel
-der verfügbaren Indikatoren. Serien ohne frischen Wert (älter als `max_age_days`) oder ohne
+der verfügbaren Indikatoren (ohne `info_only`-Reihen, die nur
+angezeigt werden). Serien ohne frischen Wert (älter als `max_age_days`) oder ohne
 genug Historie entfallen; fehlt eine ganze Kategorie, entfällt sie.
 
 * Forex: je Kategorie Differenz Basis − Quote (begrenzt auf ±1); zusätzlich Zinskategorie:
@@ -53,6 +54,7 @@ class IndicatorData:
     transform: str  # level | yoy | diff
     higher_is: str  # bullish | bearish
     series: list[tuple[str, float]] = field(default_factory=list)  # (Datum, Wert), aufsteigend
+    info_only: bool = False  # nur Anzeige, nie im Score
 
 
 @dataclass
@@ -174,7 +176,7 @@ def category_scores(
         details: list[str] = []
         inputs: dict[str, Any] = {}
         for key, ind in economy.indicators.items():
-            if ind.category != category:
+            if ind.category != category or ind.info_only:
                 continue
             scored = indicator_score(ind, as_of, params)
             if scored is None:
@@ -276,7 +278,7 @@ def _flipped_score(
 ) -> tuple[IndicatorData, float, dict[str, Any]] | None:
     """Indikator mit umgedrehter Richtung (steigend = bearish) bewerten, falls vorhanden."""
     ind = us.indicators.get(key)
-    if ind is None:
+    if ind is None or ind.info_only:
         return None
     flipped = IndicatorData(ind.key, ind.label, ind.category, ind.transform, "bearish", ind.series)
     scored = indicator_score(flipped, as_of, params)

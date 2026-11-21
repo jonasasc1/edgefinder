@@ -13,7 +13,7 @@ export function Sidebar() {
   return (
     <aside className="glass fixed inset-y-0 left-0 z-30 hidden w-sidebar flex-col border-r border-line px-3 pb-4 pt-6 lg:flex">
       <NavLink to="/" aria-label="E-Giant, zur Übersicht" className="mb-6 flex items-center px-3 py-1 text-ink">
-        <Wordmark size={34} />
+        <Wordmark size={34} slogan />
       </NavLink>
       <button
         type="button"

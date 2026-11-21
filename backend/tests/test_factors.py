@@ -420,3 +420,23 @@ def test_trend_reversal_mode_flips_sign() -> None:
     assert "Rückschlag" in up_rev.reason and "Erholung" in down_rev.reason
     assert up_rev.inputs["mode"] == "reversal" and up.inputs["mode"] == "trend"
     assert trend_f.compute(_prices(30, 0.01), params, reverse=True).subscore is None
+
+
+def test_macro_info_only_indicator_stays_out_of_score() -> None:
+    wave = [50 + (i % 7) * 0.4 + i * 0.05 for i in range(100)]
+    plain = macro_f.EconomyData("A", "A")
+    plain.indicators["gdp"] = _ind("gdp", wave)
+    with_info = macro_f.EconomyData("A", "A")
+    with_info.indicators["gdp"] = _ind("gdp", wave)
+    ppi = _ind("ppi", [float(i * i % 11) for i in range(100)], category="growth")
+    ppi.info_only = True
+    with_info.indicators["ppi"] = ppi
+    assert macro_f.indicator_score(ppi, AS_OF, MP) is not None  # bewertbar, aber nur Info
+    expected = macro_f.category_scores(plain, AS_OF, MP)
+    got = macro_f.category_scores(with_info, AS_OF, MP)
+    assert got["growth"].score == pytest.approx(expected["growth"].score)
+    assert "ppi" not in got["growth"].inputs
+    ppi.info_only = False
+    assert macro_f.category_scores(with_info, AS_OF, MP)["growth"].score != pytest.approx(
+        expected["growth"].score
+    )

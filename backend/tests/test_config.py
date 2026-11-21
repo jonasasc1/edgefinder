@@ -129,3 +129,14 @@ def test_us_extra_macro_indicators_and_pmi_substitute_is_labelled() -> None:
         us["philly_fed"].series == "GACDFSA066MSFRBPHI" and "PMI-Ersatz" in us["philly_fed"].label
     )
     assert "ISM" not in " ".join(i.label for i in us.values())
+
+
+def test_indicator_info_only_defaults_false_and_is_validated(config_data: dict[str, Any]) -> None:
+    config = Config.model_validate(config_data)
+    assert config.economies["EZ"].indicators["ppi"].info_only is True
+    assert config.economies["DE"].indicators["ppi"].info_only is True
+    assert config.economies["US"].indicators["ppi"].info_only is False
+    assert config.economies["US"].indicators["cpi"].info_only is False
+    config_data["economies"]["US"]["indicators"]["cpi"]["info_only"] = "vielleicht"
+    with pytest.raises(ValidationError):
+        Config.model_validate(config_data)

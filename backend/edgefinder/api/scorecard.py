@@ -473,7 +473,11 @@ class Builder:
             values = macro_factor.transformed(series) if series else []
             if not values:
                 continue
-            scored = macro_factor.indicator_score(series, self.as_of, params) if series else None
+            scored = (
+                macro_factor.indicator_score(series, self.as_of, params)
+                if series and not ind.info_only
+                else None
+            )
             unit = UNIT_BY_KEY.get(key, "%")
             previous = values[-2][1] if len(values) > 1 else None
             out.setdefault(ind.category, []).append(
@@ -489,6 +493,7 @@ class Builder:
                     date=values[-1][0],
                     signal=self.sig(scored[0]) if scored else None,
                     score=round(scored[0], 3) if scored else None,
+                    info_only=ind.info_only,
                 )
             )
         return out

@@ -119,6 +119,7 @@ class MacroIndicatorOut(BaseModel):
     change: float | None
     score: float | None  # [-1, +1] aus Sicht der Währung/des Marktes (None = zu wenig Daten)
     fresh: bool
+    info_only: bool = False  # nur Anzeige, nicht im Score
 
 
 class MacroEconomyOut(BaseModel):
@@ -212,6 +213,7 @@ class ScorecardRowOut(BaseModel):
     note: str | None = None  # Begründung aus der Engine (Tooltip)
     next_date: str | None = None  # nächster sicher bekannter Termin
     soon: bool = False  # nächster Termin liegt in den nächsten Tagen (Stern)
+    info_only: bool = False  # Indikator nur zur Information, ohne Pille und nicht im Score
 
 
 class ScorecardSectionOut(BaseModel):

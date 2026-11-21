@@ -8,7 +8,7 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
-**Stand (2026-11-20, noch NICHT deployt): Redesign zu E-Giant (siehe Frontend „Marke E-Giant“); davor: mehr Makrodaten, COT-Pille, Indizes „nur Info“.**
+**Stand (2026-11-21, noch NICHT deployt): Redesign zu E-Giant (siehe Frontend „Marke E-Giant“); davor: mehr Makrodaten, COT-Pille, Indizes „nur Info“.**
 - **Neue Makro-Reihen (live geprüft 2026-11-20, `config.yaml`, vorhandene Fetcher, ALFRED-Vintages vollständig):** US
   Verbrauchervertrauen (UMCSENT), PPI Endnachfrage (PPIFIS), PCE/Kern-PCE (PCEPI/PCEPILFE), Auftragseingang Langlebige
   Güter (DGORDER), Baubeginne (HOUST), JOLTS (JTSJOL), ADP (ADPMNUSNERSA, Monatsänderung; Vintages erst ab 2022-08, davor
@@ -269,6 +269,10 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   API-Schlüssel und `api.stats.govt.nz` hat ein abgelaufenes Zertifikat, die OECD-API liefert für Japan nur bis
   2021-06. Index-Reihen laufen mit `transform: yoy`. Indikator-Option `publication_lag_days` (nur Serien ohne
   Vintages) überschreibt die Verzögerungsschätzung nach Frequenz (Japan/IMF: 75 Tage).
+- **Indikator-Option `info_only: true` (2026-11-21, Jonas):** Reihe wird angezeigt (Scorecard-Zeile `info_only=true` mit „nur Info“, ohne Pille,
+  `score=null`; Makro-Seite `info_only`, `score=null`), geht aber nicht in Teilscore/Kategorie-Mittel ein (`macro.category_scores`, gemeinsamer
+  Pfad für Live, Backtest und Backfill). Gesetzt für **EZ- und DE-PPI** (vorgelagert, volatil; CPI/Kern sind die Zentralbankgröße).
+  US-PPI (PPIFIS) bleibt im Score. Wirkung lokal: EURUSD swing −3,378 → −3,422, EURGBP −4,039 → −4,083; Indizes (DAX) unverändert.
 - **Rohdaten-Aufbewahrung:** `storage.raw_retention_days: 30`. `uv run edgefinder cleanup [--days N] [--dry-run]`
   löscht Dateien und `raw_files`-Einträge, die älter sind (nie außerhalb `raw_dir`, leere Ordner werden entfernt);
   normalisierte Tabellen bleiben. Timer: `edgefinder-cleanup.timer` (wöchentlich, siehe `maintenance:`).
@@ -386,6 +390,9 @@ Favoriten gibt es nur clientseitig (localStorage).
   keine `[…]`-Arbitrary-Values in Komponenten; fehlt ein Wert, erst Token anlegen. Text auf Flächen:
   `*-ink` (AA-Kontrast), `*-ring` nur für Grafik. Bullish/Bearish: `soft` (Fläche), `ring`, `ring-strong`,
   `solid` + `on-solid` (gefüllte Marke). `ink-3` nur Deko (Kontrast < 4,5).
+- **Slogan (2026-11-21, Jonas):** „Groß denken. Unter Strom.“ (`SLOGAN`/`Slogan` in `Brand.tsx`). Zeile unter der Wortmarke in der
+  Sidebar, im Intro (`intro-slogan`, animiert nur ohne reduzierte Bewegung, das Intro entfällt dort ganz), dezent im Übersichts-Hero, im
+  Footer sowie in Manifest-`description` und `<meta name="description">`. Nicht im Handy-Header. Farbe `ink-2`, 11 px Saira, Tracking.
 - **Marke E-Giant (2026-11-20, Redesign „Elektroriese“, noch NICHT deployt):** Produktname überall E-Giant (Titel, Wortmarke,
   Manifest, Footer); Repo, Python-Paket, Dienste und Pfade heißen weiter `edgefinder`. Inspiration: der Elektroriese als Idee
   („groß denken“, Markt aus Riesenperspektive, Strom/Spannung), KEINE fremden Assets/Figuren. Bildmarke (selbst gezeichnet,

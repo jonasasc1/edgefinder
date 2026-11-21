@@ -154,7 +154,13 @@ class DataStore:
             )
             if series:
                 data.indicators[key] = IndicatorData(
-                    key, ind.label, ind.category, ind.transform, ind.higher_is, series
+                    key,
+                    ind.label,
+                    ind.category,
+                    ind.transform,
+                    ind.higher_is,
+                    series,
+                    ind.info_only,
                 )
         return data
 

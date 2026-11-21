@@ -1,4 +1,4 @@
-import { Wordmark } from "./Brand";
+import { SLOGAN, Wordmark } from "./Brand";
 
 /** Fußzeile auf jeder Seite: Wortmarke, Hinweis „Keine Anlageberatung“ und Quellenangabe der Diagramme. */
 export function Footer() {
@@ -7,6 +7,7 @@ export function Footer() {
       <div className="mb-3 flex justify-center text-ink">
         <Wordmark size={22} />
       </div>
+      <p className="-mt-1 mb-3 font-display text-caption font-medium tracking-[0.06em]">{SLOGAN}</p>
       <p className="font-semibold text-ink">Keine Anlageberatung</p>
       <p className="mt-1">
         Die Scores fassen öffentliche Daten zusammen (COT, Sentiment, Makro, Trend) und sind keine Empfehlung zum Kauf oder Verkauf.

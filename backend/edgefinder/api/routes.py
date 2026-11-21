@@ -103,12 +103,13 @@ def _macro_out(
                         change=None,
                         score=None,
                         fresh=False,
+                        info_only=ind.info_only,
                     )
                 )
                 continue
             values = macro_factor.transformed(series)
             fresh = bool(values) and (as_of - date.fromisoformat(values[-1][0])).days <= max_age
-            scored = macro_factor.indicator_score(series, as_of, params)
+            scored = None if ind.info_only else macro_factor.indicator_score(series, as_of, params)
             rows.append(
                 s.MacroIndicatorOut(
                     key=key,
@@ -120,6 +121,7 @@ def _macro_out(
                     change=scored[1]["change"] if scored else None,
                     score=round(scored[0], 3) if scored else None,
                     fresh=fresh,
+                    info_only=ind.info_only,
                 )
             )
         economies.append(

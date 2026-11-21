@@ -88,6 +88,7 @@ export type MacroIndicator = {
   change: number | null;
   score: number | null;
   fresh: boolean;
+  info_only?: boolean;
 };
 export type MacroEconomy = { code: string; name: string; indicators: MacroIndicator[] };
 export type Macro = { change_months: number; economies: MacroEconomy[] };
@@ -183,6 +184,7 @@ export type ScorecardRow = {
   note: string | null;
   next_date: string | null;
   soon: boolean;
+  info_only?: boolean;
 };
 
 export type ScorecardSection = {

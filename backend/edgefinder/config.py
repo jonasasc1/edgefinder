@@ -91,6 +91,9 @@ class Indicator(_Model):
     # Geschätzte Verzögerung (Tage ab Periodenbeginn) bis zur Veröffentlichung, nur für Serien
     # ohne Vintages; None = Schätzung nach Frequenz (scoring/data.py)
     publication_lag_days: int | None = Field(default=None, gt=0)
+    # Nur Info: wird angezeigt (Scorecard, Makro-Seite), geht aber weder in Teilscore noch in das
+    # Kategorie-Mittel ein
+    info_only: bool = False
 
 
 class Economy(_Model):
