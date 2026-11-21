@@ -78,3 +78,23 @@ neue Konfig-Serien sind statische Werte aus `config.yaml`.
 Ruff, pytest, `npm run lint`/`build`/`test`, `check:nav` grün; Semgrep (ERROR) 0 Funde; Gitleaks 0; npm audit 0.
 Delta klein (21 Dateien): keine XSS-Senken (`dangerouslySetInnerHTML`, `innerHTML`, `eval` in den neuen Zeilen: 0), keine neuen
 SQL-Abfragen, `info_only` ist ein validiertes Bool-Feld aus `config.yaml`. Manuelle Durchsicht, kein Fund.
+
+## Pflicht-Checks vor Deploy Nr. 4 (2026-11-21, Änderungen seit 3820600: Benutzerkonten, Langfrist-Prüfung, Konto-Frontend)
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Lint/Tests | ruff, pytest (310), `npm run lint`/`build`/`test` (26), `check:nav` | grün |
+| Semgrep | `semgrep scan --config p/default --config p/secrets --metrics=off --severity ERROR .` | 0 Funde (ERROR) |
+| Gitleaks | `gitleaks git --redact .` | 0 Funde |
+| pip-audit | Lockfile ohne dev (neu: pyjwt[crypto], cryptography) | 0 Funde |
+| npm audit | `npm audit --omit=dev` | 0 Funde |
+| /security-review | gegen 3820600 (40 Dateien) | 0 Funde |
+
+/security-review im Detail (Schwerpunkt Auth): `api/auth.py` – JWT nur RS256, Pflicht `exp`/`aud`/`iss`, Schlüssel nur aus der
+JWKS der konfigurierten Team-Domain (Slug per Regex validiert, kein Redirect-Folgen → kein SSRF), unbekannte `kid` → 401,
+Fehler loggen nur die Fehlerart; `mode: jwt` ohne .env-Werte = Startfehler (fail closed); kein anonymer Fallback.
+`api/account.py` – jede Abfrage über `user_id` der Identität, Identität nie aus Client-Eingaben, alle SQL-Statements
+parametrisiert, Pydantic strict + `extra=forbid`, Größenlimits, `application/json` Pflicht (Formular-CSRF damit nicht möglich),
+Origin-/Sec-Fetch-Site-Prüfung. Migration 0003: Kaskaden, CHECK auf normalisierte E-Mail. Service Worker: `/api/me*` nie gecacht.
+Hinweis (kein Fund): Im Header-Modus ist die Identität nur so vertrauenswürdig wie die Firewall (8420 nur von cloudflared);
+der JWT-Modus (`CF_ACCESS_TEAM_DOMAIN` + `CF_ACCESS_AUD`) schließt das und wird empfohlen.
