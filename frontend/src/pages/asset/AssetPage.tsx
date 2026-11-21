@@ -8,13 +8,15 @@ import { ErrorState } from "../../components/ErrorState";
 import { IconBack, IconCompare } from "../../components/icons";
 import { InfoTip } from "../../components/InfoTip";
 import { PageHeader } from "../../components/PageHeader";
+import { ProfileNotices } from "../../components/ProfileNotices";
 import { ScoreRing } from "../../components/ScoreRing";
 import { SectionTitle } from "../../components/SectionTitle";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { Skeleton } from "../../components/Skeleton";
 import { StarButton } from "../../components/StarButton";
-import { fetchAssetDetail, fetchProfiles, fetchScorecard, type AssetDetail, type ProfileKey } from "../../lib/api";
+import { fetchAssetDetail, fetchProfiles, fetchScorecard, type AssetDetail, type ProfileKey, type ProfileNotice } from "../../lib/api";
 import { formatDateMedium, formatPct, formatPctSigned, formatPrice } from "../../lib/format";
+import { activeNotices } from "../../lib/notices";
 import { levelOf, toneOf } from "../../lib/score";
 import { useApi } from "../../lib/useApi";
 import { usePersistentState } from "../../lib/usePersistentState";
@@ -29,12 +31,13 @@ import { SentimentCard } from "./SentimentCard";
 
 const PROFILE_KEYS: readonly ProfileKey[] = ["swing", "long_term"];
 
-function Hero({ detail, profile, horizon }: { detail: AssetDetail; profile: ProfileKey; horizon?: string }) {
+function Hero({ detail, profile, horizon, notices }: { detail: AssetDetail; profile: ProfileKey; horizon?: string; notices: ProfileNotice[] }) {
   const entry = detail.profiles[profile]?.score;
   const tone = entry ? toneOf(levelOf(entry.score, entry.label)) : "flat";
   const price = detail.last_price;
   return (
     <Card className="p-5 sm:p-6">
+      <ProfileNotices notices={notices} gap="mb-5" collapsedGap="mb-0" />
       <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-10">
         <div className="flex flex-col items-center gap-3">
           <ScoreRing score={entry?.score ?? null} label={entry?.label} size="xl" />
@@ -142,7 +145,7 @@ export function AssetPage() {
       {detail && (
         <div className="flex flex-col gap-6 px-4 sm:px-8">
           <SegmentedControl label="Profil" value={profile} onChange={setProfile} options={options} full className="sm:w-72" />
-          <Hero detail={detail} profile={profile} horizon={horizon} />
+          <Hero detail={detail} profile={profile} horizon={horizon} notices={activeNotices(profileList, profile, [detail.asset_class])} />
 
           {scorecard.state.status === "ready" && <GroupTiles tiles={scorecard.state.data.tiles} />}
           <PriceScoreChart assetId={detail.id} profile={profile} />

@@ -77,6 +77,7 @@ const STOCK_PATCH = patchScorecard((body) => {
   setSection(body, "insider", { signal: "bearish", score: -0.4, empty_reason: null, rows: [row("insider", "Insider-Handel (90 Tage)", { unit: "usd", value: -2800000, signal: "bearish", score: -0.4, text: "1 Kauf, 4 Verkäufe (Nettowert)" })] });
 });
 const open = (name) => (page) => page.getByRole("button", { name }).click();
+const langfristig = async (page) => { await page.getByRole("radio", { name: "Langfristig" }).click(); await page.waitForTimeout(600); };
 const FAVS = ["EURUSD", "GOLD", "NVDA"];
 
 // Konto (Cloudflare Access): GET /api/me wird gemockt, PUTs ebenfalls (nichts am Server ändern).
@@ -104,6 +105,11 @@ const scenarios = [
   { id: "uebersicht-liste", path: "/", prepare: (page) => page.getByRole("radio", { name: "Listenansicht" }).click() },
   { id: "uebersicht-forex", path: "/", prepare: (page) => page.getByRole("button", { name: /^Forex/ }).click() },
   { id: "uebersicht-langfristig", path: "/", prepare: (page) => page.getByRole("radio", { name: "Langfristig" }).click() },
+  { id: "uebersicht-langfristig-forex", path: "/", prepare: async (page) => { await page.getByRole("radio", { name: "Langfristig" }).click(); await page.getByRole("button", { name: /^Forex/ }).click(); await page.waitForTimeout(600); } },
+  { id: "hinweis-index-langfristig", path: "/asset/SPX", prepare: langfristig },
+  { id: "hinweis-forex-langfristig", path: "/asset/EURUSD", prepare: langfristig },
+  { id: "hinweis-vergleich-langfristig", path: "/vergleich?ids=EURUSD,SPX", prepare: langfristig },
+  { id: "hinweis-erklaerung", path: "/", prepare: async (page) => { await page.getByRole("radio", { name: "Langfristig" }).click(); await page.getByRole("button", { name: "Warum?" }).click(); await page.waitForTimeout(700); } },
   { id: "detail-forex", path: "/asset/EURUSD", full: true },
   { id: "detail-index", path: "/asset/SPX", full: true },
   { id: "detail-rohstoff", path: "/asset/GOLD", full: true },
@@ -230,6 +236,19 @@ for (const path of only ? [] : ["/", "/design", "/makro", "/aenderungen", "/favo
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   if (overflow > 0) problems.push(`320px ${path}: horizontaler Überlauf ${overflow}px`);
   await page.close();
+}
+if (!only || only.startsWith("hinweis")) {
+  // Hinweis (Langfristig) auf 320 px: Umbruch ohne Überlauf
+  for (const [name, path] of [["uebersicht", "/"], ["detail-index", "/asset/SPX"]]) {
+    const page = await narrow.newPage();
+    await page.addInitScript(() => localStorage.setItem("ef-profile", "long_term"));
+    await page.goto(base + path, { waitUntil: "networkidle" });
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: join(out, `hinweis-${name}-320.png`) });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    if (overflow > 0) problems.push(`320px Hinweis ${name}: horizontaler Überlauf ${overflow}px`);
+    await page.close();
+  }
 }
 if (!only || only === "konto") {
   // Darstellung-Sheet mit Konto auf 320 px: kein Überlauf, nichts abgeschnitten

@@ -3,7 +3,8 @@ import { setOffline } from "./offline";
 
 export type ProfileKey = "swing" | "long_term";
 
-export type Profile = { key: ProfileKey; label: string; horizon: string };
+export type ProfileNotice = { asset_classes: AssetClass[]; level: "info"; text: string };
+export type Profile = { key: ProfileKey; label: string; horizon: string; notices?: ProfileNotice[] };
 
 export type ScoreEntry = {
   date: string;

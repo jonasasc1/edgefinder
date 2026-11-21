@@ -358,6 +358,14 @@ Earnings, Short Interest, Insider; sonst Makrodaten der beteiligten Volkswirtsch
 `/sparklines?days&profile` (Score-Verlauf aller Assets in einem Abruf), `/health`.
 Konto-Endpunkte `/api/me*` siehe „Konten“; Favoriten und Einstellungen liegen seit Etappe l am Server (localStorage nur Cache).
 
+**Profil-Hinweise (Etappe m, 2026-11-21):** `GET /profiles` liefert je Profil `notices` (`asset_classes`, `level`, `text`;
+leer = keiner). Quelle: `config.yaml` → `profiles.<profil>.notices` (pydantic `ProfileNotice`, optional, Default leer).
+Aktuell ein Info-Hinweis bei `long_term` für `index` und `stock` („kein belegter Vorhersagewert“, siehe „Offen“:
+Langfrist-Profil geprüft). **Hinweis entfernen:** den Eintrag unter `notices:` löschen (oder `notices: []`) und den Server
+neu starten; keine Codeänderung, kein Neubau. Frontend: `components/ProfileNotices.tsx` (weich ein-/ausklappend, ohne Layout-Sprung;
+„Warum?“ öffnet Glossar `longTermNotice`), Logik `lib/notices.ts` (`activeNotices`). Angezeigt auf Übersicht (unter dem
+Profil-Umschalter, abhängig vom Klassenfilter), Asset-Hero und Vergleich (wenn betroffene Assets dabei sind).
+
 ### Konten (Etappe l, 2026-11-21)
 - **Entscheidung Jonas:** Cloudflare Access (Google-Anmeldung) ist die Zugangskontrolle; die App führt KEINE eigene Freigabeliste. Jede
   durchgelassene E-Mail bekommt beim ersten `GET /api/me` automatisch ein Konto (auch später in Cloudflare hinzugefügte Personen).
@@ -518,7 +526,7 @@ Bestätigung abwarten.
   signifikant (Indizes Makro −0,02); der negative IC entsteht fast nur in 2020+ (Indizes Makro −0,26, n_eff 144, eine
   Marktphase). Keine Variante im Training klar besser; nur „Makro umgekehrt“ ist OOS positiv, aber unbegründet
   (Overfitting-Verdacht). Zahlen: Anhang in `docs/backtest-report.md`, Skript `backend/scripts/longterm_research.py`.
-  **Langfrist-Scores für Indizes/Aktien haben derzeit keinen belegten Vorhersagewert** (Hinweis im UI: Jonas entscheidet).
+  **Langfrist-Scores für Indizes/Aktien haben derzeit keinen belegten Vorhersagewert** (Hinweis im UI seit Etappe m, konfigurierbar).
   Nicht getestet: anderes Makro-Änderungsfenster (Neuberechnung nötig).
 - **Rohdaten wachsen:** `data/raw` bekommt je Lauf neue Dateien (FRED mit Vintages ≈ 20 MB je
   Lauf). Regel: 30 Tage, `edgefinder cleanup`; Timer `edgefinder-cleanup` ist in `deploy/systemd` vorbereitet.

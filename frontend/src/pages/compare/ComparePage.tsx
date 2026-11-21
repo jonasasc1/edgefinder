@@ -16,6 +16,8 @@ import { SectionTitle } from "../../components/SectionTitle";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { Sheet } from "../../components/Sheet";
 import { Skeleton } from "../../components/Skeleton";
+import { ProfileNotices } from "../../components/ProfileNotices";
+import { activeNotices } from "../../lib/notices";
 import { fetchAssetDetail, fetchHistory, fetchProfiles, type AssetDetail, type History, type ProfileKey } from "../../lib/api";
 import { useAssets } from "../../lib/assets";
 import { MAX_COMPARE } from "../../lib/favorites";
@@ -103,6 +105,8 @@ export function ComparePage() {
     });
   }, [loaded, days, ids]);
 
+  const profileList = profiles.state.status === "ready" ? profiles.state.data : null;
+  const notices = activeNotices(profileList, profile, loaded ? loaded.details.map((d) => d.asset_class) : []);
   const rows = loaded ? factorRows(loaded.details, profile) : [];
   const waiting = assetsState.status === "loading" || assetsState.status === "idle";
 
@@ -132,6 +136,8 @@ export function ComparePage() {
             )}
           </ul>
         </div>
+
+        <ProfileNotices notices={notices} collapsedGap="-mb-6" />
 
         {assetsState.status === "error" && <ErrorState what="Die Assets" onRetry={reloadAssets} />}
 

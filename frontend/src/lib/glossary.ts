@@ -30,7 +30,8 @@ export type TermKey =
   | "previousValue"
   | "noForecast"
   | "longShort"
-  | "scoreHistory";
+  | "scoreHistory"
+  | "longTermNotice";
 
 export const TERMS: Record<TermKey, { title: string; text: string }> = {
   groupScores: {
@@ -88,6 +89,10 @@ export const TERMS: Record<TermKey, { title: string; text: string }> = {
   contribution: {
     title: "Beitrag",
     text: "Punkte, die der Faktor zum Gesamtscore beisteuert (Teilscore × Gewicht × 10). Alle Beiträge zusammen ergeben den Score.",
+  },
+  longTermNotice: {
+    title: "Warum dieser Hinweis?",
+    text: "Der Backtest vergleicht frühere Langfrist-Scores von Indizes und Aktien mit der Kursentwicklung danach. Dabei zeigte sich kein verlässlicher Zusammenhang. Die Scores erklären die aktuelle Lage, sagen aber nichts Belastbares über die Zukunft voraus.",
   },
   profile: {
     title: "Profil",

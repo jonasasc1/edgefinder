@@ -7,12 +7,14 @@ import { IconChevronUpDown, IconGrid, IconList, IconSliders } from "../../compon
 import { Card } from "../../components/Card";
 import { connectionArt } from "../../components/illustrations";
 import { PageHeader } from "../../components/PageHeader";
+import { ProfileNotices } from "../../components/ProfileNotices";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { Sheet } from "../../components/Sheet";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import type { ProfileKey } from "../../lib/api";
 import { formatDate } from "../../lib/format";
 import { spring } from "../../lib/motion";
+import { activeNotices } from "../../lib/notices";
 import { splitFavorites, useFavorites } from "../../lib/favorites";
 import { usePersistentState } from "../../lib/usePersistentState";
 import { AssetCard } from "./AssetCard";
@@ -61,6 +63,7 @@ export function OverviewPage() {
   const { pinned, rest } = useMemo(() => splitFavorites(rows, (row) => row.asset.id, favorites), [rows, favorites]);
   const classCount = (key: ClassFilter) => (key === "all" ? allRows.length : allRows.filter((row) => row.asset.asset_class === key).length);
   const stand = allRows.find((row) => row.entry)?.entry?.date;
+  const notices = activeNotices(profiles, profile, filter === "all" ? allRows.map((row) => row.asset.asset_class) : [filter]);
   const horizon = profiles?.find((p) => p.key === profile)?.horizon;
 
   const profileOptions = (profiles ?? [
@@ -93,6 +96,7 @@ export function OverviewPage() {
       </div>
 
       <div className="flex flex-col gap-5 px-4 pt-4 sm:px-8">
+        <ProfileNotices notices={notices} collapsedGap="-mb-5" />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <FilterChips value={filter} onChange={setFilter} count={state.status === "ready" ? classCount : undefined} />
           <div className="flex items-center gap-2">
