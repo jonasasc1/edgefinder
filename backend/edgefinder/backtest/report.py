@@ -57,6 +57,36 @@ def _significance(t: float | None) -> str:
     return de(t, "+.1f") + mark
 
 
+LONGTERM_APPENDIX = """\
+## Anhang: Prüfung des Langfrist-Profils (2026-11-21)
+
+**Anlass:** Langfrist-IC negativ bei Indizes (−0,139) und Aktien (−0,059). **Ergebnis: keine Änderung.**
+Skript: `backend/scripts/longterm_research.py` (gespeicherte Teilscores, Gewichte renormiert, Horizont 60 T).
+
+**Diagnose (IC des Teilscores, Training 2013–2019 / OOS 2020+):** Indizes Makro −0,020 (t −0,2) / **−0,260 (t −3,2)**;
+Indizes Trend −0,092 / −0,127; Indizes COT +0,061 / −0,112; Aktien Trend −0,020 / −0,029; Rohstoffe COT −0,142 / +0,068.
+Im Training ist kein Faktor signifikant (alle |t| < 1,7); der Schaden entsteht fast nur in 2020+ (Indizes n_eff 144,
+im Wesentlichen eine Marktphase: Corona-Erholung, Zinswende, 2022). Basisrate Indizes 69–72 % steigend.
+
+| Klasse | Variante | IC Training (t) | IC OOS (t) |
+|---|---|---|---|
+| Indizes | Basis | -0,018 (-0,2) | -0,263 (-3,3) |
+| Indizes | A Makro-Gewicht × 0,5 | -0,031 (-0,4) | -0,219 (-2,7) |
+| Indizes | B Trend umgekehrt | +0,045 (+0,5) | -0,169 (-2,0) |
+| Indizes | C Makro umgekehrt | +0,009 (+0,1) | +0,087 (+1,0) |
+| Indizes | D Makro × 0,5 + Trend × 0,5 | -0,013 (-0,2) | -0,216 (-2,6) |
+| Aktien | Basis | -0,029 (-0,7) | -0,085 (-2,1) |
+| Aktien | B Trend umgekehrt | -0,002 (-0,1) | -0,058 (-1,4) |
+| Aktien | D Makro × 0,5 + Trend × 0,5 | -0,033 (-0,8) | -0,090 (-2,2) |
+
+**Entscheidung:** Keine Variante ist im Training klar besser (kein t über 0,5). Nur C (Makro umgekehrt) ist OOS positiv,
+aber das wäre eine Auswahl auf dem OOS-Zeitraum, ökonomisch nicht begründbar (Wachstums-/Arbeitsmarktdaten
+„besser“ → Index fällt?) und im Training wirkungslos: Overfitting-Verdacht. A/B/D mildern den Schaden nur. Nicht
+getestet: Makro mit anderem Änderungsfenster (Neuberechnung nötig; Makro-IC im Training ≈ 0, daher kein Ansatz zur
+Auswahl). **Langfrist-Scores für Indizes/Aktien haben derzeit keinen belegten Vorhersagewert.**
+"""
+
+
 TREND_APPENDIX = """\
 ## Anhang: Überarbeitung des Trend-Faktors (2026-11-18)
 
@@ -292,7 +322,7 @@ def render_markdown(result: dict[str, Any]) -> str:
         lines += _table(
             ["Jahr", "Scores", "Ø Abdeckung", *[FACTOR_NAME.get(f, f) for f in factors]], rows
         )
-    return "\n".join(lines).rstrip() + "\n\n" + TREND_APPENDIX
+    return "\n".join(lines).rstrip() + "\n\n" + TREND_APPENDIX.rstrip() + "\n\n" + LONGTERM_APPENDIX
 
 
 def write_report(result: dict[str, Any], output_dir: Path, markdown: Path | None = None) -> dict:

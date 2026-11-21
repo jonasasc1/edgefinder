@@ -1,6 +1,6 @@
 # Backtest-Report
 
-Erzeugt: 2026-11-18T18:57:33+00:00 · Zeitraum der Stichtage: 2013-01-04 bis 2026-11-18 · 730 Stichtage, 62771 Scores (je Asset und Profil) · Handelstage-Abstand der Stichtage ≈ 5.
+Erzeugt: 2026-11-21T08:16:29+00:00 · Zeitraum der Stichtage: 2013-01-04 bis 2026-11-21 · 732 Stichtage, 62943 Scores (je Asset und Profil) · Handelstage-Abstand der Stichtage ≈ 5.
 
 ## Methode und Lesehilfe
 
@@ -229,7 +229,7 @@ Hinweis für Tuning-Kandidaten, keine Gewichtsänderung ohne Jonas. IC nur über
 | Indizes | Makro | 15 % | 96 % | 3460 | -0,026 | -1,1 |
 | Indizes | Trend | 35 % | 100 % | 3610 | +0,120 | +5,1 * |
 | Indizes | Saisonalität | 10 % | 87 % | 3120 | +0,016 | +0,6 |
-| Indizes | AAII | 15 % | 1 % | 10 | -0,453 | -0,9 |
+| Indizes | AAII | 15 % | 2 % | 10 | -0,453 | -0,9 |
 | Rohstoffe | COT | 30 % | 100 % | 2888 | -0,021 | -0,8 |
 | Rohstoffe | Retail-Sentiment | 15 % | 0 % | 0 | – | – |
 | Rohstoffe | Makro | 10 % | 100 % | 2888 | -0,043 | -1,6 |
@@ -241,7 +241,7 @@ Hinweis für Tuning-Kandidaten, keine Gewichtsänderung ohne Jonas. IC nur über
 | Aktien | Short Interest | 10 % | 14 % | 1840 | +0,010 | +0,3 |
 | Aktien | Insider | 10 % | 0 % | 0 | – | – |
 | Aktien | Saisonalität | 5 % | 86 % | 12454 | +0,017 | +1,4 |
-| Aktien | AAII | 10 % | 1 % | 40 | -0,243 | -1,1 |
+| Aktien | AAII | 10 % | 2 % | 40 | -0,243 | -1,1 |
 
 ### Langfristig (Horizont 60 T)
 
@@ -257,7 +257,7 @@ Hinweis für Tuning-Kandidaten, keine Gewichtsänderung ohne Jonas. IC nur über
 | Indizes | Makro | 35 % | 93 % | 3303 | -0,153 | -2,6 * |
 | Indizes | Trend | 25 % | 100 % | 3559 | -0,108 | -1,9 |
 | Indizes | Saisonalität | 10 % | 87 % | 3069 | +0,021 | +0,3 |
-| Indizes | AAII | 10 % | 1 % | 0 | – | – |
+| Indizes | AAII | 10 % | 2 % | 0 | – | – |
 | Rohstoffe | COT | 30 % | 100 % | 2848 | -0,035 | -0,5 |
 | Rohstoffe | Retail-Sentiment | 5 % | 0 % | 0 | – | – |
 | Rohstoffe | Makro | 25 % | 99 % | 2812 | -0,076 | -1,2 |
@@ -269,7 +269,7 @@ Hinweis für Tuning-Kandidaten, keine Gewichtsänderung ohne Jonas. IC nur über
 | Aktien | Short Interest | 5 % | 13 % | 1520 | +0,097 | +1,1 |
 | Aktien | Insider | 10 % | 0 % | 0 | – | – |
 | Aktien | Saisonalität | 5 % | 86 % | 12254 | -0,031 | -1,0 |
-| Aktien | AAII | 10 % | 1 % | 0 | – | – |
+| Aktien | AAII | 10 % | 2 % | 0 | – | – |
 
 ## Stabilität nach Jahr (IC, Kennwert-Horizont)
 
@@ -316,7 +316,7 @@ Anteil der Scores (Profil Swing), in denen der Faktor einen Wert lieferte; Gewic
 | 2023 | 728 | 80 % | 100 % | 100 % | 0 % | 100 % | 100 % |
 | 2024 | 728 | 80 % | 100 % | 100 % | 0 % | 100 % | 100 % |
 | 2025 | 728 | 80 % | 100 % | 100 % | 0 % | 100 % | 100 % |
-| 2026 | 728 | 80 % | 100 % | 100 % | 0 % | 100 % | 100 % |
+| 2026 | 756 | 80 % | 100 % | 100 % | 0 % | 100 % | 100 % |
 
 ### Indizes
 
@@ -335,7 +335,7 @@ Anteil der Scores (Profil Swing), in denen der Faktor einen Wert lieferte; Gewic
 | 2023 | 260 | 76 % | 0 % | 80 % | 100 % | 0 % | 100 % | 100 % |
 | 2024 | 260 | 76 % | 0 % | 80 % | 100 % | 0 % | 100 % | 100 % |
 | 2025 | 260 | 76 % | 0 % | 80 % | 100 % | 0 % | 100 % | 100 % |
-| 2026 | 260 | 79 % | 19 % | 80 % | 100 % | 0 % | 100 % | 100 % |
+| 2026 | 270 | 79 % | 22 % | 80 % | 100 % | 0 % | 100 % | 100 % |
 
 ### Rohstoffe
 
@@ -354,7 +354,7 @@ Anteil der Scores (Profil Swing), in denen der Faktor einen Wert lieferte; Gewic
 | 2023 | 208 | 85 % | 100 % | 100 % | 0 % | 100 % | 100 % |
 | 2024 | 208 | 85 % | 100 % | 100 % | 0 % | 100 % | 100 % |
 | 2025 | 208 | 85 % | 100 % | 100 % | 0 % | 100 % | 100 % |
-| 2026 | 208 | 85 % | 100 % | 100 % | 0 % | 100 % | 100 % |
+| 2026 | 216 | 85 % | 100 % | 100 % | 0 % | 100 % | 100 % |
 
 ### Aktien
 
@@ -373,7 +373,7 @@ Anteil der Scores (Profil Swing), in denen der Faktor einen Wert lieferte; Gewic
 | 2023 | 1040 | 55 % | 0 % | 100 % | 0 % | 0 % | 100 % | 0 % | 100 % |
 | 2024 | 1040 | 55 % | 0 % | 100 % | 0 % | 0 % | 100 % | 0 % | 100 % |
 | 2025 | 1040 | 64 % | 0 % | 100 % | 0 % | 0 % | 100 % | 92 % | 100 % |
-| 2026 | 1040 | 67 % | 19 % | 100 % | 0 % | 0 % | 100 % | 100 % | 100 % |
+| 2026 | 1080 | 67 % | 22 % | 100 % | 0 % | 0 % | 100 % | 100 % | 100 % |
 
 ## Anhang: Überarbeitung des Trend-Faktors (2026-11-18)
 
@@ -419,3 +419,30 @@ Beobachtungen. Das Training und die Zeit vor 2020 wurden zudem schon im ersten B
 (Anlass der Überarbeitung). Die Basisrate steigender Kurse bleibt hoch: Auch der verbesserte Swing-Score ist
 nur ein schwacher Hinweis (IC knapp 0,08), kein belastbares Handelssignal. Mit nur drei Varianten
 und ohne Parametersuche ist das Overfitting-Risiko klein, aber nicht null; fortlaufend prüfen.
+
+## Anhang: Prüfung des Langfrist-Profils (2026-11-21)
+
+**Anlass:** Langfrist-IC negativ bei Indizes (−0,139) und Aktien (−0,059). **Ergebnis: keine Änderung.**
+Skript: `backend/scripts/longterm_research.py` (gespeicherte Teilscores, Gewichte renormiert, Horizont 60 T).
+
+**Diagnose (IC des Teilscores, Training 2013–2019 / OOS 2020+):** Indizes Makro −0,020 (t −0,2) / **−0,260 (t −3,2)**;
+Indizes Trend −0,092 / −0,127; Indizes COT +0,061 / −0,112; Aktien Trend −0,020 / −0,029; Rohstoffe COT −0,142 / +0,068.
+Im Training ist kein Faktor signifikant (alle |t| < 1,7); der Schaden entsteht fast nur in 2020+ (Indizes n_eff 144,
+im Wesentlichen eine Marktphase: Corona-Erholung, Zinswende, 2022). Basisrate Indizes 69–72 % steigend.
+
+| Klasse | Variante | IC Training (t) | IC OOS (t) |
+|---|---|---|---|
+| Indizes | Basis | -0,018 (-0,2) | -0,263 (-3,3) |
+| Indizes | A Makro-Gewicht × 0,5 | -0,031 (-0,4) | -0,219 (-2,7) |
+| Indizes | B Trend umgekehrt | +0,045 (+0,5) | -0,169 (-2,0) |
+| Indizes | C Makro umgekehrt | +0,009 (+0,1) | +0,087 (+1,0) |
+| Indizes | D Makro × 0,5 + Trend × 0,5 | -0,013 (-0,2) | -0,216 (-2,6) |
+| Aktien | Basis | -0,029 (-0,7) | -0,085 (-2,1) |
+| Aktien | B Trend umgekehrt | -0,002 (-0,1) | -0,058 (-1,4) |
+| Aktien | D Makro × 0,5 + Trend × 0,5 | -0,033 (-0,8) | -0,090 (-2,2) |
+
+**Entscheidung:** Keine Variante ist im Training klar besser (kein t über 0,5). Nur C (Makro umgekehrt) ist OOS positiv,
+aber das wäre eine Auswahl auf dem OOS-Zeitraum, ökonomisch nicht begründbar (Wachstums-/Arbeitsmarktdaten
+„besser“ → Index fällt?) und im Training wirkungslos: Overfitting-Verdacht. A/B/D mildern den Schaden nur. Nicht
+getestet: Makro mit anderem Änderungsfenster (Neuberechnung nötig; Makro-IC im Training ≈ 0, daher kein Ansatz zur
+Auswahl). **Langfrist-Scores für Indizes/Aktien haben derzeit keinen belegten Vorhersagewert.**

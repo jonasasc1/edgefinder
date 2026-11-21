@@ -62,7 +62,7 @@ Abdeckung für EURUSD/Gold/AAPL jetzt 100 %). Firewall (nftables, `inet edgefind
 8420 nur von 10.10.20.20, SSH nur von 10.10.20.90. Cloudflare-Route und Access hat Jonas eingerichtet, Seite ist online.
 Timer laufen nach `config.yaml`. Deploy künftig: `deploy/deploy.sh` (nur nach Freigabe, vorher Proxmox-Snapshot).
 **Nächste Schritte (offen):** Symbolliste von Myfxbook ansehen (`SELECT DISTINCT symbol FROM retail_sentiment`) und
-Indizes/Öl/Kupfer in `config.yaml` mappen, falls vorhanden; langfristigen Score (negativer IC) überarbeiten;
+Indizes/Öl/Kupfer in `config.yaml` mappen, falls vorhanden; langfristigen Score (negativer IC; 2026-11-21 geprüft, keine Variante überzeugt, siehe „Offen“);
 Score-Historie wächst täglich (Verlaufs-Charts füllen sich); optional e-Stat-appId für Japan-Inflation.
 Hinweis: `install.sh --apply-firewall` braucht ein Terminal; die Firewall wurde deshalb von Hand mit
 60-s-Rollback-Timer geladen (gleiche Schritte wie im Skript).
@@ -513,6 +513,13 @@ Bestätigung abwarten.
   n_eff nur 144), Aktien −0,059, Forex/Rohstoffe ≈ 0. Offene Tuning-Kandidaten: Makro-Gewicht Indizes
   (langfristig negativ), COT-Interpretation (Trendfolger vs. Konträr), Langfrist-Trend. Sehr hohe Scores sind selten (n klein).
   Der Vergleich der Basisrate (Indizes/Aktien steigen meist) bleibt Pflicht beim Lesen der Trefferquote.
+- **Langfrist-Profil geprüft (2026-11-21, Entscheidung: unverändert):** Diagnose + 4 Varianten (Makro ×0,5, Trend
+  umgekehrt, Makro umgekehrt, Makro+Trend ×0,5), Auswahl nur auf 2013–2019, Prüfung 2020+. Im Training ist kein Faktor
+  signifikant (Indizes Makro −0,02); der negative IC entsteht fast nur in 2020+ (Indizes Makro −0,26, n_eff 144, eine
+  Marktphase). Keine Variante im Training klar besser; nur „Makro umgekehrt“ ist OOS positiv, aber unbegründet
+  (Overfitting-Verdacht). Zahlen: Anhang in `docs/backtest-report.md`, Skript `backend/scripts/longterm_research.py`.
+  **Langfrist-Scores für Indizes/Aktien haben derzeit keinen belegten Vorhersagewert** (Hinweis im UI: Jonas entscheidet).
+  Nicht getestet: anderes Makro-Änderungsfenster (Neuberechnung nötig).
 - **Rohdaten wachsen:** `data/raw` bekommt je Lauf neue Dateien (FRED mit Vintages ≈ 20 MB je
   Lauf). Regel: 30 Tage, `edgefinder cleanup`; Timer `edgefinder-cleanup` ist in `deploy/systemd` vorbereitet.
 - **yfinance** ist eine inoffizielle Schnittstelle (kann ohne Vorwarnung brechen); Forex-Volumen
