@@ -106,3 +106,19 @@ Delta klein (16 Dateien, 196 Zeilen): keine XSS-Senken oder SQL in den neuen Zei
 nicht als HTML), `notices` stammt ausschließlich aus `config.yaml` (pydantic-validiert), keine Nutzereingabe. Manuelle Durchsicht, kein Fund.
 Zusätzlich Live-Smoke-Test der Konto-Endpunkte auf „trading“ nach Deploy Nr. 4 (401 ohne Identität, 403 fremde Herkunft, 422 ungültig,
 Kontentrennung, Testkonten danach gelöscht).
+
+## Pflicht-Checks vor Deploy Nr. 6 (2026-11-21, Änderungen seit 4e7ec1d: Score-Eichung „Einordnung“)
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Lint/Tests | ruff, pytest, `npm run lint`/`build`/`test` (36), `check:nav` | grün |
+| Semgrep | `semgrep scan --config p/default --config p/secrets --metrics=off --severity ERROR .` | 0 Funde (ERROR) |
+| Gitleaks | `gitleaks git --redact .` | 0 Funde |
+| pip-audit | keine neuen Abhängigkeiten seit Deploy Nr. 4 (0 Funde) | 0 Funde |
+| npm audit | `npm audit --omit=dev` | 0 Funde |
+| Manuelle Durchsicht | 30 Dateien (22.548 Zeilen, davon `docs/calibration.json` ≈ 22.000) | kein Fund |
+
+Durchsicht: neue Endpunkte `/api/assets/{id}/calibration` und `/api/calibration/summary`: Asset-ID gegen die Config geprüft (404),
+Profil gegen die Config (422), der Dateipfad der Eichung stammt ausschließlich aus `config.yaml` (nicht vom Client), keine SQL-f-Strings,
+keine HTML-Senken im Frontend (Texte als React-Text). Die Eichdatei ist statisch und deterministisch.
+Inhaltliches Ergebnis der Eichung: kein Bereich „belegt“ (Swing Indizes/Aktien „schwach“, übrige „kein Vorteil“) – siehe `docs/backtest-report.md`.
