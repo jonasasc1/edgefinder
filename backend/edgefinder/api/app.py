@@ -2,22 +2,30 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from edgefinder import __version__
+from edgefinder.api.account import create_account_router
+from edgefinder.api.auth import IdentityResolver
 from edgefinder.api.routes import create_router
-from edgefinder.config import Config
+from edgefinder.config import Config, Secrets
 from edgefinder.db import applied_versions, connect
 
 FRONTEND_DIST = Path("frontend/dist")
 REVALIDATE = {"sw.js", "manifest.webmanifest", "theme-init.js"}
 
 
-def create_app(config: Config, frontend_dist: Path | None = FRONTEND_DIST) -> FastAPI:
+def create_app(
+    config: Config,
+    frontend_dist: Path | None = FRONTEND_DIST,
+    secrets: Secrets | None = None,
+    resolver: IdentityResolver | None = None,
+) -> FastAPI:
     app = FastAPI(
         title="edgefinder",
         version=__version__,
@@ -25,6 +33,16 @@ def create_app(config: Config, frontend_dist: Path | None = FRONTEND_DIST) -> Fa
         redoc_url=None,
         openapi_url="/api/openapi.json",
     )
+
+    @app.middleware("http")
+    async def no_store_for_account(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Konto-Antworten (auch Fehler) dürfen nie zwischengespeichert werden."""
+        response = await call_next(request)
+        if request.url.path == "/api/me" or request.url.path.startswith("/api/me/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.get("/api/health")
     def health() -> dict[str, object]:
@@ -40,6 +58,9 @@ def create_app(config: Config, frontend_dist: Path | None = FRONTEND_DIST) -> Fa
         return {"status": "ok", "version": __version__, "schema_version": schema_version}
 
     app.include_router(create_router(config))
+    app.include_router(
+        create_account_router(config, resolver or IdentityResolver(config.auth, secrets))
+    )
 
     if frontend_dist is not None and (frontend_dist / "index.html").is_file():
         _mount_frontend(app, frontend_dist)

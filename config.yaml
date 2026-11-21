@@ -6,6 +6,13 @@ server:
   host: 0.0.0.0        # Zugriff wird per Firewall auf cloudflared (10.10.20.20) begrenzt
   port: 8420
 
+# Benutzerkonten: Identität von Cloudflare Access (siehe README „Konten“). Team-Domain und AUD für den
+# strikten JWT-Modus stehen nur in der .env (CF_ACCESS_TEAM_DOMAIN, CF_ACCESS_AUD).
+auth:
+  mode: header         # header | jwt | off; beide .env-Werte gesetzt = automatisch strikter JWT-Modus
+  dev_email: null      # nur lokale Entwicklung (kein Header → diese E-Mail); auf trading leer lassen
+  public_hosts: []     # nur falls cloudflared den Host-Header umschreibt (Origin-Prüfung)
+
 storage:
   database: data/edgefinder.db
   raw_dir: data/raw      # Rohantworten der Quellen (je Quelle/Datum)

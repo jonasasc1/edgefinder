@@ -256,6 +256,20 @@ class MaintenanceConfig(_Model):
     cleanup_schedule: str = "Sun *-*-* 03:30:00 Europe/Vienna"
 
 
+class AuthConfig(_Model):
+    """Identität der Benutzer (Cloudflare Access); Team-Domain und AUD stehen nur in der .env."""
+
+    # header: E-Mail aus Cf-Access-Authenticated-User-Email (Firewall lässt nur cloudflared durch).
+    # jwt: Signatur des Cf-Access-Jwt-Assertion prüfen (braucht CF_ACCESS_TEAM_DOMAIN + _AUD).
+    # off: keine Identität aus Headern (nur dev_email).
+    # Sind beide .env-Werte gesetzt, gilt automatisch der strikte JWT-Modus.
+    mode: Literal["header", "jwt", "off"] = "header"
+    dev_email: str | None = None  # nur lokale Entwicklung: Ersatz, wenn kein Header kommt
+    # Zusätzliche öffentliche Hostnamen für die Origin-Prüfung (nur nötig, falls cloudflared den
+    # Host-Header umschreibt, z. B. `httpHostHeader`); Host und X-Forwarded-Host gelten immer.
+    public_hosts: list[str] = Field(default_factory=list)
+
+
 class Config(_Model):
     server: ServerConfig
     storage: StorageConfig
@@ -266,6 +280,7 @@ class Config(_Model):
     assets: AssetsConfig
     scoring: ScoringConfig
     profiles: dict[str, Profile]
+    auth: AuthConfig = Field(default_factory=AuthConfig)
     backtest: BacktestConfig = Field(default_factory=BacktestConfig)
     maintenance: MaintenanceConfig = Field(default_factory=MaintenanceConfig)
 
@@ -320,6 +335,9 @@ class Secrets(BaseSettings):
     myfxbook_email: SecretStr | None = None
     myfxbook_password: SecretStr | None = None
     contact_email: SecretStr | None = None
+    # Cloudflare Access (JWT-Modus): Team-Domain (…cloudflareaccess.com) und Application-AUD-Tag
+    cf_access_team_domain: str | None = None
+    cf_access_aud: SecretStr | None = None
 
     @field_validator("*", mode="before")
     @classmethod

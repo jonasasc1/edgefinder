@@ -9,6 +9,7 @@ dependencies = [
     "pandas>=3.1.1",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
+    "pyjwt[crypto]>=2.9",
     "pyyaml>=6.0",
     "uvicorn>=0.32",
     "yfinance>=1.8.0",

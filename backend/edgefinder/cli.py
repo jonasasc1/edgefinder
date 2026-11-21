@@ -262,7 +262,7 @@ def _cmd_serve(config: Config, args: argparse.Namespace) -> int:
     from edgefinder.api.app import create_app
 
     uvicorn.run(
-        create_app(config),
+        create_app(config, secrets=load_secrets()),
         host=args.host or config.server.host,
         port=args.port or config.server.port,
         log_config=None,  # Logging läuft über unsere Konfiguration nach stderr/journald
