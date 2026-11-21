@@ -72,3 +72,9 @@ ausgeliefert, Cache-Version = Build-Hash. `chunkError.ts`: Auto-Reload höchsten
 `document.write`, `postMessage`); Storage nur `sessionStorage`-Flag fürs Intro; Battery-API nur lesend; Service Worker nur
 umbenannt; Backend: keine neuen SQL-Abfragen (Scorecard-Erweiterung nur Textformatierung aus vorhandenen Eingangswerten);
 neue Konfig-Serien sind statische Werte aus `config.yaml`.
+
+## Nachtrag Deploy Nr. 3 (2026-11-21): Änderungen seit 5ef7612 (Slogan, `info_only`)
+
+Ruff, pytest, `npm run lint`/`build`/`test`, `check:nav` grün; Semgrep (ERROR) 0 Funde; Gitleaks 0; npm audit 0.
+Delta klein (21 Dateien): keine XSS-Senken (`dangerouslySetInnerHTML`, `innerHTML`, `eval` in den neuen Zeilen: 0), keine neuen
+SQL-Abfragen, `info_only` ist ein validiertes Bool-Feld aus `config.yaml`. Manuelle Durchsicht, kein Fund.
