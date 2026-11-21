@@ -196,9 +196,18 @@ class ScoringConfig(_Model):
         return self.labels[-1].label
 
 
+class ProfileNotice(_Model):
+    """Hinweis zu einem Profil für bestimmte Assetklassen; Eintrag entfernen = Hinweis weg."""
+
+    asset_classes: list[AssetClass] = Field(min_length=1)
+    level: Literal["info"] = "info"
+    text: str = Field(min_length=1)
+
+
 class Profile(_Model):
     label: str
     horizon: str
+    notices: list[ProfileNotice] = Field(default_factory=list)
     params: dict[str, dict[str, Any]] = Field(default_factory=dict)
     weights: dict[AssetClass, dict[str, float]]
 

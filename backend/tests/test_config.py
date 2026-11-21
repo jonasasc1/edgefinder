@@ -140,3 +140,20 @@ def test_indicator_info_only_defaults_false_and_is_validated(config_data: dict[s
     config_data["economies"]["US"]["indicators"]["cpi"]["info_only"] = "vielleicht"
     with pytest.raises(ValidationError):
         Config.model_validate(config_data)
+
+
+def test_profile_notices_are_validated(config_data: dict[str, Any]) -> None:
+    config_data["profiles"]["long_term"]["notices"] = [
+        {"asset_classes": ["bond"], "level": "info", "text": "x"}
+    ]
+    with pytest.raises(ValidationError):
+        Config.model_validate(config_data)
+
+    config_data["profiles"]["long_term"]["notices"] = [{"asset_classes": [], "text": "x"}]
+    with pytest.raises(ValidationError):
+        Config.model_validate(config_data)
+
+
+def test_profile_notices_are_optional(config_data: dict[str, Any]) -> None:
+    del config_data["profiles"]["long_term"]["notices"]
+    assert Config.model_validate(config_data).profiles["long_term"].notices == []

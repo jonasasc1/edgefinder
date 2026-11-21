@@ -221,3 +221,22 @@ def test_status_flags_stale_sources(client: TestClient) -> None:
 
 def test_health_still_works(client: TestClient) -> None:
     assert client.get("/api/health").json()["status"] == "ok"
+
+
+def test_profiles_expose_notices(client: TestClient) -> None:
+    body = {p["key"]: p for p in client.get("/api/profiles").json()}
+
+    assert body["swing"]["notices"] == []
+    (notice,) = body["long_term"]["notices"]
+    assert notice["asset_classes"] == ["index", "stock"]
+    assert notice["level"] == "info"
+    assert "Vorhersagewert" in notice["text"]
+    # bestehende Felder unverändert
+    assert {"key", "label", "horizon"} <= set(body["long_term"])
+
+
+def test_profiles_without_notices_in_config(config: Config, db: sqlite3.Connection) -> None:
+    config.profiles["long_term"].notices.clear()
+    client = TestClient(create_app(config, frontend_dist=None))
+
+    assert all(p["notices"] == [] for p in client.get("/api/profiles").json())

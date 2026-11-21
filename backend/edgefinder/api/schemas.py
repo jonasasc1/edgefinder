@@ -7,10 +7,17 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 
+class ProfileNoticeOut(BaseModel):
+    asset_classes: list[str]
+    level: str
+    text: str
+
+
 class ProfileOut(BaseModel):
     key: str
     label: str
     horizon: str
+    notices: list[ProfileNoticeOut] = []
 
 
 class ScoreOut(BaseModel):

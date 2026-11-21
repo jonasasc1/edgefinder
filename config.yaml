@@ -388,6 +388,12 @@ profiles:
   long_term:
     label: Langfristig
     horizon: "Wochen bis Monate"
+    # Hinweise im UI (Übersicht, Detail, Vergleich) für die genannten Assetklassen. Eintrag löschen
+    # oder `notices: []` setzen = Hinweis weg (Neustart des Servers nötig, kein Code).
+    notices:
+      - asset_classes: [index, stock]
+        level: info
+        text: "Langfrist-Scores für Indizes und Aktien haben im Backtest bisher keinen belegten Vorhersagewert. Sie sind als Einordnung gedacht, nicht als Signal. Der Hinweis entfällt, sobald belastbare Langzeitdaten vorliegen."
     params:
       cot:              {percentile_weeks: 156, change_weeks: 13}
       retail_sentiment: {smoothing_days: 10}

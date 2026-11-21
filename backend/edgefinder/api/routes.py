@@ -171,7 +171,17 @@ def create_router(config: Config) -> APIRouter:
     @router.get("/profiles", response_model=list[s.ProfileOut])
     def profiles() -> list[s.ProfileOut]:
         return [
-            s.ProfileOut(key=key, label=p.label, horizon=p.horizon)
+            s.ProfileOut(
+                key=key,
+                label=p.label,
+                horizon=p.horizon,
+                notices=[
+                    s.ProfileNoticeOut(
+                        asset_classes=[str(c) for c in n.asset_classes], level=n.level, text=n.text
+                    )
+                    for n in p.notices
+                ],
+            )
             for key, p in config.profiles.items()
         ]
 
