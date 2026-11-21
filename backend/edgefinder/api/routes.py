@@ -15,8 +15,15 @@ from fastapi import APIRouter, HTTPException, Query
 from edgefinder.api import schemas as s
 from edgefinder.api.calibration import CalibrationStore, build_calibration_out, summary_out
 from edgefinder.api.scorecard import build_scorecard
+from edgefinder.api.trackrecord import DEFAULT_LIMIT, MAX_LIMIT, build_asset_trackrecord
+from edgefinder.backtest import live
 from edgefinder.config import Asset, AssetClass, Config, ForexAsset, IndexAsset, StockAsset
 from edgefinder.db import connect
+from edgefinder.maintenance import (
+    SOURCE_EVALUATE,
+    SOURCE_MAINTAIN,
+    calibration_paths,
+)
 from edgefinder.scoring.data import DataStore
 from edgefinder.scoring.factors import macro as macro_factor
 
@@ -296,7 +303,7 @@ def create_router(config: Config) -> APIRouter:
         with db() as conn:
             return build_scorecard(config, conn, asset, profile, datetime.now(UTC).date())
 
-    calibrations = CalibrationStore(config.backtest.calibration_file)
+    calibrations = CalibrationStore(calibration_paths(config))
 
     @router.get("/assets/{asset_id}/calibration", response_model=s.AssetCalibrationOut)
     def asset_calibration(asset_id: str, profile: str = default_profile) -> s.AssetCalibrationOut:
@@ -313,6 +320,31 @@ def create_router(config: Config) -> APIRouter:
     def calibration_summary() -> s.CalibrationSummaryOut:
         """Evidenzstufe je Profil × Klasse (Übersicht)."""
         return summary_out(calibrations.get())
+
+    @router.get("/trackrecord", response_model=s.TrackrecordOut)
+    def trackrecord(profile: str | None = None) -> s.TrackrecordOut:
+        """Live-Bilanz (Forward-Test) je Profil × Klasse mit Drift-Status gegen die Eichung."""
+        if profile is not None:
+            _profile_or_422(profile)
+        with db() as conn:
+            data = live.build_trackrecord(conn, config, calibrations.get(), profile=profile)
+        return s.TrackrecordOut.model_validate(data)
+
+    @router.get("/assets/{asset_id}/trackrecord", response_model=s.AssetTrackrecordOut)
+    def asset_trackrecord(
+        asset_id: str,
+        profile: str = default_profile,
+        limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
+    ) -> s.AssetTrackrecordOut:
+        """Signal-Historie des Assets mit Ergebnis je Horizont (offene: „läuft bis …“)."""
+        asset = _asset_or_404(config, asset_id)
+        _profile_or_422(profile)
+        with db() as conn:
+            data = live.build_trackrecord(conn, config, calibrations.get(), profile=profile)
+            group = next(
+                (g for g in data["groups"] if g["asset_class"] == asset.asset_class.value), None
+            )
+            return build_asset_trackrecord(config, conn, asset, profile, group, limit)
 
     @router.get("/assets/{asset_id}/history", response_model=s.HistoryOut)
     def history(
@@ -548,6 +580,26 @@ def create_router(config: Config) -> APIRouter:
                     last_error=run["error"] if run and run["status"] != "success" else None,
                     stale_after_hours=source.stale_after_hours,
                     stale=stale and source.enabled,
+                )
+            )
+        jobs = (
+            (SOURCE_MAINTAIN, config.maintenance.maintain_stale_after_hours),
+            (SOURCE_EVALUATE, config.maintenance.evaluate_stale_after_hours),
+        )
+        for name, hours in jobs:
+            last = success.get(name)
+            stale = not last or now - datetime.fromisoformat(last) > timedelta(hours=hours)
+            run = last_run.get(name)
+            sources.append(
+                s.SourceStatusOut(
+                    source=name,
+                    enabled=True,
+                    last_success=last,
+                    last_run_status=run["status"] if run else None,
+                    last_run_at=run["started_at"] if run else None,
+                    last_error=run["error"] if run and run["status"] != "success" else None,
+                    stale_after_hours=hours,
+                    stale=stale,
                 )
             )
         return s.StatusOut(

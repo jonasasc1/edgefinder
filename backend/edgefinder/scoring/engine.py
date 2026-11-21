@@ -275,12 +275,14 @@ class ScoreEngine:
         """
         stamp = (computed_at or datetime.now(UTC)).isoformat(timespec="seconds")
         with transaction(self.conn):
+            # Eine Live-Zeile (Journal des Forward-Tests) überschreibt der Backfill nie.
             row = self.conn.execute(
                 "INSERT INTO scores (asset_id, profile, date, score, label, coverage, origin,"
-                " computed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                " computed_at, model_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 " ON CONFLICT (asset_id, profile, date) DO UPDATE SET score = excluded.score,"
                 " label = excluded.label, coverage = excluded.coverage, origin = excluded.origin,"
-                " computed_at = excluded.computed_at RETURNING id",
+                " computed_at = excluded.computed_at, model_version = excluded.model_version"
+                " WHERE scores.origin != 'live' OR excluded.origin = 'live' RETURNING id",
                 (
                     result.asset_id,
                     result.profile,
@@ -290,8 +292,11 @@ class ScoreEngine:
                     result.coverage,
                     origin,
                     stamp,
+                    self.config.scoring.model_version,
                 ),
             ).fetchone()
+            if row is None:  # Live-Zeile geschützt
+                return
             score_id = row[0]
             self.conn.execute("DELETE FROM score_components WHERE score_id = ?", (score_id,))
             self.conn.executemany(

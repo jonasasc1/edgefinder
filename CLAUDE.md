@@ -8,6 +8,9 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
+**Bilanz/Wartung (2026-11-21, Etappe o, wird mit dem nächsten Deploy live):** Forward-Test, Seite „Bilanz“, Timer `evaluate` (täglich) und `maintain` (sonntags). Siehe „Bilanz und Wartungszyklus“.
+Nach dem Deploy: Migration 0004 läuft über deploy.sh; Timer per sync-units; erster `maintain`-Lauf baut den Backfill (ca. 5–15 min), danach erscheint `<data>/calibration.json`.
+
 **Konten (2026-11-21, Etappe l, noch NICHT deployt):** serverseitige Benutzerkonten auf Basis von Cloudflare Access (siehe Abschnitt „Konten“ unten,
 README „Konten“ mit Schritt-für-Schritt für Jonas). Nach dem Deploy: `deploy.sh` migriert (0003); optional JWT-Modus aktivieren.
 
@@ -169,7 +172,7 @@ backend/edgefinder/
   backtest/     ✓  analysis.py (Forward-Rendite, Buckets, Kennzahlen, Faktor-IC), stats.py, report.py (Markdown/JSON)
   cleanup.py    ✓  Rohdaten-Aufbewahrung (`edgefinder cleanup`)
   systemd.py    ✓  erzeugt Units/Timer aus config.yaml (`edgefinder gen-systemd [--out DIR] [--check]`)
-  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | backtest | calibrate | cleanup | gen-systemd`
+  cli.py        ✓  `edgefinder check-config | migrate | serve | fetch <quelle> | score | backtest | calibrate | evaluate | maintain | review-report | cleanup | gen-systemd`
 backend/tests/     pytest; fixtures/ = aufgezeichnete API-Antworten (ohne Keys), support.py = Hilfen
 frontend/          React + TypeScript + Vite, Tailwind mit eigenen Tokens
 deploy/            install.sh (Ersteinrichtung trading, --dry-run/--apply-firewall), deploy.sh (läuft auf der
@@ -393,6 +396,36 @@ Profil-Umschalter, abhängig vom Klassenfilter), Asset-Hero und Vergleich (wenn 
   `components/EvidenceBadge.tsx` in Marken-Blau/Grau, nie Grün/Rot), Hero: Faktor-Übereinstimmung mit Balken, Profil-Hinweise verlinken „Zur Einordnung“,
   Übersicht: „Aussagekraft der Scores“ je Klasse im Hero, Marke „Kein belegter Vorteil“ an Karten. Glossar: `calibration`, `evidence`, `baseRate`, `counterTrend`,
   `agreement`, `trainOos`. Screenshots/Prüfung: `node scripts/shots-einordnung.mjs` (Server + Build nötig), Ablage `~/remote/edgefinder-shots/etappe-n/`.
+
+### Bilanz und Wartungszyklus (Etappe o, 2026-11-21): „stimmt, was das Programm sagt?“
+- **Leitplanken (nicht verhandelbar):** Wiederholtes Umbauen auf derselben Historie ist Überanpassung. Der echte Test ist die Zukunft: Signale von heute werden
+  nach Ablauf des Horizonts gegen den realen Kurs geprüft (Forward-Test). Der Algorithmus **misst und meldet**; er ändert nie Gewichte/Faktoren und deployt nie.
+  Änderungen nur im Modellpflege-Zyklus (unten) mit Freigabe von Jonas. „Fertig“ ist eine Evidenzstufe, nie „profitabel“.
+- **DB (Migration 0004):** `signal_outcomes` (je Live-Signal × Horizont, friert Score/Richtung/Rendite/Treffer ein, UNIQUE inkl. `model_version`) und
+  `scores.model_version`. Robuste Variante gewählt: Spalte in `scores` (aus `scoring.model_version`, config.yaml) statt Ableitung zum Auswertezeitpunkt, weil eine spätere
+  Versionserhöhung sonst alte Zeilen falsch etikettieren würde; bestehende Zeilen bekamen in der Migration „2026-11-21“. **Backfill überschreibt nie Live-Zeilen**
+  (`persist`: `WHERE origin != 'live'`). Die Eichung (`calibrate`) nutzt nur `origin='backfill'`, Live bleibt der unabhängige Test.
+- **`edgefinder evaluate`** (`backtest/live.py`, täglich 00:10): Live-Scores, deren Horizont (Handelstage der Kursreihe, `backtest.horizons`) abgelaufen ist; Einstieg Schlusskurs ≤ Signaltag
+  (max. 7 Tage alt), nie Interpolation, idempotent (`INSERT OR IGNORE`); neutral: Rendite, `hit` NULL. Lauf steht in `fetch_runs` (Quelle `evaluate`).
+- **Bilanz-Kennzahlen:** je Profil × Klasse, Kennwert-Horizont, nur wöchentliche Signale (`score_weekday`), Modellstand = aktuelle `model_version`: n, n_eff (÷ h/5), Treffer vs. Basis, Vorteil
+  (`cell()` aus der Eichung, + `edge_se`), t. **Drift-Status** (`live:` in config.yaml): `zu_frueh` (n_eff < `live.min_n_eff` oder Wochen < `live.min_weeks`; Signale derselben Woche sind
+  nicht unabhängig), `gegenlaeufig` (Vorteil < 0 und t ≤ −`counter_t`), sonst Vergleich mit dem 95-%-Band des Vorteils der Eichung: `schwaecher`/`im_rahmen`/`besser`; `ohne_eichung`, falls keine Eichungsdatei.
+  **Faktor-Drift:** Spearman-IC je Faktor live vs. `factor_ic` der Eichung (neu in `calibration.json`), `gegenlaeufig` bei falschem Vorzeichen und |t| ≥ `live.factor.counter_t`;
+  Warnliste ab `warn_weeks` Wochen in Folge. **Kriterien „geeicht“** (`live.done`): je Gruppe n_eff ≥ 30, ≥ 6 Monate, ≥ 26 Wochen, Status `im_rahmen`/`besser`;
+  „Eichung zu x % belegt“ = Mittel von min(n_eff/30, Monate/6, Wochen/26) über die 8 Gruppen.
+- **API:** `GET /api/trackrecord?profile=` (`TrackrecordOut`: Gruppen, Faktoren, Zeitverlauf, Live-seit, ausgewertet/offen, `earliest_due` (Werktage-Näherung), `reliable_from`, `done_from`, Fortschritt),
+  `GET /api/assets/{id}/trackrecord?profile=&limit=` (Signal-Historie, offen = „läuft bis ca.“). `/api/status` listet zusätzlich `maintain` und `evaluate` (`maintenance.*_stale_after_hours`).
+- **`edgefinder maintain`** (`maintenance.py`, sonntags 04:30, Timer aus `maintenance:`): (a) fehlende Freitags-Stichtage ab `backtest.start` bis gestern nachrechnen (jahresweise, frische Engine);
+  bei neuer `model_version` Backfill löschen und komplett neu; (b) `calibrate` → `<data>/calibration.json` (atomar; die API liest zuerst diese, dann `docs/calibration.json`);
+  (c) `<data>/drift-report.json` und `<data>/review.md` (Vorlage für den Modellpflege-Termin, auch `edgefinder review-report`). Jeder Schritt einzeln abgesichert; Fehler → `fetch_runs` partial/error,
+  Exit 1, andere Jobs unberührt. **Gemessen lokal (nice 19):** Komplett-Rebuild 2013–heute 3:22 min, Spitze 162 MB RSS (passt in MemoryMax=1G), inkrementell 3 s.
+  Auf trading erster Lauf = kompletter Backfill (~62 000 Scores, DB wächst um ca. 50 MB, Verlaufsgrafiken zeigen dann auch wöchentliche Altpunkte).
+- **Modellpflege-Zyklus (Claude-Sitzung auf Abruf/feste Termine):** 1) `review.md`/Bilanz lesen. 2) Hypothese ökonomisch begründen, nicht „sieht besser aus“. 3) Test auf Training/OOS **und** auf dem
+  Forward-Zeitraum seit der letzten Änderung (echter Holdout, nie zum Tuning). 4) Höchstens 2–3 Varianten; Mindestabstand 4 Wochen und die Live-n_eff-Mindestmenge zur letzten Änderung, damit die Bilanz wachsen kann.
+  5) Vorschlag mit Zahlen an Jonas, nur nach Freigabe übernehmen. 6) `scoring.model_version` erhöhen, Pflicht-Checks, Deploy mit Freigabe (maintain baut den Backfill neu). 7) Auswertung nach Ablauf des Horizonts.
+- **Frontend:** Seite `/bilanz` (`pages/bilanz/BilanzPage.tsx`, lazy, `g b`, Sidebar/Palette; Tab-Leiste bleibt bei 5 Tabs, „Status“ ist dort nur über Footer-Link „Datenstatus“/Palette erreichbar),
+  `DriftBadge` (blau/grau, nie Grün/Rot), Karte „Live-Bilanz dieses Assets“ (`AssetTrackrecordCard`), Glossar `trackrecord|driftStatus|factorDrift|calibratedProgress`.
+  Screenshots/Prüfung: `node scripts/shots-bilanz.mjs` (Server + Build nötig; „daten“ = gepatchte API), Ablage `~/remote/edgefinder-shots/etappe-o/`.
 
 ### Konten (Etappe l, 2026-11-21)
 - **Entscheidung Jonas:** Cloudflare Access (Google-Anmeldung) ist die Zugangskontrolle; die App führt KEINE eigene Freigabeliste. Jede

@@ -30,6 +30,7 @@ from edgefinder.backtest.analysis import (
     Observation,
     bucket_of,
     buckets_from_labels,
+    factor_analysis,
     load_observations,
 )
 from edgefinder.config import CalibrationConfig, Config
@@ -95,6 +96,7 @@ def cell(
             "base_mean": _r(base_mean, 5),
             "edge": _r(edge, 5),
             "t": _r(edge / se_edge, 2) if se_edge > 0 else None,
+            "edge_se": _r(se_edge, 5),
             "ci": [_r(mean - z * se, 5), _r(mean + z * se, 5)],
         }
     )
@@ -214,7 +216,8 @@ def build_calibration(
     horizons = {p: tuple(bt.horizons.get(p, (5, 10, 20))) for p in profiles}
     primary = {p: bt.primary_horizon.get(p, horizons[p][0]) for p in profiles}
     all_h = tuple(sorted({h for hs in horizons.values() for h in hs}))
-    obs = load_observations(conn, config, all_h, profiles=profiles)
+    # Eichung nur aus dem Backfill: die Live-Signale bleiben der unabhängige Forward-Test
+    obs = load_observations(conn, config, all_h, profiles=profiles, origin="backfill")
     if (
         bt.score_weekday is not None
     ):  # nur die wöchentlichen Stichtage (tägliche Live-Läufe überlappen)
@@ -251,6 +254,7 @@ def build_calibration(
         "assets": {},
         "agreement": {},
         "summary": {},
+        "factor_ic": _factor_ic(conn, config, obs, primary),
     }
     for profile in profiles:
         p_obs = [o for o in obs if o.profile == profile]
@@ -305,6 +309,20 @@ def build_calibration(
                 assets[asset_id] = kept
         result["assets"][profile] = assets
     return result
+
+
+def _factor_ic(
+    conn, config: Config, obs: list[Observation], primary: dict[str, int]
+) -> dict[str, Any]:
+    """Backtest-IC je Faktor (Kennwert-Horizont): Referenz für die Faktor-Drift der Live-Bilanz."""
+    out: dict[str, Any] = {}
+    for row in factor_analysis(conn, config, obs, primary):
+        out.setdefault(row["profile"], {}).setdefault(row["asset_class"], {})[row["factor"]] = {
+            "ic": _r(row["ic"], 4),
+            "ic_t": _r(row["ic_t"], 2),
+            "n": row["n"],
+        }
+    return out
 
 
 def _agreement_block(

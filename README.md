@@ -210,6 +210,16 @@ dann den Hostnamen veröffentlichen.** Auf der Agent-VM wird an Cloudflare und C
    die Firewall Port 8420 ausschließlich von 10.10.20.20 (cloudflared) zulässt; der strikte JWT-Modus (stärker)
    lässt sich optional zuschalten.
 
+## Bilanz und Modellpflege
+
+Die Seite **Bilanz** prüft die Signale von heute nach Ablauf ihres Zeitraums gegen den realen Kurs (Forward-Test). Zwei Timer
+laufen automatisch: `edgefinder-evaluate` (täglich) wertet aus, `edgefinder-maintain` (sonntags) ergänzt den Backfill, erzeugt die
+Eichung neu und schreibt Drift-Bericht und `review.md` ins Datenverzeichnis. Das Programm **misst und meldet nur**; es ändert nie
+selbst das Modell. Umbauen nur im Modellpflege-Zyklus (Ablauf in CLAUDE.md): Hypothese, Test auf Training/OOS und Forward-Zeitraum,
+höchstens 2–3 Varianten, Vorschlag mit Zahlen an dich, Übernahme nur nach deiner Freigabe (`scoring.model_version` erhöhen).
+„Geeicht“ heißt „Aussage belastbar geprüft“ (Kriterien in `config.yaml`, `live.done`), nicht „profitabel“. Kurzfristig steht überall
+„zu früh“; belastbare Aussagen sind frühestens nach einigen Wochen möglich.
+
 ## Konten
 
 Jede Person, die Cloudflare Access durchlässt, bekommt **beim ersten Aufruf automatisch ein eigenes Konto**: eigene

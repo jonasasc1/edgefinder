@@ -519,7 +519,7 @@ def test_migration_0003_on_fresh_and_existing_database(tmp_path: Path) -> None:
     )
     applied = migrate(old)
 
-    assert [m.version for m in applied] == [3]
+    assert [m.version for m in applied] == [3, 4]
     assert old.execute("SELECT count(*) FROM scores").fetchone()[0] == 1
     old.execute(
         "INSERT INTO users (email, display_name, created_at, last_seen_at) "

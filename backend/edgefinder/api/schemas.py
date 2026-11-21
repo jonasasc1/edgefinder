@@ -344,3 +344,115 @@ class AssetCalibrationOut(BaseModel):
     asset_min_n_eff: float | None = None
     chart: list[dict[str, Any]] = []  # alle Bereiche der Klasse (Kennwert-Horizont)
     agreement: dict[str, Any] | None = None  # Eichung der aktuellen Faktor-Übereinstimmung
+
+
+# ---------------------------------------------------------------------------- Bilanz (Forward-Test)
+DriftStatus = Literal[
+    "zu_frueh", "im_rahmen", "schwaecher", "besser", "gegenlaeufig", "ohne_eichung"
+]
+
+
+class TrackGroupOut(BaseModel):
+    """Live-Bilanz einer Gruppe (Profil × Klasse, Kennwert-Horizont, wöchentliche Signale)."""
+
+    profile: str
+    asset_class: str
+    horizon: int
+    n: int
+    n_eff: float
+    weeks: int
+    months: float
+    hit: float | None = None
+    base_hit: float | None = None
+    edge: float | None = None  # Bruchteil (0,01 = 1 %)
+    edge_ci: list[float] | None = None
+    t: float | None = None
+    mean: float | None = None
+    cal_edge: float | None = None
+    cal_edge_ci: list[float] | None = None
+    cal_hit: float | None = None
+    status: DriftStatus
+    progress: float
+    calibrated: bool
+    buckets: dict[str, dict[str, Any]] = {}
+
+
+class FactorDriftOut(BaseModel):
+    profile: str
+    asset_class: str
+    factor: str
+    n: int
+    n_eff: float
+    weeks: int
+    ic: float | None = None
+    ic_t: float | None = None
+    backtest_ic: float | None = None
+    status: str  # zu_frueh | im_rahmen | schwaecher | gegenlaeufig | kein_vergleich
+    weeks_against: int
+    warn: bool
+
+
+class SeriesPointOut(BaseModel):
+    date: str
+    value: float
+
+
+class TrackCriteriaOut(BaseModel):
+    min_n_eff: float
+    min_months: float
+    min_weeks: int
+    statuses: list[str]
+    min_weeks_status: int
+    min_n_eff_status: float
+
+
+class TrackrecordOut(BaseModel):
+    model_version: str
+    generated_at: str
+    today: str
+    live_since: str | None = None
+    evaluated: int
+    evaluated_weekly: int
+    open: int
+    earliest_due: str | None = None  # Näherung (Werktage), nicht Börsenkalender
+    reliable_from: str | None = None
+    done_from: str | None = None
+    calibration_date: str | None = None
+    groups: list[TrackGroupOut]
+    factors: list[FactorDriftOut]
+    series: dict[str, dict[str, list[SeriesPointOut]]]
+    progress: float
+    calibrated_groups: int
+    criteria: TrackCriteriaOut
+
+
+class SignalHorizonOut(BaseModel):
+    horizon_days: int
+    status: Literal["ausgewertet", "laeuft"]
+    due_date: str | None = None  # bei „laeuft“: voraussichtliches Ende (Näherung)
+    exit_date: str | None = None
+    return_pct: float | None = None
+    hit: bool | None = None  # None = neutral oder offen
+
+
+class AssetSignalOut(BaseModel):
+    signal_date: str
+    score: float
+    label: str
+    direction: Literal["bullish", "bearish", "neutral"]
+    model_version: str
+    horizons: list[SignalHorizonOut]
+
+
+class AssetTrackrecordOut(BaseModel):
+    asset_id: str
+    profile: str
+    model_version: str
+    live_since: str | None = None
+    evaluated: int  # Signale mit mindestens einem ausgewerteten Horizont
+    open: int  # Signale ohne ausgewerteten Horizont
+    primary_horizon: int
+    class_status: (
+        DriftStatus  # Drift-Status der Gruppe (Profil × Klasse): „zu früh“ = keine Aussage
+    )
+    signals: list[AssetSignalOut]

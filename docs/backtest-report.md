@@ -484,7 +484,7 @@ als die hohe, bei Forex/Rohstoffe/Langfristig gibt es keinen Zusammenhang. Weil 
 <!-- calibration:start -->
 ## Anhang: Kalibrierung (Eichung der Score-Bereiche)
 
-Erzeugt 2026-11-21 · Stichtage 2013-01-04 bis 2026-11-20 · Training bis 2019-12-31, Out-of-Sample danach · Datei `docs/calibration.json`, Befehl `uv run edgefinder calibrate`.
+Erzeugt 2026-11-21 · Stichtage 2013-01-04 bis 2026-11-13 · Training bis 2019-12-31, Out-of-Sample danach · Datei `docs/calibration.json`, Befehl `uv run edgefinder calibrate`.
 
 **Vorteil (`edge`)** = Ø Forward-Rendite der Signale in Signalrichtung minus Ø Rendite aller Beobachtungen der Klasse im gleichen Zeitraum. **Stufen:** *belegt* = Vorteil in Gesamt, Training und OOS positiv, t ≥ 2 (mit n_eff), n_eff ≥ 30 (je Zeitraum ≥ 10) und Trefferquote über der Basis; *schwach* = gleichsinnig, aber t oder Stichprobe zu klein; *kein Vorteil* = Vorzeichen wechselt, null oder falsch herum; *zu wenig Daten* = n_eff < 5 in einem Zeitraum. Die Rechnung ist ein Blick zurück, keine Prognose; Assets einer Klasse sind korreliert (t optimistisch).
 

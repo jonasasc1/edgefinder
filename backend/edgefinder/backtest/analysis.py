@@ -102,6 +102,7 @@ def load_observations(
     classes: tuple[str, ...] | None = None,
     since: str | None = None,
     until: str | None = None,
+    origin: str | None = None,
 ) -> list[Observation]:
     prices: dict[str, tuple[list[str], list[float]]] = {}
     query = "SELECT id, asset_id, profile, date, score, coverage FROM scores WHERE 1 = 1"
@@ -112,6 +113,9 @@ def load_observations(
     if until:
         query += " AND date <= ?"
         args.append(until)
+    if origin:
+        query += " AND origin = ?"
+        args.append(origin)
     out: list[Observation] = []
     # (False Positive: SQL nur aus festen Fragmenten, Werte als ?-Parameter, s. ERGEBNIS.md)
     # nosemgrep

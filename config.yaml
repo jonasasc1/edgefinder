@@ -355,6 +355,9 @@ assets:
 # ---------------------------------------------------------------------------
 scoring:
   schedule: ["*-*-* 07:30:00 Europe/Vienna", "*-*-* 23:45:00 Europe/Vienna"]
+  # Version des Modells (Gewichte, Faktoren, Labels, Faktor-Parameter). Bei jeder solchen Änderung erhöhen:
+  # Scores/Live-Auswertungen tragen sie mit, `edgefinder maintain` rechnet den Backfill dann komplett neu.
+  model_version: "2026-11-21"
   labels:            # absteigend; erstes Label, dessen `min` erreicht wird
     - {min: 6.0,   label: "Stark bullish"}
     - {min: 2.0,   label: "Bullish"}
@@ -440,3 +443,28 @@ backtest:
 # ---------------------------------------------------------------------------
 maintenance:
   cleanup_schedule: "Sun *-*-* 03:30:00 Europe/Vienna"
+  evaluate_schedule: "*-*-* 00:10:00 Europe/Vienna"   # nach dem Score-Lauf 23:45: Live-Signale auswerten
+  evaluate_stale_after_hours: 48
+  maintain_schedule: "Sun *-*-* 04:30:00 Europe/Vienna"  # Eichung neu erzeugen (Backfill ergänzen, calibrate, Drift)
+  maintain_stale_after_hours: 216
+
+# ---------------------------------------------------------------------------
+# Live-Bilanz (Etappe o): Forward-Test der heutigen Signale und Drift gegen die Eichung.
+# Der Algorithmus misst und meldet; Modelländerungen nur im Modellpflege-Zyklus (CLAUDE.md).
+# ---------------------------------------------------------------------------
+live:
+  min_n_eff: 10        # Drift-Status „zu_frueh“ unterhalb (n_eff = n ÷ Überlappung h/5)
+  min_weeks: 8         # … oder weniger Wochen-Stichtage mit Auswertung (Assets derselben Woche sind nicht unabhängig)
+  counter_t: 2.0       # „gegenlaeufig“: Live-Vorteil < 0 und t ≤ −2
+  chart_min_weeks: 4   # Zeitverlauf erst ab so vielen Wochen
+  factor:              # Faktor-Drift (IC live vs. Backtest)
+    min_n_eff: 20
+    min_weeks: 8
+    min_abs_ic: 0.03   # Backtest-IC betragsmäßig kleiner: kein Vergleich (kein Effekt zum Verfehlen)
+    counter_t: 1.5
+    warn_weeks: 4      # Warnliste ab so vielen Wochen in Folge mit falschem Vorzeichen
+  done:                # Kriterien „geeicht“ je Gruppe (Aussage belastbar geprüft, NICHT „profitabel“)
+    min_n_eff: 30
+    min_months: 6
+    min_weeks: 26
+    statuses: [im_rahmen, besser]

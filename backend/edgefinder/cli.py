@@ -225,6 +225,61 @@ def _cmd_calibrate(config: Config, args: argparse.Namespace) -> int:
     return 0
 
 
+def _migrated_conn(config: Config):
+    migrate_conn = connect(config.storage.database)
+    try:
+        migrate(migrate_conn)
+    finally:
+        migrate_conn.close()
+    return connect(config.storage.database)
+
+
+def _cmd_evaluate(config: Config, _args: argparse.Namespace) -> int:
+    """Live-Signale mit abgelaufenem Horizont gegen den realen Kurs auswerten (idempotent)."""
+    from edgefinder import maintenance
+
+    conn = _migrated_conn(config)
+    try:
+        run = maintenance.run_evaluate(conn, config)
+    finally:
+        conn.close()
+    for error in run.errors:
+        log.error("evaluate: %s", error)
+    return 1 if run.errors else 0
+
+
+def _cmd_maintain(config: Config, _args: argparse.Namespace) -> int:
+    """Wartung: Backfill ergänzen, Eichung neu erzeugen, Drift-Bericht (`<data>/…`)."""
+    from edgefinder import maintenance
+
+    conn = _migrated_conn(config)
+    try:
+        run = maintenance.run_maintain(conn, config)
+    finally:
+        conn.close()
+    for error in run.errors:
+        log.error("maintain: %s", error)
+    log.info("Wartung: %d neue Backfill-Scores, %d Fehler", run.items, len(run.errors))
+    return 1 if run.errors else 0
+
+
+def _cmd_review_report(config: Config, args: argparse.Namespace) -> int:
+    """Markdown-Vorlage für den nächsten Modellpflege-Termin aus Bilanz und Drift schreiben."""
+    from edgefinder import maintenance
+    from edgefinder.backtest import live
+
+    conn = _migrated_conn(config)
+    try:
+        report = live.build_trackrecord(conn, config, maintenance.load_current_calibration(config))
+    finally:
+        conn.close()
+    path = args.out or config.data_dir / maintenance.REVIEW_NAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(maintenance.render_review(report, config), encoding="utf-8")
+    log.info("Review-Vorlage → %s", path)
+    return 0
+
+
 def _cmd_cleanup(config: Config, args: argparse.Namespace) -> int:
     """Rohdaten älter als `storage.raw_retention_days` löschen (Dateien + raw_files-Einträge)."""
     from edgefinder.cleanup import cleanup_raw
@@ -352,6 +407,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--report", type=Path, help="Kalibrierungs-Anhang in diesen Markdown-Report schreiben"
     )
     calibrate.set_defaults(func=_cmd_calibrate)
+    commands.add_parser(
+        "evaluate", help="Live-Signale nach Ablauf des Horizonts auswerten (Forward-Test)"
+    ).set_defaults(func=_cmd_evaluate)
+    commands.add_parser(
+        "maintain", help="Eichung neu erzeugen: Backfill ergänzen, calibrate, Drift-Bericht"
+    ).set_defaults(func=_cmd_maintain)
+    review = commands.add_parser("review-report", help="Vorlage für den Modellpflege-Termin")
+    review.add_argument("--out", type=Path, help="Ziel (Standard: <data>/review.md)")
+    review.set_defaults(func=_cmd_review_report)
     cleanup = commands.add_parser("cleanup", help="alte Rohdaten (data/raw) löschen")
     cleanup.add_argument("--days", type=int, help="überschreibt storage.raw_retention_days")
     cleanup.add_argument("--dry-run", action="store_true", help="nur zählen, nichts löschen")

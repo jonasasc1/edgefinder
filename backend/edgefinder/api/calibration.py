@@ -37,18 +37,25 @@ NOTES = {
 class CalibrationStore:
     """Datei lesen, bei geänderter Änderungszeit neu laden (kein Neustart nötig)."""
 
-    def __init__(self, path: Path) -> None:
-        self.path = path
-        self._mtime: float | None = None
+    def __init__(self, path: Path | list[Path]) -> None:
+        """`path` darf eine Liste sein: die erste lesbare Datei gewinnt."""
+        self.paths = [path] if isinstance(path, Path) else list(path)
+        self._stamp: tuple[tuple[str, float], ...] | None = None
         self._data: dict[str, Any] | None = None
 
     def get(self) -> dict[str, Any] | None:
-        try:
-            mtime = self.path.stat().st_mtime
-        except OSError:
-            return None
-        if mtime != self._mtime:
-            self._data, self._mtime = load_calibration(self.path), mtime
+        stamp: list[tuple[str, float]] = []
+        for path in self.paths:
+            try:
+                stamp.append((str(path), path.stat().st_mtime))
+            except OSError:
+                continue
+        key = tuple(stamp)
+        if key != self._stamp:
+            self._data = next(
+                (data for path, _ in stamp if (data := load_calibration(Path(path)))), None
+            )
+            self._stamp = key
         return self._data
 
 

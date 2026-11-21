@@ -172,6 +172,9 @@ class ScoreLabel(_Model):
 
 class ScoringConfig(_Model):
     schedule: str | list[str]
+    # Version des Modells (Gewichte, Faktoren, Labels). Bei JEDER Änderung daran erhöhen: Scores und
+    # Live-Auswertungen tragen sie mit, damit ein Umbau die Live-Bilanz nicht vermischt.
+    model_version: str = Field(default="2026-11-21", min_length=1, max_length=40)
     labels: tuple[ScoreLabel, ...]
     # Scorecard (Detailseite): ab diesem |Teilscore| (−1…+1) gilt ein Signal als bullish/bearish.
     signal_threshold: float = Field(default=0.15, gt=0, lt=1)
@@ -289,6 +292,44 @@ class MaintenanceConfig(_Model):
     """Wartungsjobs (Timer werden mit `edgefinder gen-systemd` erzeugt)."""
 
     cleanup_schedule: str = "Sun *-*-* 03:30:00 Europe/Vienna"
+    # Forward-Auswertung der Live-Signale (`edgefinder evaluate`), täglich nach dem Score-Lauf
+    evaluate_schedule: str = "*-*-* 00:10:00 Europe/Vienna"
+    evaluate_stale_after_hours: int = Field(default=48, ge=1)
+    # Eichung neu erzeugen (`edgefinder maintain`): Backfill ergänzen, calibrate, Drift-Bericht
+    maintain_schedule: str = "Sun *-*-* 04:30:00 Europe/Vienna"
+    maintain_stale_after_hours: int = Field(default=216, ge=1)
+
+
+class FactorDriftConfig(_Model):
+    """Faktor-Drift: Spearman-IC je Faktor live gegen Backtest (nur Meldung, keine Änderung)."""
+
+    min_n_eff: float = Field(default=20.0, gt=0)  # darunter „zu früh“
+    min_weeks: int = Field(default=8, ge=1)  # Stichtage (Wochen) mit Auswertung
+    min_abs_ic: float = Field(default=0.03, ge=0)  # schwächerer Backtest-IC: kein Vergleich
+    counter_t: float = Field(default=1.5, gt=0)  # gegenläufig: falsches Vorzeichen und |t| ≥
+    warn_weeks: int = Field(default=4, ge=1)  # Warnung ab so vielen Wochen in Folge gegenläufig
+
+
+class DoneConfig(_Model):
+    """Kriterien „geeicht“: Aussage belastbar geprüft – ausdrücklich NICHT „profitabel“."""
+
+    min_n_eff: float = Field(default=30.0, gt=0)  # je Gruppe (Profil × Klasse) live n_eff
+    min_months: float = Field(default=6.0, gt=0)  # Live-Zeitraum der Gruppe in Monaten
+    min_weeks: int = Field(default=26, ge=1)  # Stichtage (Wochen) mit Auswertung
+    statuses: tuple[str, ...] = ("im_rahmen", "besser")  # erlaubter Drift-Status
+
+
+class LiveConfig(_Model):
+    """Live-Bilanz (Forward-Test) und Drift-Status gegen die Eichung (`backtest/live.py`)."""
+
+    min_n_eff: float = Field(default=10.0, gt=0)  # darunter Drift-Status „zu_frueh“
+    min_weeks: int = Field(
+        default=8, ge=1
+    )  # Stichtage (Wochen): Signale derselben Woche sind nicht unabhängig
+    counter_t: float = Field(default=2.0, gt=0)  # „gegenläufig“: Vorteil < 0 und t ≤ −counter_t
+    chart_min_weeks: int = Field(default=4, ge=2)  # Zeitverlauf erst ab so vielen Wochen
+    factor: FactorDriftConfig = Field(default_factory=FactorDriftConfig)
+    done: DoneConfig = Field(default_factory=DoneConfig)
 
 
 class AuthConfig(_Model):
@@ -318,6 +359,7 @@ class Config(_Model):
     auth: AuthConfig = Field(default_factory=AuthConfig)
     backtest: BacktestConfig = Field(default_factory=BacktestConfig)
     maintenance: MaintenanceConfig = Field(default_factory=MaintenanceConfig)
+    live: LiveConfig = Field(default_factory=LiveConfig)
 
     @model_validator(mode="after")
     def _check_references(self) -> Config:
@@ -354,6 +396,11 @@ class Config(_Model):
     @cached_property
     def assets_by_id(self) -> dict[str, Asset]:
         return {asset.id: asset for asset in self.assets.all()}
+
+    @property
+    def data_dir(self) -> Path:
+        """Schreibbares Datenverzeichnis (Ordner der Datenbank): Eichung/Berichte der Wartung."""
+        return self.storage.database.parent
 
     def retry_for(self, source: str) -> RetryConfig:
         """Retry-Einstellungen einer Quelle, sonst der globale Standard."""

@@ -129,6 +129,12 @@ def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
         "edgefinder-cleanup.service": _job_service(
             "edgefinder: alte Rohdaten löschen", "cleanup", layout
         ),
+        "edgefinder-evaluate.service": _job_service(
+            "edgefinder: Live-Signale auswerten", "evaluate", layout
+        ),
+        "edgefinder-maintain.service": _job_service(
+            "edgefinder: Eichung neu erzeugen", "maintain", layout
+        ),
     }
     for name, source in config.sources.items():
         if source.enabled:
@@ -144,6 +150,16 @@ def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
         "edgefinder: Rohdaten aufräumen",
         config.maintenance.cleanup_schedule,
         "edgefinder-cleanup.service",
+    )
+    files["edgefinder-evaluate.timer"] = _timer(
+        "edgefinder: Live-Signale auswerten",
+        config.maintenance.evaluate_schedule,
+        "edgefinder-evaluate.service",
+    )
+    files["edgefinder-maintain.timer"] = _timer(
+        "edgefinder: Eichung neu erzeugen",
+        config.maintenance.maintain_schedule,
+        "edgefinder-maintain.service",
     )
     return files
 
