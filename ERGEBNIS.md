@@ -98,3 +98,11 @@ parametrisiert, Pydantic strict + `extra=forbid`, Größenlimits, `application/j
 Origin-/Sec-Fetch-Site-Prüfung. Migration 0003: Kaskaden, CHECK auf normalisierte E-Mail. Service Worker: `/api/me*` nie gecacht.
 Hinweis (kein Fund): Im Header-Modus ist die Identität nur so vertrauenswürdig wie die Firewall (8420 nur von cloudflared);
 der JWT-Modus (`CF_ACCESS_TEAM_DOMAIN` + `CF_ACCESS_AUD`) schließt das und wird empfohlen.
+
+## Nachtrag Deploy Nr. 5 (2026-11-21): Änderungen seit d395038 (Profil-Hinweise „notices“)
+
+Ruff, pytest (317), `npm run lint`/`build`/`test` (28), `check:nav` grün; Semgrep (ERROR) 0 Funde; Gitleaks 0; npm audit 0.
+Delta klein (16 Dateien, 196 Zeilen): keine XSS-Senken oder SQL in den neuen Zeilen (Hinweistext wird als React-Text gerendert,
+nicht als HTML), `notices` stammt ausschließlich aus `config.yaml` (pydantic-validiert), keine Nutzereingabe. Manuelle Durchsicht, kein Fund.
+Zusätzlich Live-Smoke-Test der Konto-Endpunkte auf „trading“ nach Deploy Nr. 4 (401 ohne Identität, 403 fremde Herkunft, 422 ungültig,
+Kontentrennung, Testkonten danach gelöscht).
