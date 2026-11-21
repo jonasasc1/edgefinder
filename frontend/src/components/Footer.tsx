@@ -1,3 +1,5 @@
+import { Link } from "react-router";
+
 import { SLOGAN, Wordmark } from "./Brand";
 
 /** Fußzeile auf jeder Seite: Wortmarke, Hinweis „Keine Anlageberatung“ und Quellenangabe der Diagramme. */
@@ -11,6 +13,11 @@ export function Footer() {
       <p className="font-semibold text-ink">Keine Anlageberatung</p>
       <p className="mt-1">
         Die Scores fassen öffentliche Daten zusammen (COT, Sentiment, Makro, Trend) und sind keine Empfehlung zum Kauf oder Verkauf.
+      </p>
+      <p className="mt-1">
+        <Link className="inline-flex min-h-touch items-center underline underline-offset-2" to="/status">
+          Datenstatus
+        </Link>
       </p>
       <p className="mt-1">
         Charts:{" "}

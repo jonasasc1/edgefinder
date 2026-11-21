@@ -14,7 +14,7 @@ import { SectionTitle } from "../../components/SectionTitle";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { Skeleton } from "../../components/Skeleton";
 import { StarButton } from "../../components/StarButton";
-import { fetchAssetDetail, fetchCalibration, fetchProfiles, fetchScorecard, type Agreement, type AssetCalibration, type AssetDetail, type ProfileKey, type ProfileNotice } from "../../lib/api";
+import { fetchAssetDetail, fetchAssetTrackrecord, fetchCalibration, fetchProfiles, fetchScorecard, type Agreement, type AssetCalibration, type AssetDetail, type ProfileKey, type ProfileNotice } from "../../lib/api";
 import { formatDateMedium, formatPct, formatPctSigned, formatPrice } from "../../lib/format";
 import { activeNotices } from "../../lib/notices";
 import { levelOf, toneOf } from "../../lib/score";
@@ -22,6 +22,7 @@ import { useApi } from "../../lib/useApi";
 import { usePersistentState } from "../../lib/usePersistentState";
 import { CLASS_LABEL } from "../overview/model";
 import { agreementEvidenceText, agreementText } from "../../lib/calibration";
+import { AssetTrackrecordCard } from "./AssetTrackrecordCard";
 import { CalibrationCard } from "./CalibrationCard";
 import { CotCard } from "./CotCard";
 import { FactorList } from "./FactorList";
@@ -132,6 +133,7 @@ export function AssetPage() {
   const [profile, setProfile] = usePersistentState<ProfileKey>("ef-profile", "swing", PROFILE_KEYS);
   const scorecard = useApi((signal) => fetchScorecard(id, profile, signal), [id, profile]);
   const calibration = useApi((signal) => fetchCalibration(id, profile, signal), [id, profile]);
+  const trackrecord = useApi((signal) => fetchAssetTrackrecord(id, profile, signal), [id, profile]);
 
   const profileList = profiles.state.status === "ready" ? profiles.state.data : null;
   const options = (profileList ?? [{ key: "swing" as const, label: "Swing", horizon: "" }, { key: "long_term" as const, label: "Langfristig", horizon: "" }]).map((p) => ({ value: p.key, label: p.label }));
@@ -193,6 +195,7 @@ export function AssetPage() {
           {detail.profiles[profile] && (
             <CalibrationCard state={calibration.state} reload={calibration.reload} assetClass={detail.asset_class} profileLabel={options.find((o) => o.value === profile)?.label ?? ""} />
           )}
+          {detail.profiles[profile] && <AssetTrackrecordCard state={trackrecord.state} reload={trackrecord.reload} />}
 
           {scorecard.state.status === "ready" && <GroupTiles tiles={scorecard.state.data.tiles} />}
           <PriceScoreChart assetId={detail.id} profile={profile} />

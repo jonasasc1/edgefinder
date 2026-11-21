@@ -37,9 +37,29 @@ export type TermKey =
   | "baseRate"
   | "counterTrend"
   | "agreement"
-  | "trainOos";
+  | "trainOos"
+  | "trackrecord"
+  | "driftStatus"
+  | "factorDrift"
+  | "calibratedProgress";
 
 export const TERMS: Record<TermKey, { title: string; text: string }> = {
+  trackrecord: {
+    title: "Wie lese ich die Bilanz?",
+    text: "Die Eichung beschreibt die Vergangenheit, auf der das Modell entworfen wurde. Die Bilanz prüft die Zukunft: Jedes Signal, das das Programm seit dem Start des Live-Betriebs gegeben hat, wird nach Ablauf seines Zeitraums (Handelstage) mit dem tatsächlichen Kurs verglichen. Nur das ist ein echter Test.\n\nGezählt werden nur die wöchentlichen Signale (freitags); tägliche Signale überlappen sich und würden die Zahl unabhängiger Fälle aufblähen. Treffer heißt: Der Kurs bewegte sich in Richtung des Signals. Wichtig ist der Vergleich mit der Basis (Anteil steigender Kurse im gleichen Zeitraum) und der Vorteil: durchschnittliche Rendite in Signalrichtung minus durchschnittliche Rendite aller Fälle, angegeben in Prozentpunkten.\n\nVon wenigen Wochen Daten lässt sich nichts ablesen. Bis genug unabhängige Fälle vorliegen, steht dort „zu früh“. Das ist keine Anlageberatung und keine Prognose.",
+  },
+  driftStatus: {
+    title: "Drift-Status",
+    text: "Vergleicht den Live-Vorteil einer Gruppe mit dem Konfidenzband des Vorteils in der Eichung. Zu früh: noch zu wenige unabhängige Fälle oder Wochen. Im Rahmen: der Live-Wert liegt im Band der Eichung. Schwächer/besser: darunter/darüber. Gegenläufig: der Vorteil ist signifikant negativ, die Signale lagen im Schnitt falsch herum. Die Marken sind absichtlich blau/grau: sie sagen etwas über die Prüfung, nicht ob etwas gut oder schlecht ist. Die Schwellen stehen in config.yaml.",
+  },
+  factorDrift: {
+    title: "Faktor-Drift",
+    text: "Misst für jeden Faktor (z. B. Trend, Makro), wie gut sein Teilscore die spätere Kursbewegung geordnet hat (Rangkorrelation, IC) und vergleicht das mit dem Backtest. „Gegenläufig“ heißt: live mit falschem Vorzeichen. Das ist nur eine Meldung; Gewichte werden nie automatisch geändert, sondern im Modellpflege-Zyklus mit Freigabe von Jonas geprüft.",
+  },
+  calibratedProgress: {
+    title: "Eichung zu x % belegt",
+    text: "Fortschritt zu den festgelegten Kriterien (config.yaml, Abschnitt live.done): je Gruppe genug unabhängige Fälle, genug Monate und Wochen Live-Betrieb, und ein Live-Vorteil im Rahmen der Eichung oder besser. „Geeicht“ heißt nur: Die Aussage wurde belastbar geprüft. Es heißt nicht, dass die Signale profitabel sind; auch „kein Vorteil“ kann belastbar belegt sein.",
+  },
   groupScores: {
     title: "Teilscores nach Gruppe",
     text: "Die Faktoren des Scores in vier Gruppen gebündelt, jeweils von −10 bis +10. Jede Gruppe ist das gewichtete Mittel ihrer Faktoren; „Gewicht“ ist ihr Anteil am Gesamtscore.",
@@ -213,6 +233,8 @@ export const SOURCES: Record<string, { label: string; text: string }> = {
   aaii: { label: "AAII", text: "Wöchentliche Anlegerumfrage für Indizes und Aktien." },
   edgar: { label: "SEC EDGAR", text: "Geschäftszahlen und Insider-Transaktionen der US-Aktien." },
   finra: { label: "FINRA", text: "Short Interest der US-Aktien, zweimal im Monat." },
+  maintain: { label: "Wartung (Eichung)", text: "Wöchentlich: fehlende Backfill-Stichtage nachrechnen, Eichung neu erzeugen, Drift-Bericht." },
+  evaluate: { label: "Auswertung (Bilanz)", text: "Täglich: Live-Signale nach Ablauf des Zeitraums gegen den realen Kurs prüfen." },
 };
 
 export const sourceLabel = (key: string) => SOURCES[key]?.label ?? key;

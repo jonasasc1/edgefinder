@@ -349,3 +349,89 @@ export type CalibrationSummary = CalMeta & { profiles: Partial<Record<ProfileKey
 export const fetchCalibration = (assetId: string, profile: ProfileKey, signal?: AbortSignal) =>
   getJson<AssetCalibration>(`/api/assets/${encodeURIComponent(assetId)}/calibration?profile=${profile}`, signal);
 export const fetchCalibrationSummary = (signal?: AbortSignal) => getJson<CalibrationSummary>("/api/calibration/summary", signal);
+
+// --- Bilanz / Forward-Test (backend/edgefinder/backtest/live.py, api/trackrecord.py) ---
+export type DriftStatus = "zu_frueh" | "im_rahmen" | "schwaecher" | "besser" | "gegenlaeufig" | "ohne_eichung";
+
+export type TrackGroup = {
+  profile: ProfileKey;
+  asset_class: AssetClass;
+  horizon: number;
+  n: number;
+  n_eff: number;
+  weeks: number;
+  months: number;
+  hit: number | null;
+  base_hit: number | null;
+  /** Bruchteil, 0,01 = 1 % */
+  edge: number | null;
+  edge_ci: [number, number] | null;
+  t: number | null;
+  mean: number | null;
+  cal_edge: number | null;
+  cal_edge_ci: [number, number] | null;
+  cal_hit: number | null;
+  status: DriftStatus;
+  progress: number;
+  calibrated: boolean;
+};
+
+export type FactorDrift = {
+  profile: ProfileKey;
+  asset_class: AssetClass;
+  factor: string;
+  n: number;
+  n_eff: number;
+  weeks: number;
+  ic: number | null;
+  ic_t: number | null;
+  backtest_ic: number | null;
+  status: "zu_frueh" | "im_rahmen" | "schwaecher" | "gegenlaeufig" | "kein_vergleich";
+  weeks_against: number;
+  warn: boolean;
+};
+
+export type Trackrecord = {
+  model_version: string;
+  generated_at: string;
+  today: string;
+  live_since: string | null;
+  evaluated: number;
+  evaluated_weekly: number;
+  open: number;
+  earliest_due: string | null;
+  reliable_from: string | null;
+  done_from: string | null;
+  calibration_date: string | null;
+  groups: TrackGroup[];
+  factors: FactorDrift[];
+  series: Partial<Record<ProfileKey, Partial<Record<AssetClass, { date: string; value: number }[]>>>>;
+  progress: number;
+  calibrated_groups: number;
+  criteria: { min_n_eff: number; min_months: number; min_weeks: number; statuses: string[]; min_weeks_status: number; min_n_eff_status: number };
+};
+
+export type SignalHorizon = {
+  horizon_days: number;
+  status: "ausgewertet" | "laeuft";
+  due_date: string | null;
+  exit_date: string | null;
+  return_pct: number | null;
+  hit: boolean | null;
+};
+export type AssetSignal = { signal_date: string; score: number; label: string; direction: "bullish" | "bearish" | "neutral"; model_version: string; horizons: SignalHorizon[] };
+export type AssetTrackrecord = {
+  asset_id: string;
+  profile: ProfileKey;
+  model_version: string;
+  live_since: string | null;
+  evaluated: number;
+  open: number;
+  primary_horizon: number;
+  class_status: DriftStatus;
+  signals: AssetSignal[];
+};
+
+export const fetchTrackrecord = (profile: ProfileKey, signal?: AbortSignal) => getJson<Trackrecord>(`/api/trackrecord?profile=${profile}`, signal);
+export const fetchAssetTrackrecord = (assetId: string, profile: ProfileKey, signal?: AbortSignal) =>
+  getJson<AssetTrackrecord>(`/api/assets/${encodeURIComponent(assetId)}/trackrecord?profile=${profile}&limit=10`, signal);

@@ -8,10 +8,11 @@ import { fetchStatus, type SourceStatus, type Status } from "../../lib/api";
 import { formatAgo, formatDateMedium, formatDateTime, formatHours } from "../../lib/format";
 import { SOURCES, sourceLabel } from "../../lib/glossary";
 import { useApi } from "../../lib/useApi";
-import { HEALTH, healthOf, sortSources } from "./model";
+import { HEALTH, healthOf, JOB_SOURCES, sortSources } from "./model";
 
 function Summary({ status }: { status: Status }) {
-  const problems = status.sources.filter((s) => HEALTH[healthOf(s)].problem);
+  const problems = status.sources.filter((s) => !JOB_SOURCES.includes(s.source) && HEALTH[healthOf(s)].problem);
+  const jobProblems = status.sources.filter((s) => JOB_SOURCES.includes(s.source) && HEALTH[healthOf(s)].problem);
   const ok = problems.length === 0;
   return (
     <Card className="p-5 sm:p-6">
@@ -28,6 +29,11 @@ function Summary({ status }: { status: Status }) {
               ? "Die Scores beruhen auf frischen Daten."
               : `Scores, die auf ${problems.map((s) => sourceLabel(s.source)).join(", ")} beruhen, nutzen ältere Werte oder lassen den Faktor weg (Abdeckung sinkt).`}
           </p>
+          {jobProblems.length > 0 && (
+            <p className="mt-2 text-footnote text-ink-2">
+              {jobProblems.map((s) => sourceLabel(s.source)).join(" und ")}: zuletzt nicht erfolgreich oder noch nicht gelaufen. Das betrifft nur Bilanz und Eichung, nicht die Scores.
+            </p>
+          )}
           <p className="mt-2 text-footnote text-ink-2">
             {status.last_score_date
               ? `Letzte Score-Berechnung für ${formatDateMedium(status.last_score_date)}${status.last_scored_at ? ` (berechnet ${formatAgo(status.last_scored_at, new Date(status.now))})` : ""}`

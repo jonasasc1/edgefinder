@@ -1,12 +1,14 @@
 import type { ComponentType } from "react";
 
-import { IconChanges, IconMacro, IconOverview, IconStar, IconStatus } from "./icons";
+import { IconBilanz, IconChanges, IconMacro, IconOverview, IconStar, IconStatus } from "./icons";
 
 export type NavItem = {
   to: string;
   label: string;
   icon: ComponentType<{ size?: number; className?: string }>;
   end?: boolean;
+  /** false: nur in Sidebar/Palette, nicht in der Tab-Leiste (Platz: fünf Tabs am Handy). */
+  tab?: boolean;
 };
 
 // Eine Quelle für Sidebar und Tab-Bar.
@@ -15,5 +17,6 @@ export const NAV: NavItem[] = [
   { to: "/makro", label: "Makro", icon: IconMacro },
   { to: "/aenderungen", label: "Änderungen", icon: IconChanges },
   { to: "/favoriten", label: "Favoriten", icon: IconStar },
-  { to: "/status", label: "Status", icon: IconStatus },
+  { to: "/bilanz", label: "Bilanz", icon: IconBilanz },
+  { to: "/status", label: "Status", icon: IconStatus, tab: false },
 ];

@@ -29,3 +29,6 @@ export function sortSources(sources: readonly SourceStatus[]): SourceStatus[] {
     .sort((a, b) => Number(b.problem) - Number(a.problem) || a.index - b.index)
     .map((entry) => entry.source);
 }
+
+/** Wartungsjobs (keine Datenquellen): ihr Ausfall betrifft Bilanz und Eichung, nicht die Scores. */
+export const JOB_SOURCES: readonly string[] = ["maintain", "evaluate"];

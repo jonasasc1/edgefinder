@@ -12,6 +12,7 @@ import { StatusPage } from "./pages/status/StatusPage";
 
 // Seiten mit Diagrammen erst bei Bedarf laden (hält das erste Bundle klein).
 const AssetPage = lazy(() => import("./pages/asset/AssetPage").then((m) => ({ default: m.AssetPage })));
+const BilanzPage = lazy(() => import("./pages/bilanz/BilanzPage").then((m) => ({ default: m.BilanzPage })));
 const ComparePage = lazy(() => import("./pages/compare/ComparePage").then((m) => ({ default: m.ComparePage })));
 const later = (node: React.ReactNode) => <Suspense fallback={<BoltLoader />}>{node}</Suspense>;
 
@@ -26,6 +27,7 @@ export function App() {
         <Route path="makro" element={<MacroPage />} />
         <Route path="aenderungen" element={<ChangesPage />} />
         <Route path="favoriten" element={<FavoritesPage />} />
+        <Route path="bilanz" element={later(<BilanzPage />)} />
         <Route path="status" element={<StatusPage />} />
         <Route path="vergleich" element={later(<ComparePage />)} />
         <Route path="asset/:id" element={later(<AssetPage />)} />

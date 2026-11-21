@@ -13,6 +13,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
       { keys: [["g", "m"]], text: "Makro" },
       { keys: [["g", "c"]], text: "Änderungen" },
       { keys: [["g", "f"]], text: "Favoriten" },
+      { keys: [["g", "b"]], text: "Bilanz" },
       { keys: [["g", "s"]], text: "Status" },
       { keys: [["g", "v"]], text: "Vergleich" },
     ],

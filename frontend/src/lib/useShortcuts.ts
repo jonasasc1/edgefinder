@@ -7,6 +7,7 @@ export const GO_TARGETS: Record<string, string> = {
   m: "/makro",
   c: "/aenderungen",
   f: "/favoriten",
+  b: "/bilanz",
   s: "/status",
   v: "/vergleich",
 };
