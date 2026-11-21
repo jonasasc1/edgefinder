@@ -158,6 +158,8 @@ def _load(conn: sqlite3.Connection, version: str, profile: str | None) -> list[s
     if profile:
         query += " AND profile = ?"
         args.append(profile)
+    # (False Positive: SQL nur aus festen Fragmenten, Werte als ?-Parameter, s. ERGEBNIS.md)
+    # nosemgrep
     return conn.execute(query + " ORDER BY signal_date", args).fetchall()
 
 

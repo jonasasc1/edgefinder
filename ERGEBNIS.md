@@ -122,3 +122,20 @@ Durchsicht: neue Endpunkte `/api/assets/{id}/calibration` und `/api/calibration/
 Profil gegen die Config (422), der Dateipfad der Eichung stammt ausschließlich aus `config.yaml` (nicht vom Client), keine SQL-f-Strings,
 keine HTML-Senken im Frontend (Texte als React-Text). Die Eichdatei ist statisch und deterministisch.
 Inhaltliches Ergebnis der Eichung: kein Bereich „belegt“ (Swing Indizes/Aktien „schwach“, übrige „kein Vorteil“) – siehe `docs/backtest-report.md`.
+
+## Pflicht-Checks vor Deploy Nr. 7 (2026-11-21, Änderungen seit 19a90be: Forward-Test, Live-Bilanz, Wartungszyklus)
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Lint/Tests | ruff, pytest, `gen-systemd --check`, `npm run lint`/`build`/`test` (40), `check:nav` | grün |
+| Semgrep | `semgrep scan --config p/default --config p/secrets --metrics=off --severity ERROR .` | 1 Treffer (`backtest/live.py:161`), False Positive, mit `# nosemgrep` + Begründung markiert → 0 Funde |
+| Gitleaks | `gitleaks git --redact .` | 0 Funde |
+| pip-audit | keine neuen Abhängigkeiten seit Deploy Nr. 4 | 0 Funde |
+| npm audit | `npm audit --omit=dev` | 0 Funde |
+| Manuelle Durchsicht | 43 Dateien (Migration 0004, `live.py`, `maintenance.py`, API `trackrecord`, Frontend Bilanz) | kein Fund |
+
+Bewertung des Semgrep-Treffers: SQL aus festen Fragmenten, die Werte (`model_version`, `profile`) laufen als `?`-Parameter, das Profil wird vorher
+gegen die Config geprüft – kein Injection-Pfad. Durchsicht: neue Endpunkte `/api/trackrecord` und `/api/assets/{id}/trackrecord` validieren Asset und Profil
+gegen die Config (404/422), `limit` ist begrenzt (`MAX_LIMIT`), keine Nutzereingabe in SQL oder Dateipfaden; neue CLI-Befehle `evaluate`/`maintain`/`review-report`
+laufen nur über systemd-Timer (User `edgefinder`, flock, MemoryMax=1G, ProtectSystem=strict) und schreiben nur unter `/var/lib/edgefinder`;
+keine HTML-Senken im Frontend (React-Text).
