@@ -423,6 +423,17 @@ backtest:
     long_term: [20, 60, 120]
   primary_horizon: {swing: 10, long_term: 60}   # Kennwert in Übersichtstabellen
   min_signals: 30           # weniger Beobachtungen: Wert wird als „zu wenig“ markiert
+  calibration_file: docs/calibration.json   # Eichung (`edgefinder calibrate`), im Git, API liefert sie ohne Backfill
+  calibration:              # Evidenzstufen je (Profil, Klasse, Score-Bereich) – feste Regeln, siehe CLAUDE.md
+    train_end: 2019-12-31   # Training bis hier, Out-of-Sample danach
+    min_t: 2.0              # belegt: t des Vorteils gegenüber der Basis (mit n_eff) ≥ 2
+    min_n_eff: 30           # belegt: n_eff Gesamt ≥ 30
+    min_n_eff_period: 10    # belegt: n_eff in Training UND OOS je ≥ 10
+    floor_n_eff: 5          # darunter in einem der drei Zeiträume: „zu wenig Daten“
+    asset_min_n_eff: 30     # Kennzahlen je Einzel-Asset erst ab n_eff 30
+    confidence_z: 1.96      # Konfidenzband 95 %
+    agreement_threshold: 0.7  # „hohe Faktor-Übereinstimmung“ ab 70 % Gewichtsanteil
+    agreement_min_t: 2.7      # t für „belegt“ bei Übereinstimmungs-Gruppen (8 Tests, Bonferroni)
 
 # ---------------------------------------------------------------------------
 # Wartung (Etappe g): Timer für `edgefinder cleanup` (Sicherung macht Jonas per Proxmox)

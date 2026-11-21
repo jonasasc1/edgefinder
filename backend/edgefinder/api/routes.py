@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query
 
 from edgefinder.api import schemas as s
+from edgefinder.api.calibration import CalibrationStore, build_calibration_out, summary_out
 from edgefinder.api.scorecard import build_scorecard
 from edgefinder.config import Asset, AssetClass, Config, ForexAsset, IndexAsset, StockAsset
 from edgefinder.db import connect
@@ -294,6 +295,24 @@ def create_router(config: Config) -> APIRouter:
         _profile_or_422(profile)
         with db() as conn:
             return build_scorecard(config, conn, asset, profile, datetime.now(UTC).date())
+
+    calibrations = CalibrationStore(config.backtest.calibration_file)
+
+    @router.get("/assets/{asset_id}/calibration", response_model=s.AssetCalibrationOut)
+    def asset_calibration(asset_id: str, profile: str = default_profile) -> s.AssetCalibrationOut:
+        """Eichung des aktuellen Score-Bereichs (aus `docs/calibration.json`, ohne Backfill-DB)."""
+        asset = _asset_or_404(config, asset_id)
+        _profile_or_422(profile)
+        with db() as conn:
+            out = build_calibration_out(config, conn, calibrations.get(), asset, profile)
+        if out is None:
+            raise HTTPException(status_code=404, detail="Noch kein Score für diesen Asset")
+        return out
+
+    @router.get("/calibration/summary", response_model=s.CalibrationSummaryOut)
+    def calibration_summary() -> s.CalibrationSummaryOut:
+        """Evidenzstufe je Profil × Klasse (Übersicht)."""
+        return summary_out(calibrations.get())
 
     @router.get("/assets/{asset_id}/history", response_model=s.HistoryOut)
     def history(

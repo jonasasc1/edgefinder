@@ -234,6 +234,28 @@ class Profile(_Model):
         return self
 
 
+class CalibrationConfig(_Model):
+    """Regeln der Eichung (`edgefinder calibrate`) und der Evidenzstufen; nichts davon im Code."""
+
+    train_end: date = date(2019, 12, 31)  # Training = Stichtage ≤ train_end, Out-of-Sample danach
+    min_t: float = Field(default=2.0, gt=0)  # „belegt“: t des Vorteils (mit n_eff) mindestens
+    min_n_eff: float = Field(default=30.0, gt=0)  # „belegt“: n_eff Gesamt mindestens
+    min_n_eff_period: float = Field(default=10.0, gt=0)  # „belegt“: n_eff je Training und OOS
+    floor_n_eff: float = Field(default=5.0, gt=0)  # darunter (Gesamt/Training/OOS): zu wenig Daten
+    asset_min_n_eff: float = Field(default=30.0, gt=0)  # Einzel-Asset-Kennzahlen erst ab hier
+    confidence_z: float = Field(default=1.96, gt=0)  # Breite des Konfidenzbands (95 %)
+    agreement_threshold: float = Field(default=0.7, gt=0, le=1)  # „hohe Übereinstimmung“ ab Anteil
+    # Übereinstimmungs-Gruppen sind 2 Profile × 4 Klassen = 8 Tests: strengeres t (Bonferroni,
+    # α = 0,05/8 zweiseitig ≈ 2,7), sonst käme ein Zufallstreffer zu leicht als „belegt“ durch.
+    agreement_min_t: float = Field(default=2.7, gt=0)
+
+    @model_validator(mode="after")
+    def _check(self) -> CalibrationConfig:
+        if not self.floor_n_eff <= self.min_n_eff_period <= self.min_n_eff:
+            raise ValueError("calibration: floor_n_eff ≤ min_n_eff_period ≤ min_n_eff nötig")
+        return self
+
+
 class BacktestConfig(_Model):
     """Backfill (Stichtage) und Auswertung des Backtests (Etappe h)."""
 
@@ -247,6 +269,10 @@ class BacktestConfig(_Model):
     )
     primary_horizon: dict[str, int] = Field(default_factory=lambda: {"swing": 10, "long_term": 60})
     min_signals: int = Field(default=30, ge=1)  # darunter wird ein Wert als „zu wenig“ markiert
+    calibration_file: Path = Path(
+        "docs/calibration.json"
+    )  # versionierte Eichung (ohne Backfill-DB)
+    calibration: CalibrationConfig = Field(default_factory=CalibrationConfig)
 
     @model_validator(mode="after")
     def _check_horizons(self) -> BacktestConfig:

@@ -446,3 +446,125 @@ aber das wäre eine Auswahl auf dem OOS-Zeitraum, ökonomisch nicht begründbar 
 „besser“ → Index fällt?) und im Training wirkungslos: Overfitting-Verdacht. A/B/D mildern den Schaden nur. Nicht
 getestet: Makro mit anderem Änderungsfenster (Neuberechnung nötig; Makro-IC im Training ≈ 0, daher kein Ansatz zur
 Auswahl). **Langfrist-Scores für Indizes/Aktien haben derzeit keinen belegten Vorhersagewert.**
+
+## Anhang: Crash-Dämpfung und Faktor-Übereinstimmung (2026-11-21)
+
+**a) Crash-Dämpfung der Trend-Umkehr (Swing, Indizes/Aktien) – verworfen.** Idee: Nach extremen Kursstürzen ist die
+Umkehr-Erwartung eher ein Regimewechsel als ein Rücksetzer; der Umkehr-Beitrag wird neutralisiert/abgeschwächt. Drei Varianten
+(Skript `backend/scripts/crash_research.py`, gespeicherte Teilscores, nur Trend ersetzt, Gesamtscore renormiert; Horizont 10 T):
+V1 ROC20 ≤ −35 % → Beitrag 0, V2 ROC20 ≤ −35 % → ×0,5, V3 ROC20 ≤ −25 % → 0.
+
+| Klasse | Variante | IC Training (t) | IC OOS (t) | Stichtage ROC20 ≤ −35 % (Training / OOS) |
+|---|---|---|---|---|
+| Indizes | Basis (= V1, V2) | +0,074 (+2,2) | +0,081 (+2,4) | 0 / 0 |
+| Indizes | V3 | +0,074 (+2,2) | +0,070 (+2,1) | 0 / 0 |
+| Aktien | Basis | +0,077 (+4,6) | +0,022 (+1,3) | 0 / 17 |
+| Aktien | V1 | +0,077 (+4,6) | +0,020 (+1,2) | 0 / 17 |
+| Aktien | V2 | +0,077 (+4,6) | +0,021 (+1,3) | 0 / 17 |
+| Aktien | V3 | +0,076 (+4,6) | +0,019 (+1,1) | 0 / 17 |
+
+**Entscheidung: keine Änderung.** Im Training 2013–2019 gibt es bei wöchentlichen Stichtagen **keinen einzigen** Fall
+(Aktien nur 12 mit ≤ −25 %), die Schwelle lässt sich dort nicht wählen. Nur OOS (17 Aktien-Stichtage, im Wesentlichen März 2020)
+gibt es Fälle, und dort stiegen die Kurse nach dem Absturz im Mittel um **+5,4 % in 10 Tagen**: die Umkehr-Erwartung war richtig,
+Dämpfen verschlechtert den IC leicht (+0,022 → +0,019…+0,021). Eine Dämpfung wäre also aus den Daten weder begründet noch
+getestet; sie auf einen Einzelfall wie NVDA zu eichen wäre Overfitting. Stattdessen macht die UI das Signal sichtbar
+(Marke „Gegentrend-Signal“, siehe b). Nicht geprüft: 40-Tage-Fenster (NVDA −45 % in 40 Tagen).
+
+**b) Gegentrend-Kennzeichnung:** reine Anzeige, keine Score-Änderung (API `counter_trend` an der Trend-Zeile, wenn der
+Umkehr-Modus aktiv ist und |Teilscore| ≥ Signalschwelle).
+
+**c) Faktor-Übereinstimmung:** Anteil des Gewichts (renormiert) der Faktoren mit |Teilscore| ≥ 0,15, die in die Richtung des
+Gesamtscores zeigen (`agreement` in der Scorecard). Zusatzauswertung der Richtungssignale: Übereinstimmung ≥ 70 % („hoch“)
+gegen darunter (Tabelle im Kalibrierungs-Anhang). Ergebnis: **nur Swing-Aktien** zeigen einen Unterschied (hoch: Vorteil
++0,29 % je 10 T, t +2,3, Training +0,42 %, OOS +0,08 %; niedrig: ±0), bei Indizes ist die niedrige Gruppe nicht schlechter
+als die hohe, bei Forex/Rohstoffe/Langfristig gibt es keinen Zusammenhang. Weil dafür 8 Gruppen getestet wurden, gilt für
+„belegt“ ein strengeres t (2,7, Bonferroni, `agreement_min_t`); diese eine Gruppe erreicht es nicht → **schwach**. Fazit: Die
+Übereinstimmung wird angezeigt, aber ausdrücklich als nicht belegt gekennzeichnet; sie erhöht die Trefferquote nicht belastbar.
+
+<!-- calibration:start -->
+## Anhang: Kalibrierung (Eichung der Score-Bereiche)
+
+Erzeugt 2026-11-21 · Stichtage 2013-01-04 bis 2026-11-20 · Training bis 2019-12-31, Out-of-Sample danach · Datei `docs/calibration.json`, Befehl `uv run edgefinder calibrate`.
+
+**Vorteil (`edge`)** = Ø Forward-Rendite der Signale in Signalrichtung minus Ø Rendite aller Beobachtungen der Klasse im gleichen Zeitraum. **Stufen:** *belegt* = Vorteil in Gesamt, Training und OOS positiv, t ≥ 2 (mit n_eff), n_eff ≥ 30 (je Zeitraum ≥ 10) und Trefferquote über der Basis; *schwach* = gleichsinnig, aber t oder Stichprobe zu klein; *kein Vorteil* = Vorzeichen wechselt, null oder falsch herum; *zu wenig Daten* = n_eff < 5 in einem Zeitraum. Die Rechnung ist ein Blick zurück, keine Prognose; Assets einer Klasse sind korreliert (t optimistisch).
+
+### Richtungssignale je Profil und Klasse (bullish + bearish gepoolt, Kennwert-Horizont)
+
+| Profil | Klasse | Horizont | Stufe | n_eff | Trefferquote | Basis-Treffer | Vorteil | t | Vorteil Training | Vorteil OOS |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Swing | Forex | 10 T | **kein Vorteil** | 1528 | 48,6 % | 50,1 % | -0,06 % | -1,3 | +0,01 % | -0,14 % |
+| Swing | Indizes | 10 T | **schwach** | 457 | 47,3 % | 46,4 % | +0,24 % | +1,4 | +0,29 % | +0,18 % |
+| Swing | Rohstoffe | 10 T | **kein Vorteil** | 762 | 48,9 % | 50,1 % | -0,07 % | -0,3 | -0,41 % | +0,26 % |
+| Swing | Aktien | 10 T | **schwach** | 3164 | 52,0 % | 50,6 % | +0,21 % | +1,9 | +0,41 % | +0,04 % |
+| Langfristig | Forex | 60 T | **kein Vorteil** | 264 | 51,7 % | 50,2 % | +0,04 % | +0,2 | +0,27 % | -0,25 % |
+| Langfristig | Indizes | 60 T | **kein Vorteil** | 114 | 59,6 % | 62,1 % | -1,51 % | -2,3 | -0,23 % | -3,35 % |
+| Langfristig | Rohstoffe | 60 T | **kein Vorteil** | 125 | 48,5 % | 50,1 % | -0,83 % | -0,7 | -1,67 % | -0,97 % |
+| Langfristig | Aktien | 60 T | **kein Vorteil** | 764 | 64,6 % | 65,8 % | -0,65 % | -1,1 | -0,10 % | -1,14 % |
+
+### Je Score-Bereich (Kennwert-Horizont)
+
+| Profil | Klasse | Bereich | Stufe | n_eff | Treffer | Basis (steigend) | Ø Rendite | Vorteil | Vorteil Training | Vorteil OOS |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Swing | Forex | Stark bullish | zu wenig Daten | 6 | 66,7 % | 50,6 % | +0,68 % | +0,66 % | +0,69 % | – |
+| Swing | Forex | Bullish | kein Vorteil | 914 | 50,5 % | 50,6 % | -0,02 % | -0,04 % | -0,01 % | -0,08 % |
+| Swing | Forex | Neutral | neutral (keine Richtungsaussage) | 3526 | – | 50,6 % | +0,02 % | -0,01 % | +0,00 % | -0,02 % |
+| Swing | Forex | Bearish | kein Vorteil | 606 | 45,6 % | 50,6 % | +0,12 % | -0,09 % | +0,01 % | -0,23 % |
+| Swing | Forex | Stark bearish | zu wenig Daten | 2 | 75,0 % | 50,6 % | -1,02 % | +1,04 % | +1,01 % | – |
+| Swing | Indizes | Stark bullish | zu wenig Daten | 0 | – | – | – | – | – | – |
+| Swing | Indizes | Bullish | schwach | 152 | 65,0 % | 60,6 % | +1,17 % | +0,64 % | +0,63 % | +0,67 % |
+| Swing | Indizes | Neutral | neutral (keine Richtungsaussage) | 1348 | – | 60,6 % | +0,46 % | -0,07 % | -0,06 % | -0,07 % |
+| Swing | Indizes | Bearish | kein Vorteil | 306 | 38,5 % | 60,6 % | +0,50 % | +0,03 % | +0,10 % | -0,05 % |
+| Swing | Indizes | Stark bearish | zu wenig Daten | 0 | – | – | – | – | – | – |
+| Swing | Rohstoffe | Stark bullish | zu wenig Daten | 3 | 16,7 % | 52,5 % | +0,18 % | -0,05 % | +0,27 % | – |
+| Swing | Rohstoffe | Bullish | kein Vorteil | 394 | 51,2 % | 52,5 % | +0,16 % | -0,07 % | -0,55 % | +0,32 % |
+| Swing | Rohstoffe | Neutral | neutral (keine Richtungsaussage) | 682 | – | 52,5 % | +0,25 % | +0,01 % | +0,12 % | -0,11 % |
+| Swing | Rohstoffe | Bearish | kein Vorteil | 361 | 46,9 % | 52,5 % | +0,27 % | -0,04 % | -0,27 % | +0,17 % |
+| Swing | Rohstoffe | Stark bearish | zu wenig Daten | 4 | 14,3 % | 52,5 % | +2,07 % | -1,83 % | -2,15 % | – |
+| Swing | Aktien | Stark bullish | zu wenig Daten | 18 | 61,1 % | 57,7 % | +0,47 % | -0,49 % | – | -0,46 % |
+| Swing | Aktien | Bullish | schwach | 1683 | 59,7 % | 57,7 % | +1,23 % | +0,27 % | +0,69 % | +0,12 % |
+| Swing | Aktien | Neutral | neutral (keine Richtungsaussage) | 4056 | – | 57,7 % | +0,90 % | -0,06 % | -0,01 % | -0,11 % |
+| Swing | Aktien | Bearish | kein Vorteil | 1448 | 43,2 % | 57,7 % | +0,79 % | +0,17 % | +0,30 % | -0,20 % |
+| Swing | Aktien | Stark bearish | zu wenig Daten | 16 | 34,4 % | 57,7 % | +2,23 % | -1,27 % | -1,04 % | -2,05 % |
+| Langfristig | Forex | Stark bullish | zu wenig Daten | 2 | 63,3 % | 50,6 % | +2,23 % | +2,09 % | +2,37 % | – |
+| Langfristig | Forex | Bullish | kein Vorteil | 176 | 51,8 % | 50,6 % | +0,18 % | +0,03 % | +0,33 % | -0,29 % |
+| Langfristig | Forex | Neutral | neutral (keine Richtungsaussage) | 566 | – | 50,6 % | +0,12 % | -0,02 % | -0,16 % | +0,04 % |
+| Langfristig | Forex | Bearish | kein Vorteil | 85 | 51,4 % | 50,6 % | +0,13 % | +0,01 % | +0,04 % | -0,18 % |
+| Langfristig | Forex | Stark bearish | zu wenig Daten | 0 | 20,0 % | 50,6 % | +1,40 % | -1,26 % | -1,54 % | – |
+| Langfristig | Indizes | Stark bullish | zu wenig Daten | 2 | 88,0 % | 70,6 % | +9,96 % | +6,74 % | +7,27 % | – |
+| Langfristig | Indizes | Bullish | kein Vorteil | 88 | 69,8 % | 70,6 % | +2,06 % | -1,16 % | -0,19 % | -2,47 % |
+| Langfristig | Indizes | Neutral | neutral (keine Richtungsaussage) | 183 | – | 70,6 % | +3,24 % | +0,02 % | -0,31 % | +0,15 % |
+| Langfristig | Indizes | Bearish | kein Vorteil | 24 | 19,1 % | 70,6 % | +6,76 % | -3,54 % | -1,60 % | -5,98 % |
+| Langfristig | Indizes | Stark bearish | zu wenig Daten | 0 | – | – | – | – | – | – |
+| Langfristig | Rohstoffe | Stark bullish | zu wenig Daten | 0 | 0,0 % | 53,6 % | -12,21 % | -14,26 % | -11,49 % | – |
+| Langfristig | Rohstoffe | Bullish | kein Vorteil | 65 | 56,1 % | 53,6 % | +1,71 % | -0,34 % | -0,63 % | -0,87 % |
+| Langfristig | Rohstoffe | Neutral | neutral (keine Richtungsaussage) | 112 | – | 53,6 % | +1,58 % | -0,47 % | -1,23 % | +0,11 % |
+| Langfristig | Rohstoffe | Bearish | kein Vorteil | 58 | 41,0 % | 53,6 % | +3,32 % | -1,27 % | -2,23 % | -1,12 % |
+| Langfristig | Rohstoffe | Stark bearish | zu wenig Daten | 2 | 29,6 % | 53,6 % | +4,21 % | -2,16 % | -4,93 % | – |
+| Langfristig | Aktien | Stark bullish | kein Vorteil | 76 | 62,9 % | 67,0 % | +6,15 % | +0,17 % | +1,19 % | -0,55 % |
+| Langfristig | Aktien | Bullish | kein Vorteil | 661 | 66,2 % | 67,0 % | +5,43 % | -0,55 % | -0,19 % | -0,88 % |
+| Langfristig | Aktien | Neutral | neutral (keine Richtungsaussage) | 421 | – | 67,0 % | +6,46 % | +0,48 % | +0,03 % | +1,06 % |
+| Langfristig | Aktien | Bearish | kein Vorteil | 27 | 29,6 % | 67,0 % | +11,32 % | -5,34 % | -1,07 % | -9,94 % |
+| Langfristig | Aktien | Stark bearish | zu wenig Daten | 0 | – | – | – | – | – | – |
+
+### Faktor-Übereinstimmung ≥ 70 % (Richtungssignale, Kennwert-Horizont)
+
+| Profil | Klasse | Gruppe | Stufe | n_eff | Trefferquote | Vorteil | Vorteil Training | Vorteil OOS |
+|---|---|---|---|---|---|---|---|---|
+| Swing | Forex | hoch | kein Vorteil | 716 | 50,4 % | +0,02 % | +0,11 % | -0,12 % |
+| Swing | Forex | niedrig | kein Vorteil | 812 | 47,0 % | -0,13 % | -0,09 % | -0,16 % |
+| Swing | Indizes | hoch | schwach | 212 | 46,2 % | +0,20 % | +0,23 % | +0,13 % |
+| Swing | Indizes | niedrig | schwach | 245 | 48,2 % | +0,27 % | +0,35 % | +0,20 % |
+| Swing | Rohstoffe | hoch | kein Vorteil | 514 | 48,6 % | +0,05 % | -0,28 % | +0,38 % |
+| Swing | Rohstoffe | niedrig | kein Vorteil | 248 | 49,4 % | -0,31 % | -0,71 % | +0,03 % |
+| Swing | Aktien | hoch | schwach | 2323 | 50,8 % | +0,29 % | +0,41 % | +0,07 % |
+| Swing | Aktien | niedrig | kein Vorteil | 842 | 55,3 % | -0,01 % | +0,15 % | -0,00 % |
+| Langfristig | Forex | hoch | kein Vorteil | 138 | 53,1 % | +0,10 % | +0,43 % | -0,53 % |
+| Langfristig | Forex | niedrig | kein Vorteil | 127 | 50,3 % | -0,02 % | +0,05 % | -0,04 % |
+| Langfristig | Indizes | hoch | kein Vorteil | 59 | 65,0 % | -1,46 % | -0,09 % | -4,83 % |
+| Langfristig | Indizes | niedrig | kein Vorteil | 55 | 53,8 % | -1,56 % | -0,48 % | -2,61 % |
+| Langfristig | Rohstoffe | hoch | kein Vorteil | 58 | 42,9 % | -1,65 % | -2,45 % | -1,80 % |
+| Langfristig | Rohstoffe | niedrig | kein Vorteil | 67 | 53,4 % | -0,12 % | -0,78 % | -0,45 % |
+| Langfristig | Aktien | hoch | kein Vorteil | 629 | 65,0 % | -0,45 % | -0,04 % | -1,00 % |
+| Langfristig | Aktien | niedrig | kein Vorteil | 136 | 62,6 % | -1,56 % | -2,08 % | -1,45 % |
+
+<!-- calibration:end -->

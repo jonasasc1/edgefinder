@@ -22,6 +22,7 @@ from edgefinder.config import (
     IndexAsset,
     StockAsset,
 )
+from edgefinder.scoring.agreement import agreement as factor_agreement
 from edgefinder.scoring.data import DataStore
 from edgefinder.scoring.factors import macro as macro_factor
 
@@ -187,6 +188,9 @@ class Builder:
                     score=round(trend.subscore, 3),
                     note=trend.reason,
                     text="Abstand zum langsamen Schnitt",
+                    # Umkehr-Modus mit klarem Signal: Score erwartet Bewegung gegen den Kurstrend
+                    counter_trend=trend.inputs.get("mode") == "reversal"
+                    and abs(trend.subscore) >= self.threshold,
                 )
             )
         season = self.c.get("seasonality")
@@ -736,6 +740,38 @@ def build_scorecard(
         profile=profile,
         as_of=score_date,
         signal_threshold=config.scoring.signal_threshold,
+        agreement=_agreement(config, conn, asset.id, profile, components),
         tiles=tiles,
         sections=sections,
+    )
+
+
+def _agreement(
+    config: Config,
+    conn: sqlite3.Connection,
+    asset_id: str,
+    profile: str,
+    components: dict[str, Component],
+) -> s.AgreementOut | None:
+    """Faktor-Übereinstimmung aus den Teilscores des aktuellen Scores (Richtung = Gesamtscore)."""
+    if not components:
+        return None
+    row = conn.execute(
+        "SELECT score FROM scores WHERE asset_id = ? AND profile = ? ORDER BY date DESC LIMIT 1",
+        (asset_id, profile),
+    ).fetchone()
+    if row is None:
+        return None
+    info = factor_agreement(
+        [(c.subscore, c.effective_weight) for c in components.values()],
+        row["score"],
+        config.scoring.signal_threshold,
+    )
+    if info is None:
+        return None
+    return s.AgreementOut(
+        **{k: (round(v, 4) if isinstance(v, float) else v) for k, v in info.items()},
+        threshold=config.backtest.calibration.agreement_threshold,
+        high=info["weight_share"] is not None
+        and info["weight_share"] >= config.backtest.calibration.agreement_threshold,
     )

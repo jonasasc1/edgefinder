@@ -196,6 +196,35 @@ def _cmd_backtest(config: Config, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_calibrate(config: Config, args: argparse.Namespace) -> int:
+    """Eichung der Score-Bereiche aus dem Backfill berechnen → `backtest.calibration_file`."""
+    from edgefinder.backtest import calibration
+    from edgefinder.backtest.report import CLASS_NAME
+
+    migrate_conn = connect(config.storage.database)
+    try:
+        migrate(migrate_conn)
+    finally:
+        migrate_conn.close()
+    conn = connect(config.storage.database)
+    try:
+        data = calibration.build_calibration(conn, config)
+    finally:
+        conn.close()
+    if not data["scores"]:
+        log.error("Keine Scores – erst `edgefinder score --from … --to …` ausführen")
+        return 1
+    path = args.out or config.backtest.calibration_file
+    calibration.write_calibration(data, path)
+    if args.report:
+        labels = {k: v.label for k, v in config.profiles.items()}
+        section = calibration.render_markdown(data, labels, CLASS_NAME)
+        calibration.update_report(args.report, section)
+    log.info("Eichung: %d Scores (%s bis %s) → %s", data["scores"], data["first_date"],
+             data["data_through"], path)  # fmt: skip
+    return 0
+
+
 def _cmd_cleanup(config: Config, args: argparse.Namespace) -> int:
     """Rohdaten älter als `storage.raw_retention_days` löschen (Dateien + raw_files-Einträge)."""
     from edgefinder.cleanup import cleanup_raw
@@ -315,6 +344,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--markdown", type=Path, help="Markdown-Report hierhin (Standard: output_dir)"
     )
     backtest.set_defaults(func=_cmd_backtest)
+    calibrate = commands.add_parser(
+        "calibrate", help="Eichung der Score-Bereiche (docs/calibration.json) aus dem Backfill"
+    )
+    calibrate.add_argument("--out", type=Path, help="Ziel (Standard: backtest.calibration_file)")
+    calibrate.add_argument(
+        "--report", type=Path, help="Kalibrierungs-Anhang in diesen Markdown-Report schreiben"
+    )
+    calibrate.set_defaults(func=_cmd_calibrate)
     cleanup = commands.add_parser("cleanup", help="alte Rohdaten (data/raw) löschen")
     cleanup.add_argument("--days", type=int, help="überschreibt storage.raw_retention_days")
     cleanup.add_argument("--dry-run", action="store_true", help="nur zählen, nichts löschen")

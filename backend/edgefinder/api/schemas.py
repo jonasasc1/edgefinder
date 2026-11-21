@@ -221,6 +221,7 @@ class ScorecardRowOut(BaseModel):
     next_date: str | None = None  # nächster sicher bekannter Termin
     soon: bool = False  # nächster Termin liegt in den nächsten Tagen (Stern)
     info_only: bool = False  # Indikator nur zur Information, ohne Pille und nicht im Score
+    counter_trend: bool = False  # Trend-Signal erwartet eine Bewegung gegen den Kurstrend (Umkehr)
 
 
 class ScorecardSectionOut(BaseModel):
@@ -235,11 +236,28 @@ class ScorecardSectionOut(BaseModel):
     in_score: bool = True  # False: nur zur Information, geht nicht in den Score ein
 
 
+class AgreementOut(BaseModel):
+    """Wie viele der Faktoren (und welcher Gewichtsanteil) zeigen in Richtung des Gesamtscores."""
+
+    direction: Literal[-1, 0, 1]  # Richtung des Gesamtscores (0 = exakt null)
+    total: int  # Faktoren mit Daten
+    bullish: int
+    bearish: int
+    neutral: int
+    same: int  # Faktoren in Richtung des Gesamtscores
+    weight_share: float | None  # Gewichtsanteil der gleichgerichteten Faktoren (0–1)
+    bullish_share: float
+    bearish_share: float
+    threshold: float  # ab diesem Anteil gilt die Übereinstimmung als hoch
+    high: bool
+
+
 class ScorecardOut(BaseModel):
     asset_id: str
     profile: str
     as_of: str | None  # Datum des Scores
     signal_threshold: float
+    agreement: AgreementOut | None = None
     tiles: list[ScorecardTileOut]
     sections: list[ScorecardSectionOut]
 
@@ -279,3 +297,50 @@ class StatusOut(BaseModel):
     sources: list[SourceStatusOut]
     last_score_date: str | None
     last_scored_at: str | None
+
+
+class CalibrationSummaryOut(BaseModel):
+    """Evidenzstufe je Profil × Klasse (Richtungssignale, Kennwert-Horizont) für die Übersicht."""
+
+    available: bool
+    generated_at: str | None = None
+    first_date: str | None = None
+    data_through: str | None = None
+    train_end: str | None = None
+    min_t: float | None = None
+    min_n_eff: float | None = None
+    profiles: dict[str, dict[str, dict[str, Any]]] = {}
+
+
+class AssetCalibrationOut(BaseModel):
+    """Eichung des aktuellen Score-Bereichs eines Assets (Zahlen und Bausteine, kein Fließtext)."""
+
+    asset_id: str
+    profile: str
+    asset_class: str
+    as_of: str
+    score: float
+    label: str
+    available: bool = False
+    generated_at: str | None = None
+    first_date: str | None = None
+    data_through: str | None = None
+    train_end: str | None = None
+    min_t: float | None = None
+    min_n_eff: float | None = None
+    horizon: int | None = None
+    horizons: list[int] = []
+    bucket: dict[str, Any] | None = None
+    # belegt | schwach | kein_vorteil | zu_wenig_daten | neutral
+    evidence: str | None = None
+    class_evidence: str | None = None  # Stufe der Klasse insgesamt (alle Richtungssignale)
+    # Hinweis-Code: proven | weak | no_edge | few_data | neutral | missing
+    note: str
+    stats: dict[str, dict[str, Any]] | None = None  # Klasse + Bereich: all/train/oos
+    class_directional: dict[str, dict[str, Any]] | None = None
+    by_horizon: dict[str, dict[str, Any]] = {}
+    asset_stats: dict[str, dict[str, Any]] | None = None  # nur bei genug Daten
+    asset_status: Literal["ok", "zu_wenig_daten"] | None = None
+    asset_min_n_eff: float | None = None
+    chart: list[dict[str, Any]] = []  # alle Bereiche der Klasse (Kennwert-Horizont)
+    agreement: dict[str, Any] | None = None  # Eichung der aktuellen Faktor-Übereinstimmung
