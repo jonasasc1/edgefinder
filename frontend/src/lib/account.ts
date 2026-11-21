@@ -5,6 +5,7 @@ import {
   DEFAULT_PREFS,
   isEmptyAccount,
   localPrefs,
+  filterKnown,
   mergeFavorites,
   PREF_STORAGE_KEYS,
   prefsPatch,
@@ -12,6 +13,7 @@ import {
   storedValueFor,
   type Prefs,
 } from "./accountLogic";
+import { knownAssetIds } from "./assets";
 import { getFavorites, onFavoritesChange, replaceFavorites } from "./favorites";
 import { onUserChange, readStored, storeValue } from "./usePersistentState";
 
@@ -100,7 +102,7 @@ export async function loadAccount(): Promise<void> {
   // Serverstand gewinnt. Ausnahme: ein leeres Konto übernimmt die lokale Wahl (Einstellungen, Favoriten).
   if (!emptyAccount) applyPrefs(me.preferences);
   savedPrefs = me.preferences;
-  const merged = mergeFavorites(me.favorites, getFavorites());
+  const merged = mergeFavorites(me.favorites, getFavorites(), await knownAssetIds());
   const notice = merged.migrated ? "Lokale Favoriten übernommen" : null;
   if (notice) setTimeout(() => setState({ notice: null }), 8000);
   savedFavorites = [...me.favorites];
@@ -131,7 +133,7 @@ async function send(keepalive: boolean) {
   try {
     const patch = prefsPatch(savedPrefs, localPrefs(readStored));
     if (Object.keys(patch).length > 0) savedPrefs = await putPreferences(patch, keepalive);
-    const favorites = getFavorites();
+    const favorites = filterKnown(getFavorites(), await knownAssetIds());
     if (!sameList(favorites, savedFavorites)) savedFavorites = (await putFavorites(favorites, keepalive)).favorites;
     if (state.saveError) setState({ saveError: false });
   } catch {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cleanIds, DEFAULT_PREFS, isEmptyAccount, localPrefs, mergeFavorites, prefsPatch, sameList, storedValueFor } from "./accountLogic";
+import { cleanIds, DEFAULT_PREFS, filterKnown, isEmptyAccount, localPrefs, mergeFavorites, prefsPatch, sameList, storedValueFor } from "./accountLogic";
 
 describe("accountLogic", () => {
   it("Serverstand gewinnt bei Favoriten", () => {
@@ -9,6 +9,14 @@ describe("accountLogic", () => {
   it("übernimmt lokale Favoriten nur bei leerem Konto", () => {
     expect(mergeFavorites([], ["SPX", "EURUSD", "SPX"])).toEqual({ favorites: ["SPX", "EURUSD"], migrated: true });
     expect(mergeFavorites([], [])).toEqual({ favorites: [], migrated: false });
+  });
+  it("filtert Favoriten gegen die Asset-Liste (kein 422 durch veraltete IDs)", () => {
+    const known = new Set(["SPX", "GOLD"]);
+    expect(filterKnown(["SPX", "ALT", "GOLD"], known)).toEqual(["SPX", "GOLD"]);
+    expect(filterKnown(["SPX", "ALT"], null)).toEqual(["SPX", "ALT"]);
+    expect(mergeFavorites([], ["ALT", "SPX", "SPX"], known)).toEqual({ favorites: ["SPX"], migrated: true });
+    expect(mergeFavorites([], ["ALT"], known)).toEqual({ favorites: [], migrated: false });
+    expect(mergeFavorites(["GOLD"], ["SPX"], known)).toEqual({ favorites: ["GOLD"], migrated: false });
   });
   it("kürzt und entdoppelt", () => {
     expect(cleanIds(["A", "B", "A"], 5)).toEqual(["A", "B"]);

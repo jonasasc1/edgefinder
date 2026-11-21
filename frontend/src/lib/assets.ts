@@ -21,6 +21,17 @@ export function loadAssets(force = false) {
     .catch(() => set({ status: "error" }));
 }
 
+/** IDs aller bekannten Assets (lädt bei Bedarf); null, wenn die Liste nicht geladen werden konnte. */
+export async function knownAssetIds(): Promise<Set<string> | null> {
+  try {
+    const assets = state.status === "ready" ? state.assets : await fetchAssets();
+    if (state.status !== "ready") set({ status: "ready", assets });
+    return new Set(assets.map((asset) => asset.id));
+  } catch {
+    return null;
+  }
+}
+
 /** Alle Assets; lädt beim ersten Gebrauch (`enabled`). */
 export function useAssets(enabled = true) {
   const current = useSyncExternalStore(

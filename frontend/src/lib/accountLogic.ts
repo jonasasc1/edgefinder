@@ -66,12 +66,23 @@ export function cleanIds(ids: readonly string[], max = 100): string[] {
   return [...new Set(ids)].slice(0, max);
 }
 
+/** Nur Favoriten, die es in der Asset-Liste noch gibt (der Server lehnt unbekannte IDs mit 422 ab). `known` null = Liste unbekannt, nichts filtern. */
+export function filterKnown(ids: readonly string[], known: ReadonlySet<string> | null): string[] {
+  return known ? ids.filter((id) => known.has(id)) : [...ids];
+}
+
 /**
  * Favoriten beim Start: Der Serverstand gewinnt. Nur wenn das Konto noch keine hat und lokal welche
- * existieren, werden die lokalen übernommen (`migrated`, dann zum Server schicken).
+ * existieren, werden die lokalen übernommen (`migrated`, dann zum Server schicken). Unbekannte Assets
+ * (`known`) fallen vorher heraus; bleibt nichts übrig, gibt es nichts zu übernehmen.
  */
-export function mergeFavorites(server: readonly string[], local: readonly string[]): { favorites: string[]; migrated: boolean } {
-  if (server.length === 0 && local.length > 0) return { favorites: cleanIds(local), migrated: true };
+export function mergeFavorites(
+  server: readonly string[],
+  local: readonly string[],
+  known: ReadonlySet<string> | null = null,
+): { favorites: string[]; migrated: boolean } {
+  const usable = cleanIds(filterKnown(local, known));
+  if (server.length === 0 && usable.length > 0) return { favorites: usable, migrated: true };
   return { favorites: [...server], migrated: false };
 }
 
