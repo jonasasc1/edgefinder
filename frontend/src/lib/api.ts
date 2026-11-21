@@ -210,3 +210,43 @@ export type Scorecard = {
 
 export const fetchScorecard = (assetId: string, profile: ProfileKey, signal?: AbortSignal) =>
   getJson<Scorecard>(`/api/assets/${encodeURIComponent(assetId)}/scorecard?profile=${profile}`, signal);
+
+// --- Konto (Cloudflare Access, siehe backend/edgefinder/api/account.py) ---
+
+import type { Prefs } from "./accountLogic";
+
+export type Me = { email: string; display_name: string; created_at: string; preferences: Prefs; favorites: string[] };
+
+/** Ergebnis von GET /api/me: Konto, „lokal“ (nicht angemeldet, 401/403/404) oder Fehler (Netz, Server). */
+export type MeResult = { kind: "ok"; me: Me } | { kind: "local" } | { kind: "error" };
+
+export async function fetchMe(signal?: AbortSignal): Promise<MeResult> {
+  try {
+    const response = await fetch("/api/me", { cache: "no-store", signal, headers: { Accept: "application/json" } });
+    if (response.ok) {
+      const me = (await response.json()) as Me;
+      return typeof me?.email === "string" ? { kind: "ok", me } : { kind: "local" };
+    }
+    await response.text().catch(() => ""); // Body verbrauchen, sonst bleibt die Verbindung offen
+    return [401, 403, 404].includes(response.status) ? { kind: "local" } : { kind: "error" };
+  } catch (error) {
+    if ((error as Error).name === "AbortError") throw error;
+    return { kind: "error" };
+  }
+}
+
+async function putJson<T>(path: string, body: unknown, keepalive = false): Promise<T> {
+  const response = await fetch(path, {
+    method: "PUT",
+    cache: "no-store",
+    keepalive,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return (await response.json()) as T;
+}
+
+export const putPreferences = (patch: Partial<Prefs>, keepalive = false) => putJson<Prefs>("/api/me/preferences", patch, keepalive);
+export const putFavorites = (assetIds: string[], keepalive = false) =>
+  putJson<{ favorites: string[] }>("/api/me/favorites", { asset_ids: assetIds }, keepalive);

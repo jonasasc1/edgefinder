@@ -381,3 +381,40 @@
     transition: none;
   }
 }
+
+/* Persönlich „Effekte reduzieren“ (Konto, html[data-calm]): dieselben Regeln wie oben */
+html[data-calm] .zap::after,
+html[data-calm] .zap::before,
+html[data-calm] .ring-bolt,
+html[data-calm] .ring-spark,
+html[data-calm] .zap-wipe,
+html[data-calm] .zap-edge,
+html[data-calm] .bolt-loader,
+html[data-calm] .cells-shine,
+html[data-calm] .intro,
+html[data-calm] .egg,
+html[data-calm] .art-spark,
+html[data-calm] .flash-up,
+html[data-calm] .flash-down {
+  animation: none !important;
+}
+html[data-calm] .ring-bolt,
+html[data-calm] .zap-wipe,
+html[data-calm] .egg,
+html[data-calm] .intro,
+html[data-calm] .cells-shine {
+  display: none;
+}
+html[data-calm] .ring-spark,
+html[data-calm] .art-spark {
+  opacity: 0.9;
+  transform: none;
+}
+html[data-calm] .skeleton {
+  animation: none;
+}
+html[data-calm] .btn-zap,
+html[data-calm] .btn-zap:active {
+  transform: none;
+  transition: none;
+}

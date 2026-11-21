@@ -1,4 +1,7 @@
 // Gemeinsame Hilfen für die Effekte: deterministischer Zickzack (Blitzform) und Einstellungsabfragen.
+import { useReducedMotion } from "framer-motion";
+
+import { isCalm, useCalmFx } from "./calm";
 
 /** Deterministische Pseudo-Zufallszahl in [-1, 1] (gleiche Eingabe = gleiche Blitzform, kein Flackern bei Re-Render). */
 export function jitter(seed: number): number {
@@ -18,4 +21,12 @@ export function zigzag(points: { x: number; y: number }[], amp: number, seed = 1
     .join(" ");
 }
 
-export const prefersReducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** System „Bewegung reduzieren“ oder persönlich „Effekte reduzieren“ (Konto). */
+export const prefersReducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches || isCalm();
+
+/** Hook-Variante für Komponenten (re-rendert beim Umschalten). */
+export function useReducedFx(): boolean {
+  const system = useReducedMotion();
+  const calm = useCalmFx();
+  return Boolean(system) || calm;
+}

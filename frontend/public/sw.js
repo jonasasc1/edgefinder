@@ -3,6 +3,8 @@
 //   Seiten (Navigation) gehen zuerst ans Netz und fallen offline auf die gespeicherte index.html zurück.
 // - API: immer zuerst ans Netz (keine alten Daten, solange der Server antwortet). Nur ohne Verbindung
 //   gibt es die letzte Antwort (max. 24 h alt) mit Header x-ef-cached-at; die App zeigt dann einen Hinweis.
+// - Konto (/api/me*): NIE zwischenspeichern, immer network-only (Datenschutz zwischen Konten auf demselben
+//   Gerät). Beim Abmelden/Kontowechsel leert die App zusätzlich alle `ef-api-*`-Caches (lib/account.ts).
 // - Push: nur Struktur (Empfang + Klick); gesendet wird derzeit nichts.
 // Der Platzhalter unten wird beim Build (scripts/sw-build-id.mjs) durch einen Hash der Build-Dateien ersetzt.
 const VERSION = "__BUILD_ID__";
@@ -51,6 +53,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  if (url.pathname === "/api/me" || url.pathname.startsWith("/api/me/")) {
+    return; // kein respondWith: der Browser fragt direkt das Netz (und speichert nichts)
+  }
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(apiNetworkFirst(request));
   } else if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/icons/")) {

@@ -1,7 +1,7 @@
 import "./index.css";
 
 import { MotionConfig } from "framer-motion";
-import { StrictMode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 
@@ -9,14 +9,21 @@ import { App } from "./App";
 import { RouteErrorBoundary } from "./components/ErrorBoundary";
 import { TooltipProvider } from "./components/Tooltip";
 import { UiProvider } from "./components/ui-context";
+import { startAccount } from "./lib/account";
+import { useCalmFx } from "./lib/calm";
 import { reloadOnce } from "./lib/chunkError";
 import { initPointerGlow } from "./lib/pointerGlow";
 import { registerServiceWorker } from "./lib/pwa";
 import { ThemeProvider } from "./lib/theme";
 
+/** Framer Motion folgt dem System oder „Effekte reduzieren“ (Konto). */
+function FxConfig({ children }: { children: ReactNode }) {
+  return <MotionConfig reducedMotion={useCalmFx() ? "always" : "user"}>{children}</MotionConfig>;
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <MotionConfig reducedMotion="user">
+    <FxConfig>
       <ThemeProvider>
         <TooltipProvider>
           <BrowserRouter>
@@ -28,7 +35,7 @@ createRoot(document.getElementById("root")!).render(
           </BrowserRouter>
         </TooltipProvider>
       </ThemeProvider>
-    </MotionConfig>
+    </FxConfig>
   </StrictMode>,
 );
 
@@ -38,4 +45,5 @@ window.addEventListener("vite:preloadError", (event) => {
 });
 
 initPointerGlow();
+startAccount();
 registerServiceWorker();

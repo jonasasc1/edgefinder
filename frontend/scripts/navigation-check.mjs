@@ -46,7 +46,8 @@ async function blank(page, label) {
 
 function watch(page, tag, allowed = () => false) {
   page.on("console", (m) => {
-    if (m.type() === "error" && !allowed(m.text())) problems.push(`${tag}: Konsole: ${m.text().slice(0, 200)}`);
+    // 401 von GET /api/me = lokaler Modus ohne Cloudflare-Header (erwartet, siehe lib/account.ts)
+    if (m.type() === "error" && !/status of 401/.test(m.text()) && !allowed(m.text())) problems.push(`${tag}: Konsole: ${m.text().slice(0, 200)}`);
   });
   page.on("pageerror", (e) => problems.push(`${tag}: Fehler: ${e.message}`));
 }

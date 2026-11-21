@@ -1,5 +1,6 @@
 import { NavLink } from "react-router";
 
+import { AccountPanel } from "./AccountPanel";
 import { Wordmark } from "./Brand";
 import { IconKeyboard, IconSearch } from "./icons";
 import { isMac } from "./ShortcutsSheet";
@@ -48,6 +49,9 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="mt-auto flex flex-col gap-3 px-1">
+        <div className="px-2">
+          <AccountPanel variant="sidebar" />
+        </div>
         <div className="px-2 text-caption font-medium text-ink-2">Darstellung</div>
         <ThemeToggle size="sm" className="-mt-2" />
         <div className="flex items-center justify-between px-2">

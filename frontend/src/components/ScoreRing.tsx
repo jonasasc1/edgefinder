@@ -1,8 +1,8 @@
-import { motion, useReducedMotion, useTransform } from "framer-motion";
+import { motion, useTransform } from "framer-motion";
 import { useState } from "react";
 
 import { formatScore } from "../lib/format";
-import { jitter } from "../lib/fx";
+import { jitter, useReducedFx } from "../lib/fx";
 import { clampScore, CORE_COLOR, levelOf, RING_COLOR, SCORE_MAX, toneOf } from "../lib/score";
 import { useFlash } from "../lib/useFlash";
 import { useSpringValue } from "../lib/useSpringValue";
@@ -77,7 +77,7 @@ type Props = {
 
 export function ScoreRing({ score, label, size = "md", showLabel = false, intro = true, className }: Props) {
   const spec = SIZE[size];
-  const reduced = useReducedMotion();
+  const reduced = useReducedFx();
   const value = clampScore(score ?? 0);
   const level = levelOf(value, label);
   const tone = toneOf(level);

@@ -8,6 +8,9 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
+**Konten (2026-11-21, Etappe l, noch NICHT deployt):** serverseitige Benutzerkonten auf Basis von Cloudflare Access (siehe Abschnitt „Konten“ unten,
+README „Konten“ mit Schritt-für-Schritt für Jonas). Nach dem Deploy: `deploy.sh` migriert (0003); optional JWT-Modus aktivieren.
+
 **Stand (2026-11-21, noch NICHT deployt): Redesign zu E-Giant (siehe Frontend „Marke E-Giant“); davor: mehr Makrodaten, COT-Pille, Indizes „nur Info“.**
 - **Neue Makro-Reihen (live geprüft 2026-11-20, `config.yaml`, vorhandene Fetcher, ALFRED-Vintages vollständig):** US
   Verbrauchervertrauen (UMCSENT), PPI Endnachfrage (PPIFIS), PCE/Kern-PCE (PCEPI/PCEPILFE), Auftragseingang Langlebige
@@ -84,7 +87,7 @@ getestet (bash -n, systemd-Analyse, pytest); auf „trading“ wurde nichts ausg
 `deploy/install.sh --dry-run` → Ersteinrichtung → `.env` selbst anlegen → `deploy/deploy.sh`. Pflicht-Checks vor Deploy
 stehen in `ERGEBNIS.md` (`/security-review` offen). **Nächster Schritt:** Freigabe/Rückfragen aus dem Etappe-g-Bericht; `/security-review` (Pflicht-Check 4) offen.
 **Entscheidungen Jonas 2026-11-18:** CFTC 15 Jahre (geladen, COT ab 2011), Trend-Faktor überarbeitet (siehe Score-Engine),
-Kein Cloudflare-JWT-Check in der App (Schutz nur über Cloudflare Access, Firewall: 8420 nur von 10.10.20.20),
+Kein Cloudflare-JWT-Check in der App (Schutz nur über Cloudflare Access, Firewall: 8420 nur von 10.10.20.20) – **ergänzt durch Jonas' Konten-Wunsch vom 2026-11-21: Header-Modus ist Standard (Identität aus `Cf-Access-Authenticated-User-Email`), der JWT-Check ist jetzt optional zuschaltbar (`CF_ACCESS_TEAM_DOMAIN` + `CF_ACCESS_AUD` in der .env), siehe „Konten“**,
 kein App-Backup mehr (Jonas sichert CT 122 per Proxmox-Snapshot/-Backup), ICMP in nftables bleibt offen.
 
 **Nächster Schritt:** Jonas trägt die drei fehlenden Werte in die `.env` ein; danach je einmal
@@ -345,7 +348,7 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
 
 ### API (Etappe d)
 Alle lesend, JSON, unter `/api`; Schemas in `api/schemas.py`, Swagger unter `/api/docs`. Pro Request
-eigene Verbindung, wenige Abfragen (kein N+1; Indizes aus Migration 0001 reichen, keine 0003).
+eigene Verbindung, wenige Abfragen (kein N+1; Indizes aus Migration 0001 reichen). Marktdaten sind lesend und ohne Identität; nur `/api/me*` schreibt.
 `/profiles`, `/assets` (beide Profile + Änderung 1d/7d), `/assets/{id}?date=` (Teilscores mit Begründung,
 Eingangswerten, Abdeckung), `/assets/{id}/history?days|from|to`, `/assets/{id}/cot?weeks`,
 `/assets/{id}/sentiment` (Retail + AAII), `/assets/{id}/fundamentals?profile` (Aktien: SEC-Werte,
@@ -353,7 +356,40 @@ Earnings, Short Interest, Insider; sonst Makrodaten der beteiligten Volkswirtsch
 (Heatmap je Land/Indikator mit Wert, Änderung, Score, Frische), `/changes?since=1d|7d`,
 `/status` (letzte erfolgreiche Aktualisierung je Quelle, `stale` aus `stale_after_hours`),
 `/sparklines?days&profile` (Score-Verlauf aller Assets in einem Abruf), `/health`.
-Favoriten gibt es nur clientseitig (localStorage).
+Konto-Endpunkte `/api/me*` siehe „Konten“; Favoriten und Einstellungen liegen seit Etappe l am Server (localStorage nur Cache).
+
+### Konten (Etappe l, 2026-11-21)
+- **Entscheidung Jonas:** Cloudflare Access (Google-Anmeldung) ist die Zugangskontrolle; die App führt KEINE eigene Freigabeliste. Jede
+  durchgelassene E-Mail bekommt beim ersten `GET /api/me` automatisch ein Konto (auch später in Cloudflare hinzugefügte Personen).
+- **Identität (`api/auth.py`, Konfig `auth:` in config.yaml + .env):** `mode: header|jwt|off` (Standard `header`). Header-Modus: E-Mail aus
+  `Cf-Access-Authenticated-User-Email` (sicher genug, weil die Firewall 8420 nur für cloudflared öffnet). Sind `CF_ACCESS_TEAM_DOMAIN` und
+  `CF_ACCESS_AUD` BEIDE in der .env gesetzt, gilt automatisch **strikter JWT-Modus** (Header `Cf-Access-Jwt-Assertion`, PyJWT + cryptography,
+  RS256, JWKS von `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs` 1 h gecacht, höchstens 1 Abruf/min bei unbekannter `kid`, bei
+  Ausfall alte Schlüssel weiter, sonst 503; geprüft `aud`, `iss`, `exp`, Leeway 30 s; E-Mail aus Claim `email`; der Klartext-Header wird dann
+  ignoriert). `mode: jwt` ohne beide Werte = Startfehler (fail closed); `off` ignoriert Header. `dev_email` nur lokal, wenn kein Header
+  kommt (im JWT-Modus ohne Wirkung). E-Mail: trim + lowercase, Format-Regex, ≤ 254 Zeichen. **Kein „anonym“-Fallback:** ohne Identität 401
+  (deutsche Meldung). Header/Token werden nie geloggt.
+- **Datenmodell (Migration 0003):** `users` (id, email UNIQUE mit CHECK normalisiert, display_name = Teil vor dem @ nur zur Anzeige,
+  created_at, last_seen_at), `user_favorites` (user_id, asset_id, position, created_at; PK user_id+asset_id; ON DELETE CASCADE),
+  `user_preferences` (user_id PK, data JSON-Text, updated_at). Identität ist ausschließlich die E-Mail.
+- **API (`api/account.py`):** `GET /api/me` → {email, display_name, created_at, preferences (mit Defaults), favorites[]}; legt das Konto idempotent
+  an (`INSERT … ON CONFLICT DO NOTHING`), `last_seen_at` höchstens alle 5 min. `PUT /api/me/preferences` Teilupdate (Pydantic strict, unbekannte
+  Schlüssel abgelehnt, ≤ 2 KB): `profile` swing|long_term, `view` cards|list, `sort` score-desc|score-asc|change-1d|change-7d|name, `theme`
+  system|light|dark, `fx` full|calm („Effekte reduzieren“), `filter` all|forex|index|commodity|stock. `PUT /api/me/favorites` {asset_ids}: komplette
+  geordnete Liste (robuster als POST/DELETE je Asset: idempotent, kein Reihenfolge-Drift; letzter Stand gewinnt), nur Config-Assets, keine
+  Doppelten, ≤ 100, ≤ 8 KB. **Isolation:** jede Abfrage über die `user_id` der Identität, nie aus Client-Eingaben (Test). Alle `/api/me*`-Antworten
+  `Cache-Control: no-store` (Middleware in app.py).
+- **CSRF:** Schreiben nur mit `Content-Type: application/json` (415), `Origin` muss zu Host/`X-Forwarded-Host`/`auth.public_hosts` passen, `Sec-Fetch-Site`
+  nur same-origin/none (403), keine CORS-Freigabe, Größenlimits (413).
+- **Frontend (`lib/account.ts`, `accountLogic.ts`, `components/AccountPanel.tsx`):** Start → `GET /api/me`. Zustände loading/ready/local (401/403/404)/error.
+  Serverstand gewinnt; ein leeres Konto (Defaults, keine Favoriten) übernimmt lokale Favoriten/Einstellungen („Lokale Favoriten übernommen“).
+  Änderungen werden 800 ms gebündelt gesendet (nur geänderte Felder; beim Verstecken der Seite sofort mit keepalive). localStorage bleibt Cache/Offline-
+  Fallback; `usePersistentState` ist ein gemeinsamer Speicher (alle Leser aktualisieren sich, auch bei Serverwerten). Schlüssel: `ef-profile|view|sort|theme|
+  fx|filter`, `ef-favorites`, `ef-account` (zuletzt angemeldete E-Mail). **Kontowechsel** (andere E-Mail als `ef-account`) und **Abmelden** setzen
+  persönliche lokale Daten zurück und leeren `ef-api-*`-Caches. „Effekte reduzieren“ = `html[data-calm]` (CSS-Duplikat des reduced-motion-Blocks in
+  `fx.css`, `useReducedFx`, BackgroundFx/MotionConfig; `theme-init.js` setzt es vor dem Rendern). Konto-Bereich in Sidebar und „Darstellung“-Sheet.
+- **Service Worker:** `/api/me*` ist network-only (kein `respondWith`, nie gecacht), alle anderen API-Antworten wie bisher network-first.
+- **Tests:** `backend/tests/test_accounts.py` (Header, JWT mit lokalem RSA-Paar + gemockter JWKS, Isolation, Validierung, CSRF, Migration), Vitest `accountLogic.test.ts`.
 
 ### Frontend
 - Design-Tokens (Farben, Abstände, Radien, Typografie, hell/dunkel) als CSS-Variablen, in Tailwind
@@ -364,7 +400,7 @@ Favoriten gibt es nur clientseitig (localStorage).
 - Gestaltung nach Skill `jonas-design` (+ `frontend-design`).
 - **Struktur `frontend/src/`:** `design/tokens.css` (alle Rohwerte, hell+dunkel, inkl. `--c-series-1..4` für
   Mehrfach-Diagramme), `index.css`, `lib/` (api, useApi [Laden/Fehler/Reload], assets [geteilte Asset-Liste],
-  favorites [localStorage `ef-favorites`, useSyncExternalStore], glossary [ALLE Erklärtexte, Faktor-/Quellen-/
+  favorites [localStorage `ef-favorites` als Cache, useSyncExternalStore, Abgleich über account], account/accountLogic [Konto], glossary [ALLE Erklärtexte, Faktor-/Quellen-/
   Indikatornamen], format, stats, search, score, theme, offline, pwa, useShortcuts, chartColors),
   `components/` (Design-System wie in Etappe e + InfoTip/ExplainSheet, CommandPalette, ShortcutsSheet,
   ui-context, ScoreBar, Table, SectionTitle, ErrorState/NoData, StarButton, Footer, OfflineBanner,

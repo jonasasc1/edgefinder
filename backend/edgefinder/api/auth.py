@@ -152,7 +152,7 @@ class IdentityResolver:
             )
         except jwt.PyJWTError as exc:
             # Nur die Fehlerart, nie das Token.
-            log.info("Cloudflare-Access-Token abgelehnt: %s", type(exc).__name__)
+            log.info("Cloudflare-Access-Anmeldung abgelehnt (Fehlerart %s)", type(exc).__name__)
             raise AuthError("Ungültiges oder abgelaufenes Cloudflare-Access-Token.") from exc
         email = claims.get("email")
         if not isinstance(email, str):

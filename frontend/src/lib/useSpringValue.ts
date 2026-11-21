@@ -1,5 +1,7 @@
-import { animate, useMotionValue, useReducedMotion, type MotionValue } from "framer-motion";
+import { animate, useMotionValue, type MotionValue } from "framer-motion";
 import { useEffect } from "react";
+
+import { useReducedFx } from "./fx";
 
 /**
  * Gibt einen MotionValue zurück, der federnd auf `target` läuft (Zahlen, Ring).
@@ -8,7 +10,7 @@ import { useEffect } from "react";
  */
 export function useSpringValue(target: number, initial: number = target): MotionValue<number> {
   const value = useMotionValue(initial);
-  const reduced = useReducedMotion();
+  const reduced = useReducedFx();
   useEffect(() => {
     if (reduced) {
       value.set(target);

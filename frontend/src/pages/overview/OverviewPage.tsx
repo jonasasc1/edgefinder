@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
 
+import { AccountPanel } from "../../components/AccountPanel";
 import { Button, EmptyState } from "../../components/EmptyState";
 import { IconChevronUpDown, IconGrid, IconList, IconSliders } from "../../components/icons";
 import { Card } from "../../components/Card";
@@ -45,7 +46,7 @@ export function OverviewPage() {
   const [profile, setProfile] = usePersistentState<ProfileKey>("ef-profile", "swing", PROFILE_KEYS);
   const [view, setView] = usePersistentState<View>("ef-view", "cards", ["cards", "list"]);
   const [sort, setSort] = usePersistentState<SortKey>("ef-sort", "score-desc", SORT_KEYS);
-  const [filter, setFilter] = useState<ClassFilter>("all");
+  const [filter, setFilter] = usePersistentState<ClassFilter>("ef-filter", "all", FILTERS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const favorites = useFavorites();
 
@@ -161,6 +162,7 @@ export function OverviewPage() {
       </div>
 
       <Sheet open={settingsOpen} onOpenChange={setSettingsOpen} title="Darstellung" description="Folgt dem System, wenn du nichts wählst.">
+        <AccountPanel variant="sheet" />
         <ThemeToggle />
       </Sheet>
     </>

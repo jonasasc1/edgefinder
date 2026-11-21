@@ -7,4 +7,8 @@
   } catch (e) {}
   var dark = pref === "dark" || (pref !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.dataset.theme = dark ? "dark" : "light";
+  // „Effekte reduzieren“ (persönliche Einstellung, Konto: fx = calm); Gegenstück: src/lib/calm.ts
+  try {
+    if (localStorage.getItem("ef-fx") === "calm") document.documentElement.dataset.calm = "1";
+  } catch (e) {}
 })();

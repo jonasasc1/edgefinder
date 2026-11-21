@@ -188,7 +188,8 @@ sudo systemctl start edgefinder-fetch@fred.service   # Quelle sofort holen
 
 ## Zugriff von außen (Cloudflare)
 
-Die App selbst hat keine Anmeldung; der Schutz liegt komplett bei Cloudflare Access. **Erst Access einrichten,
+Die App hat keine eigene Anmeldung und keine eigene Freigabeliste; der Zugang wird komplett von Cloudflare Access
+kontrolliert, die App legt nur pro angemeldeter E-Mail ein Konto an (Abschnitt „Konten“). **Erst Access einrichten,
 dann den Hostnamen veröffentlichen.** Auf der Agent-VM wird an Cloudflare und CT 105 nichts geändert.
 
 1. **Ingress in cloudflared (CT 105, 10.10.20.20):** neuen Hostnamen (z. B. `edgefinder.<deine-domain>`) in der
@@ -204,5 +205,64 @@ dann den Hostnamen veröffentlichen.** Auf der Agent-VM wird an Cloudflare und C
    darf nichts außer der Cloudflare-Anmeldeseite erscheinen.
 4. **Firewall:** `deploy/nftables.conf` lässt 8420 nur von 10.10.20.20 zu. Die Proxmox-Firewall auf CT-Ebene
    gilt zusätzlich und unabhängig – dort Port 8420 von 10.10.20.20 und SSH von 10.10.20.90 erlauben.
-5. **Kein JWT-Check in der App (Entscheidung Jonas, 2026-11-18):** Der Schutz läuft nur über Cloudflare Access; die
-   Firewall lässt Port 8420 ausschließlich von 10.10.20.20 (cloudflared) zu.
+5. **Identität in der App:** seit 2026-11-21 gibt es Benutzerkonten (nächster Abschnitt). Standard ist der
+   Header-Modus: die App vertraut dem Header `Cf-Access-Authenticated-User-Email`. Das ist ausreichend sicher, weil
+   die Firewall Port 8420 ausschließlich von 10.10.20.20 (cloudflared) zulässt; der strikte JWT-Modus (stärker)
+   lässt sich optional zuschalten.
+
+## Konten
+
+Jede Person, die Cloudflare Access durchlässt, bekommt **beim ersten Aufruf automatisch ein eigenes Konto**: eigene
+Favoriten und Einstellungen (Profil, Ansicht, Sortierung, Filter, Darstellung hell/dunkel, „Effekte reduzieren“),
+am Server gespeichert (SQLite, Tabellen `users`, `user_favorites`, `user_preferences`, Migration 0003). In der App
+steht der Konto-Bereich in der Seitenleiste (PC) bzw. im Blatt „Darstellung“ (Handy, Übersicht → Regler-Symbol),
+inklusive „Abmelden“ (`/cdn-cgi/access/logout`). Ohne Konto (lokal, Netzfehler) läuft die App wie bisher mit den
+Werten aus dem Browser (localStorage). Favoriten aus dem Browser werden beim ersten Login übernommen, wenn das Konto
+noch leer ist; sonst gewinnt der Serverstand.
+
+**Datenschutz:** gespeichert werden pro Person nur E-Mail-Adresse (normalisiert), Favoriten (Asset-IDs) und die
+sechs Einstellungen, dazu Anlage- und letzter Aufrufzeitpunkt (höchstens alle 5 Minuten aktualisiert). Keine
+Passwörter, keine Tokens; Header und E-Mail werden nicht geloggt. Die Antworten von `/api/me*` sind `no-store` und
+werden vom Service Worker nie zwischengespeichert; beim Abmelden und bei einem Kontowechsel auf demselben Gerät
+werden persönliche Browser-Daten und der API-Cache dieses Geräts geleert.
+
+### Neue Person freigeben (Jonas)
+
+In der App ist nichts zu pflegen. Cloudflare Zero Trust → **Access → Applications** → die edgefinder-Anwendung →
+**Edit** → Reiter **Policies** → die Allow-Policy → **Configure rules**/Edit → **Include** → Selector **Emails** →
+E-Mail-Adresse der Person eintragen (Google-Konto, mit dem sie sich anmeldet; Login-Methode **Google** muss unter
+*Settings → Authentication* aktiv und der Anwendung zugeordnet sein) → **Save policy**. Beim ersten Aufruf erhält die
+Person automatisch ihr Konto. Entzug: E-Mail aus der Policy entfernen (die Konto-Daten bleiben bestehen; zum Löschen
+`sqlite3 data/edgefinder.db "DELETE FROM users WHERE email='…'"` nach einem Snapshot, Favoriten/Einstellungen
+verschwinden per Kaskade).
+
+### Header-Modus (Standard) und JWT-Modus (optional, stärker)
+
+- **Header-Modus** (nichts zu tun): Identität = Header `Cf-Access-Authenticated-User-Email`. Ohne Header antworten
+  die Konto-Endpunkte mit 401 (kein „anonym“); Marktdaten (`/api/assets`, `/api/macro`, `/api/health` …) brauchen
+  keine Identität, der Deploy-Smoke-Test läuft unverändert. Voraussetzung ist die Firewall (8420 nur von cloudflared):
+  wer den Port direkt erreichen könnte, könnte den Header fälschen.
+- **JWT-Modus** (zusätzlicher Schutz, falls jemand die Firewall umgehen könnte): die App prüft die Signatur des
+  Tokens `Cf-Access-Jwt-Assertion` gegen die Schlüssel von Cloudflare (`aud`, `iss`, `exp`); Header allein genügt
+  dann nicht mehr. So aktivierst du ihn:
+  1. Cloudflare Zero Trust → **Access → Applications** → die edgefinder-Anwendung → **Edit** → Reiter **Overview**
+     (bzw. *Basic information*) → **Application Audience (AUD) Tag** kopieren.
+  2. Team-Domain: Zero Trust → **Settings → Custom Pages** (bzw. *General*) → „Team domain“, endet auf
+     `.cloudflareaccess.com` (nur den Teil `<team>.cloudflareaccess.com` übernehmen).
+  3. Auf „trading“ in `/opt/edgefinder/.env` zwei Zeilen eintragen (Datei bleibt `chmod 600`):
+     `CF_ACCESS_TEAM_DOMAIN=<team>.cloudflareaccess.com` und `CF_ACCESS_AUD=<AUD-Tag>`.
+  4. `sudo systemctl restart edgefinder`; danach im Browser einmal die Seite laden: das Konto-Feld zeigt deine
+     E-Mail. Zurück in den Header-Modus: beide Zeilen leeren/entfernen und neu starten.
+  Sind beide Werte gesetzt, gilt automatisch der strikte Modus (`auth.mode: jwt` erzwingt ihn und verweigert den
+  Start, wenn ein Wert fehlt). Ist die Schlüsselliste von Cloudflare kurz nicht erreichbar, nutzt die App die
+  zuletzt geladenen Schlüssel weiter.
+- Entwicklung lokal: in `config.yaml` unter `auth:` `dev_email: du@example.com` setzen (nur Header-/Off-Modus,
+  auf „trading“ leer lassen); `mode: off` ignoriert alle Header.
+
+### Schutz vor Missbrauch (CSRF)
+
+Schreibende Konto-Aufrufe (`PUT /api/me/preferences`, `PUT /api/me/favorites`) verlangen `Content-Type:
+application/json`, lehnen einen fremden `Origin` (muss zu `Host`/`X-Forwarded-Host` passen) bzw. `Sec-Fetch-Site:
+cross-site` mit 403 ab und sind in der Größe begrenzt. Es gibt keine CORS-Freigabe. Schreibt cloudflared den
+Host-Header um (Origin-Prüfung schlägt dann fehl, die App bliebe im lokalen Modus), den öffentlichen Hostnamen in
+`config.yaml` unter `auth.public_hosts` eintragen.

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import { useCalmFx } from "../../lib/calm";
 import { jitter } from "../../lib/fx";
 import { useTheme } from "../../lib/theme";
 
@@ -23,6 +24,7 @@ type Dot = { x: number; y: number; vx: number; vy: number; r: number; phase: num
 export function BackgroundFx() {
   const ref = useRef<HTMLCanvasElement>(null);
   const { resolved } = useTheme();
+  const calm = useCalmFx(); // „Effekte reduzieren“ (Konto) wirkt wie prefers-reduced-motion
 
   useEffect(() => {
     const canvas = ref.current;
@@ -30,6 +32,7 @@ export function BackgroundFx() {
     const root = document.documentElement;
     if (!canvas || !ctx) return;
     const motion = matchMedia("(prefers-reduced-motion: reduce)");
+    const still = () => motion.matches || calm;
     const style = getComputedStyle(root);
     const arc = style.getPropertyValue("--c-arc").trim() || "#5ee7ff";
     const volt = style.getPropertyValue("--c-volt").trim() || "#ffd426";
@@ -154,14 +157,14 @@ export function BackgroundFx() {
     };
 
     const start = () => {
-      if (running || dead || motion.matches || lowBattery || document.hidden) return;
+      if (running || dead || still() || lowBattery || document.hidden) return;
       running = true;
       last = performance.now();
       root.dataset.fx = "running";
       raf = requestAnimationFrame(tick);
     };
     const sync = () => {
-      if (motion.matches) {
+      if (still()) {
         ctx.clearRect(0, 0, width, height);
         stop("off");
       } else if (document.hidden || lowBattery) stop("paused");
@@ -200,7 +203,7 @@ export function BackgroundFx() {
       battery?.removeEventListener("chargingchange", onBattery);
       clearTimeout(resizeTimer);
     };
-  }, [resolved]);
+  }, [resolved, calm]);
 
   return (
     <>

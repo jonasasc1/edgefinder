@@ -20,7 +20,7 @@ const PROFILE_KEYS: readonly ProfileKey[] = ["swing", "long_term"];
 type Selected = { economy: MacroEconomy; indicator: MacroIndicator };
 
 function cellStyle(indicator: MacroIndicator) {
-  if (!indicator.fresh) return undefined;
+  if (!indicator.fresh || indicator.info_only || indicator.score === null) return undefined;
   const { tone, share } = heatShare(indicator.score);
   if (tone === "flat") return undefined;
   return { backgroundColor: `color-mix(in srgb, var(--c-${tone}-ring) ${share}%, transparent)` };
@@ -48,20 +48,27 @@ function Cell({ economy, column, onSelect }: { economy: MacroEconomy; column: Co
               {text}
               {indicator.date && ` · Stand ${formatDateMedium(indicator.date)}`}
             </span>
-            <span className="block text-ink-2">{indicator.fresh ? verdict(indicator.score) : "Daten zu alt für den Score"}</span>
+            <span className="block text-ink-2">
+              {indicator.info_only ? "nur Info, geht nicht in den Score ein" : indicator.fresh ? verdict(indicator.score) : "Daten zu alt für den Score"}
+            </span>
           </span>
         }
       >
         <button
           type="button"
           onClick={() => onSelect({ economy, indicator })}
-          aria-label={`${economy.name}, ${indicator.label}: ${text}, ${indicator.fresh ? verdict(indicator.score) : "veraltet"}`}
+          aria-label={`${economy.name}, ${indicator.label}: ${text}, ${indicator.info_only ? "nur Info" : indicator.fresh ? verdict(indicator.score) : "veraltet"}`}
           style={cellStyle(indicator)}
-          className={`num grid h-touch w-full min-w-20 place-items-center rounded-thumb text-footnote font-semibold ${
+          className={`num relative grid h-touch w-full min-w-20 place-items-center rounded-thumb text-footnote font-semibold ${
             indicator.value === null || !indicator.fresh ? "bg-fill text-ink-2" : indicator.score === null || heatShare(indicator.score).tone === "flat" ? "bg-fill text-ink" : "text-ink"
           }`}
         >
           {text}
+          {indicator.info_only && (
+            <span aria-hidden="true" className="absolute right-1 top-0.5 text-caption font-medium leading-none text-ink-2">
+              i
+            </span>
+          )}
         </button>
       </Tooltip>
     </td>
@@ -132,6 +139,10 @@ function Legend() {
         <span aria-hidden="true" className="inline-block size-3 rounded-thumb bg-fill ring-1 ring-line" />
         grau = veraltet oder ohne Wertung
       </li>
+      <li className="flex items-center gap-2">
+        <span aria-hidden="true" className="text-caption font-medium">i</span>
+        = nur Info (geht nicht in den Score ein)
+      </li>
       <li>– = wird nicht erfasst</li>
     </ul>
   );
@@ -153,8 +164,10 @@ function Detail({ selected, months, onClose }: { selected: Selected | null; mont
             <dd className="num text-title2 font-bold tracking-title">{indicator.change !== null ? formatDelta(indicator.change) : "–"}</dd>
           </div>
           <div className="col-span-2">
-            <dt className="mb-1.5 text-footnote text-ink-2">Bewertung: {indicator.fresh ? verdict(indicator.score) : "Daten zu alt für den Score"}</dt>
-            <dd><ScoreBar value={indicator.fresh ? indicator.score : null} /></dd>
+            <dt className="mb-1.5 text-footnote text-ink-2">
+              Bewertung: {indicator.info_only ? "nur Info, geht nicht in den Score ein" : indicator.fresh ? verdict(indicator.score) : "Daten zu alt für den Score"}
+            </dt>
+            <dd><ScoreBar value={indicator.fresh && !indicator.info_only ? indicator.score : null} /></dd>
           </div>
         </dl>
         <p className="mt-4 text-footnote text-ink-2">

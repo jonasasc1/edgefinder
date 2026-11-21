@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 
-// Favoriten: Liste von Asset-IDs in localStorage (nur auf diesem Gerät). Reihenfolge = Hinzufügen.
+// Favoriten: Liste von Asset-IDs. localStorage ist Cache/Offline-Fallback; mit Konto liegt der Stand am Server
+// (lib/account.ts synchronisiert gebündelt). Reihenfolge = Hinzufügen.
 const KEY = "ef-favorites";
 export const MAX_COMPARE = 4;
 
@@ -52,7 +53,23 @@ function write(next: string[]) {
   listeners.forEach((listener) => listener());
 }
 
-export const toggleFavorite = (id: string) => write(toggleId(read(), id));
+const changeHooks = new Set<() => void>();
+
+/** Beobachter für Änderungen durch die Person (nicht für den Abgleich mit dem Server). */
+export function onFavoritesChange(callback: () => void): () => void {
+  changeHooks.add(callback);
+  return () => changeHooks.delete(callback);
+}
+
+export function toggleFavorite(id: string) {
+  write(toggleId(read(), id));
+  changeHooks.forEach((callback) => callback());
+}
+
+export const getFavorites = (): string[] => read();
+
+/** Ersetzt den lokalen Stand (Server/Kontowechsel), ohne die Synchronisation auszulösen. */
+export const replaceFavorites = (ids: string[]) => write(ids);
 
 if (typeof window !== "undefined") {
   // Änderungen aus einem anderen Tab übernehmen.

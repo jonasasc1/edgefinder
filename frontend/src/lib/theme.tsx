@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
+import { useCalmFx } from "./calm";
+import { storeValue, usePersistedValue } from "./usePersistentState";
+
 export type ThemePref = "system" | "light" | "dark";
 export type Resolved = "light" | "dark";
 
@@ -10,17 +13,13 @@ type ThemeContextValue = { pref: ThemePref; resolved: Resolved; setPref: (pref: 
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function readPref(): ThemePref {
-  try {
-    const stored = localStorage.getItem(KEY);
-    return stored === "light" || stored === "dark" ? stored : "system";
-  } catch {
-    return "system";
-  }
-}
+export const THEME_KEY = KEY;
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [pref, setPrefState] = useState<ThemePref>(readPref);
+  // Wahl aus dem gemeinsamen Speicher (lokal oder vom Konto); „system“ = kein Eintrag.
+  const stored = usePersistedValue(KEY);
+  const pref: ThemePref = stored === "light" || stored === "dark" ? stored : "system";
+  const calm = useCalmFx();
   const [systemDark, setSystemDark] = useState(() => matchMedia(query).matches);
 
   useEffect(() => {
@@ -43,15 +42,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.head.append(meta);
   }, [resolved]);
 
-  const setPref = useCallback((next: ThemePref) => {
-    setPrefState(next);
-    try {
-      if (next === "system") localStorage.removeItem(KEY);
-      else localStorage.setItem(KEY, next);
-    } catch {
-      // Speicher gesperrt: Wahl gilt nur für diese Sitzung.
-    }
-  }, []);
+  useEffect(() => {
+    // Reduzierte Effekte: CSS (design/fx.css) folgt dem Attribut wie prefers-reduced-motion.
+    if (calm) document.documentElement.dataset.calm = "1";
+    else delete document.documentElement.dataset.calm;
+  }, [calm]);
+
+  const setPref = useCallback((next: ThemePref) => storeValue(KEY, next === "system" ? null : next), []);
 
   const value = useMemo(() => ({ pref, resolved, setPref }), [pref, resolved, setPref]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
