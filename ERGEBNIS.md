@@ -139,3 +139,22 @@ gegen die Config geprüft – kein Injection-Pfad. Durchsicht: neue Endpunkte `/
 gegen die Config (404/422), `limit` ist begrenzt (`MAX_LIMIT`), keine Nutzereingabe in SQL oder Dateipfaden; neue CLI-Befehle `evaluate`/`maintain`/`review-report`
 laufen nur über systemd-Timer (User `edgefinder`, flock, MemoryMax=1G, ProtectSystem=strict) und schreiben nur unter `/var/lib/edgefinder`;
 keine HTML-Senken im Frontend (React-Text).
+
+## Pflicht-Checks vor Deploy Nr. 8 (2026-11-22, Änderungen seit 63f4556: Admin-Bereich)
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Lint/Tests | ruff, pytest (417), `gen-systemd --check` (26 Dateien), `npm run lint`/`build`/`test` (48), `check:nav` | grün |
+| Semgrep | `semgrep scan --config p/default --config p/secrets --metrics=off --severity ERROR .` | 0 Funde |
+| Gitleaks | `gitleaks git --redact .` | 0 Funde |
+| pip-audit | keine neuen Abhängigkeiten | 0 Funde |
+| npm audit | `npm audit --omit=dev` | 0 Funde |
+| /security-review | gegen 63f4556 (40 Dateien) | 0 Funde |
+
+Durchsicht (Schwerpunkt Autorisierung und Ausführung): `api/admin.py` – `require_admin` prüft bei jedem Aufruf Identität und frische DB-Zeile (401/403 mit gleicher Meldung,
+kein Konto wird angelegt), `users.is_admin` ist per API nicht setzbar (nur CLI `admin grant|revoke`, Audit-Eintrag), Berichtsendpunkte lesen feste Dateien (keine Pfadparameter,
+fester Dateiname, Größenlimit). `admin_jobs.py` – Allowlist fest im Code und in `config.yaml`, Runner ruft nur Python-Funktionen aus `JOBS` (kein subprocess/Shell, Test prüft den Quelltext),
+SQL parametrisiert; der f-String mit `JOB_COLUMNS` setzt eine Modulkonstante ein (kein Client-Wert, `# noqa: S608`). Teil-Index verhindert parallele Aufträge, Abkühlzeit und
+Queue-Limit vorhanden. Unit `edgefinder-adminjobs.service`: User edgefinder, gleiche Härtung wie die übrigen Jobs, flock-Jobsperre. CSRF über `api/guard.py` (Origin, Sec-Fetch-Site,
+nur JSON, 256 B). Hinweis (kein Fund): Im Header-Modus ist die Admin-Identität nur so vertrauenswürdig wie die Firewall (8420 nur von cloudflared); der JWT-Modus schließt das
+und wird für die Admin-Funktion empfohlen. Auswirkung bei Ausnutzung wäre begrenzt (nur die vier Allowlist-Aufträge und Lesezugriff auf Berichte/Konten, keine Codeausführung).
