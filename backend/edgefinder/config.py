@@ -332,6 +332,33 @@ class LiveConfig(_Model):
     done: DoneConfig = Field(default_factory=DoneConfig)
 
 
+ADMIN_JOB_NAMES = ("review", "maintain", "score", "evaluate")
+
+
+class AdminConfig(_Model):
+    """Admin-Bereich: Allowlist der Jobs, die aus der Weboberfläche angestoßen werden dürfen.
+
+    Bewusst nur lesende/rechnende Jobs: keine Fetcher (Rate-Limits), kein Rebuild, kein Löschen.
+    """
+
+    jobs: list[Literal["review", "maintain", "score", "evaluate"]] = Field(
+        default_factory=lambda: list(ADMIN_JOB_NAMES)
+    )
+    cooldown_minutes: int = Field(default=10, ge=0, le=1440)
+    cooldown_overrides: dict[str, int] = Field(default_factory=lambda: {"review": 2})
+    max_queue: int = Field(default=4, ge=1, le=20)
+    log_tail_bytes: int = Field(default=4096, ge=256, le=8192)
+
+    @model_validator(mode="after")
+    def _check(self) -> AdminConfig:
+        if unknown := sorted(set(self.cooldown_overrides) - set(ADMIN_JOB_NAMES)):
+            raise ValueError(f"admin.cooldown_overrides: unbekannter Job {', '.join(unknown)}")
+        return self
+
+    def cooldown_for(self, job: str) -> int:
+        return self.cooldown_overrides.get(job, self.cooldown_minutes)
+
+
 class AuthConfig(_Model):
     """Identität der Benutzer (Cloudflare Access); Team-Domain und AUD stehen nur in der .env."""
 
@@ -357,6 +384,7 @@ class Config(_Model):
     scoring: ScoringConfig
     profiles: dict[str, Profile]
     auth: AuthConfig = Field(default_factory=AuthConfig)
+    admin: AdminConfig = Field(default_factory=AdminConfig)
     backtest: BacktestConfig = Field(default_factory=BacktestConfig)
     maintenance: MaintenanceConfig = Field(default_factory=MaintenanceConfig)
     live: LiveConfig = Field(default_factory=LiveConfig)

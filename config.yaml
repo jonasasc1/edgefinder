@@ -449,6 +449,17 @@ maintenance:
   maintain_stale_after_hours: 216
 
 # ---------------------------------------------------------------------------
+# Admin-Bereich (Etappe p): Jobs, die Admins in der Weboberfläche anstoßen dürfen (Allowlist).
+# Keine Fetcher, kein Rebuild, kein Löschen. Admins vergibt nur die CLI (`edgefinder admin grant`).
+# ---------------------------------------------------------------------------
+admin:
+  jobs: [review, maintain, score, evaluate]
+  cooldown_minutes: 10        # Abkühlzeit je Job-Typ nach Ende des letzten Laufs
+  cooldown_overrides: {review: 2}
+  max_queue: 4                # wartende + laufende Aufträge insgesamt
+  log_tail_bytes: 4096        # gespeicherter Logauszug je Auftrag
+
+# ---------------------------------------------------------------------------
 # Live-Bilanz (Etappe o): Forward-Test der heutigen Signale und Drift gegen die Eichung.
 # Der Algorithmus misst und meldet; Modelländerungen nur im Modellpflege-Zyklus (CLAUDE.md).
 # ---------------------------------------------------------------------------

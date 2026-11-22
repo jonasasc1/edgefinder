@@ -1,0 +1,11 @@
+# ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
+# Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
+[Unit]
+Description=edgefinder: Admin-Aufträge sofort abarbeiten (Trigger-Datei)
+
+[Path]
+PathChanged=/var/lib/edgefinder/.adminjobs.trigger
+Unit=edgefinder-adminjobs.service
+
+[Install]
+WantedBy=multi-user.target

@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from edgefinder import __version__
 from edgefinder.api.account import create_account_router
+from edgefinder.api.admin import create_admin_router
 from edgefinder.api.auth import IdentityResolver
 from edgefinder.api.routes import create_router
 from edgefinder.config import Config, Secrets
@@ -38,9 +39,10 @@ def create_app(
     async def no_store_for_account(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        """Konto-Antworten (auch Fehler) dürfen nie zwischengespeichert werden."""
+        """Konto- und Admin-Antworten (auch Fehler) dürfen nie zwischengespeichert werden."""
         response = await call_next(request)
-        if request.url.path == "/api/me" or request.url.path.startswith("/api/me/"):
+        path = request.url.path
+        if path in ("/api/me", "/api/admin") or path.startswith(("/api/me/", "/api/admin/")):
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -58,9 +60,9 @@ def create_app(
         return {"status": "ok", "version": __version__, "schema_version": schema_version}
 
     app.include_router(create_router(config))
-    app.include_router(
-        create_account_router(config, resolver or IdentityResolver(config.auth, secrets))
-    )
+    resolver = resolver or IdentityResolver(config.auth, secrets)
+    app.include_router(create_account_router(config, resolver))
+    app.include_router(create_admin_router(config, resolver))
 
     if frontend_dist is not None and (frontend_dist / "index.html").is_file():
         _mount_frontend(app, frontend_dist)

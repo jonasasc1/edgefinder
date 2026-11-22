@@ -13,12 +13,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
-from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from edgefinder.api import guard
 from edgefinder.api.auth import AuthError, IdentityResolver
 from edgefinder.config import Config
 from edgefinder.db import connect, transaction
@@ -53,6 +53,7 @@ class FavoritesIn(BaseModel):
 
 class MeOut(BaseModel):
     email: str
+    is_admin: bool
     display_name: str
     created_at: str
     preferences: Preferences
@@ -82,7 +83,8 @@ def provision(conn: sqlite3.Connection, email: str, now: datetime | None = None)
         (email, name, stamp, stamp),
     )
     user = conn.execute(
-        "SELECT id, email, display_name, created_at, last_seen_at FROM users WHERE email = ?",
+        "SELECT id, email, display_name, created_at, last_seen_at, is_admin FROM users "
+        "WHERE email = ?",
         (email,),
     ).fetchone()
     # Nur gelegentlich schreiben: höchstens alle LAST_SEEN_INTERVAL
@@ -162,41 +164,14 @@ def create_account_router(config: Config, resolver: IdentityResolver) -> APIRout
             raise HTTPException(status_code=exc.status, detail=exc.detail) from exc
 
     def check_origin(request: Request) -> None:
-        site = request.headers.get("sec-fetch-site")
-        if site is not None and site not in ("same-origin", "none"):
-            raise HTTPException(status_code=403, detail="Anfrage von fremder Herkunft abgelehnt.")
-        origin = request.headers.get("origin")
-        if origin is None:
-            return
-        allowed = set(extra_hosts)
-        for value in (request.headers.get("host"), request.headers.get("x-forwarded-host")):
-            if value:
-                allowed.add(value.split(",")[0].strip().lower())
-        if origin == "null" or urlsplit(origin).netloc.lower() not in allowed:
-            raise HTTPException(status_code=403, detail="Anfrage von fremder Herkunft abgelehnt.")
+        guard.check_origin(request, extra_hosts)
 
-    async def read_json(request: Request, limit: int) -> object:
-        media = request.headers.get("content-type", "").split(";")[0].strip().lower()
-        if media != "application/json":
-            raise HTTPException(
-                status_code=415, detail="Erwartet wird Content-Type: application/json."
-            )
-        declared = request.headers.get("content-length", "")
-        if declared.isdigit() and int(declared) > limit:
-            raise HTTPException(status_code=413, detail="Anfrage zu groß.")
-        body = bytearray()
-        async for chunk in request.stream():
-            body.extend(chunk)
-            if len(body) > limit:
-                raise HTTPException(status_code=413, detail="Anfrage zu groß.")
-        try:
-            return json.loads(bytes(body))
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail="Der Body ist kein gültiges JSON.") from exc
+    read_json = guard.read_json
 
     def snapshot(conn: sqlite3.Connection, user: sqlite3.Row) -> MeOut:
         return MeOut(
             email=user["email"],
+            is_admin=bool(user["is_admin"]),
             display_name=user["display_name"],
             created_at=user["created_at"],
             preferences=read_preferences(conn, user["id"]),

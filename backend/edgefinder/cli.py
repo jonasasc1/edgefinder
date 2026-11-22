@@ -81,7 +81,7 @@ def _cmd_gen_systemd(config: Config, args: argparse.Namespace) -> int:
             for n, c in files.items()
             if not (args.out / n).is_file() or (args.out / n).read_text(encoding="utf-8") != c
         ]
-        extra = [p.name for p in args.out.glob("edgefinder*.[st]*") if p.name not in files]
+        extra = [p.name for p in args.out.glob("edgefinder*.*") if p.name not in files]
         if stale or extra:
             log.error("%s weicht von config.yaml ab: %s", args.out, ", ".join(stale + extra))
             return 1
@@ -307,6 +307,37 @@ def _cmd_cleanup(config: Config, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_admin(config: Config, args: argparse.Namespace) -> int:
+    """Admin-Rolle verwalten (nur lokal auf dem Server) und die Warteschlange abarbeiten."""
+    from edgefinder import admin_jobs
+    from edgefinder.api.auth import normalize_email
+
+    if args.admin_command == "run":
+        done = admin_jobs.run_queue(config)
+        log.info("Admin-Aufträge: %d abgearbeitet", done)
+        return 0
+    conn = _migrated_conn(config)
+    try:
+        if args.admin_command == "list":
+            admins = admin_jobs.list_admins(conn)
+            print("\n".join(admins) if admins else "Keine Admins.")
+            return 0
+        try:
+            email = normalize_email(args.email)
+            print(
+                admin_jobs.set_admin(conn, email, args.admin_command == "grant", force=args.force)
+            )
+        except ValueError as exc:
+            log.error("%s", exc)
+            return 2
+        except (LookupError, PermissionError) as exc:
+            log.error("%s", exc)
+            return 1
+    finally:
+        conn.close()
+    return 0
+
+
 ALL_WEEKDAYS = -1
 _WEEKDAYS = {
     "mo": 0,
@@ -416,6 +447,20 @@ def build_parser() -> argparse.ArgumentParser:
     review = commands.add_parser("review-report", help="Vorlage für den Modellpflege-Termin")
     review.add_argument("--out", type=Path, help="Ziel (Standard: <data>/review.md)")
     review.set_defaults(func=_cmd_review_report)
+    admin = commands.add_parser("admin", help="Admin-Rolle (grant/revoke/list) und Runner (run)")
+    admin_cmds = admin.add_subparsers(dest="admin_command", required=True)
+    for name, text in (("grant", "Admin-Rolle vergeben"), ("revoke", "Admin-Rolle entziehen")):
+        sub = admin_cmds.add_parser(name, help=f"{text} (legt das Konto bei grant an)")
+        sub.add_argument("email", help="E-Mail-Adresse des Kontos")
+        if name == "revoke":
+            sub.add_argument(
+                "--force", action="store_true", help="auch den letzten Admin entfernen"
+            )
+        else:
+            sub.set_defaults(force=False)
+    admin_cmds.add_parser("list", help="Admins auflisten")
+    admin_cmds.add_parser("run", help="wartende Admin-Aufträge abarbeiten (systemd-Dienst)")
+    admin.set_defaults(func=_cmd_admin)
     cleanup = commands.add_parser("cleanup", help="alte Rohdaten (data/raw) löschen")
     cleanup.add_argument("--days", type=int, help="überschreibt storage.raw_retention_days")
     cleanup.add_argument("--dry-run", action="store_true", help="nur zählen, nichts löschen")

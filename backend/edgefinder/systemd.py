@@ -1,6 +1,8 @@
 """Erzeugt die systemd-Units und -Timer aus `config.yaml` (`edgefinder gen-systemd`).
 
-Die Zeitpläne (`OnCalendar`) stammen aus `sources.<name>.schedule`, `scoring.schedule` und
+Der Admin-Runner (`edgefinder-adminjobs.*`) hat eine `.path`-Unit (Trigger-Datei) und einen
+Fallback-Timer. Die Zeitpläne (`OnCalendar`) stammen aus `sources.<name>.schedule`,
+`scoring.schedule` und
 `maintenance.*_schedule`. Die erzeugten Dateien liegen im Repo unter `deploy/systemd/`; ein Test
 stellt sicher, dass sie zur `config.yaml` passen (Neu erzeugen: `uv run edgefinder gen-systemd`).
 """
@@ -10,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from edgefinder.admin_jobs import TRIGGER_NAME
 from edgefinder.config import Config
 
 HEADER = (
@@ -32,6 +35,10 @@ class Layout:
     @property
     def exe(self) -> str:
         return f"{self.app_dir}/.venv/bin/edgefinder"
+
+    @property
+    def trigger(self) -> str:
+        return f"{self.state_dir}/{TRIGGER_NAME}"
 
     @property
     def lock(self) -> str:
@@ -119,6 +126,38 @@ WantedBy=timers.target
 """
 
 
+ADMIN_SERVICE = "edgefinder-adminjobs.service"
+
+
+def _admin_path(layout: Layout) -> str:
+    """Startet den Runner, sobald die API die Trigger-Datei berührt hat (sofortige Reaktion)."""
+    return f"""{HEADER}[Unit]
+Description=edgefinder: Admin-Aufträge sofort abarbeiten (Trigger-Datei)
+
+[Path]
+PathChanged={layout.trigger}
+Unit={ADMIN_SERVICE}
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def _admin_timer() -> str:
+    """Sicherheitsnetz, falls die .path-Unit im Container nicht auslöst (leere Queue = billig)."""
+    return f"""{HEADER}[Unit]
+Description=edgefinder: Admin-Aufträge regelmäßig prüfen (Fallback zur Trigger-Datei)
+
+[Timer]
+OnCalendar=*:0/2
+AccuracySec=10s
+Unit={ADMIN_SERVICE}
+
+[Install]
+WantedBy=timers.target
+"""
+
+
 def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
     """Dateiname → Inhalt aller Units; Quellen mit `enabled: false` bekommen keinen Timer."""
     layout = layout or Layout()
@@ -135,7 +174,10 @@ def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
         "edgefinder-maintain.service": _job_service(
             "edgefinder: Eichung neu erzeugen", "maintain", layout
         ),
+        ADMIN_SERVICE: _job_service("edgefinder: Admin-Aufträge abarbeiten", "admin run", layout),
     }
+    files["edgefinder-adminjobs.path"] = _admin_path(layout)
+    files["edgefinder-adminjobs.timer"] = _admin_timer()
     for name, source in config.sources.items():
         if source.enabled:
             files[f"edgefinder-fetch-{name}.timer"] = _timer(
@@ -168,7 +210,12 @@ def write(files: dict[str, str], out: Path) -> list[str]:
     """Schreibt die Dateien nach `out` und entfernt dort veraltete edgefinder-Units."""
     out.mkdir(parents=True, exist_ok=True)
     removed = []
-    for old in sorted(out.glob("edgefinder*.timer")) + sorted(out.glob("edgefinder*.service")):
+    olds = [
+        p
+        for pattern in ("*.timer", "*.service", "*.path")
+        for p in out.glob(f"edgefinder{pattern}")
+    ]
+    for old in sorted(olds):
         if old.name not in files:
             old.unlink()
             removed.append(old.name)

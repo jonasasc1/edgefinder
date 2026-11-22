@@ -201,6 +201,41 @@ def run_maintain(conn: sqlite3.Connection, config: Config, *, today: date | None
     return run
 
 
+def run_review(conn: sqlite3.Connection, config: Config, *, today: date | None = None) -> Run:
+    """Prüfung aus dem Admin-Bereich: auswerten, Bilanz/Drift neu rechnen, `drift-report.json` + `review.md`.
+
+    Ändert weder Eichung noch Scores (das tut `maintain`); die Eichungsdatei wird nur gelesen.
+    """
+    run = run_evaluate(conn, config)
+    try:
+        report = live.build_trackrecord(conn, config, load_current_calibration(config), today=today)
+        write_json_atomic(config.data_dir / DRIFT_NAME, report)
+        (config.data_dir / REVIEW_NAME).write_text(render_review(report, config), encoding="utf-8")
+        log.info("Prüfbericht geschrieben (Stand %s)", report["today"])
+    except Exception as exc:
+        log.exception("Prüfbericht fehlgeschlagen")
+        run.errors.append(f"Prüfbericht: {type(exc).__name__}: {exc}")
+    return run
+
+
+def run_score(conn: sqlite3.Connection, config: Config, *, today: date | None = None) -> Run:
+    """Scores für heute neu berechnen (wie `edgefinder score`); Zeile in `fetch_runs` ist Sache der Engine."""
+    from edgefinder.scoring.engine import ScoreEngine
+
+    run = Run()
+    day = today or datetime.now(UTC).date()
+    try:
+        results = ScoreEngine(config, conn).run_day(day)
+        run.items = len(results)
+        log.info("%d Scores für %s berechnet", len(results), day)
+        if not results:
+            run.errors.append(f"Keine Scores für {day} berechnet (fehlen Kursdaten?)")
+    except Exception as exc:
+        log.exception("Score-Lauf fehlgeschlagen")
+        run.errors.append(f"Scores: {type(exc).__name__}: {exc}")
+    return run
+
+
 # ---------------------------------------------------------------------------- Review-Vorlage
 STATUS_TEXT = {
     live.ZU_FRUEH: "zu früh",

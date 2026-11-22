@@ -1,0 +1,12 @@
+# ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
+# Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
+[Unit]
+Description=edgefinder: Admin-Aufträge regelmäßig prüfen (Fallback zur Trigger-Datei)
+
+[Timer]
+OnCalendar=*:0/2
+AccuracySec=10s
+Unit=edgefinder-adminjobs.service
+
+[Install]
+WantedBy=timers.target

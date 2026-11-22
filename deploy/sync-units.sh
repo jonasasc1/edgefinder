@@ -22,7 +22,7 @@ for file in "$SRC"/edgefinder*; do
     fi
 done
 # Veraltete edgefinder-Units (z. B. Quelle in config.yaml deaktiviert) entfernen
-for old in "$DST"/edgefinder*.timer "$DST"/edgefinder*.service; do
+for old in "$DST"/edgefinder*.timer "$DST"/edgefinder*.service "$DST"/edgefinder*.path; do
     [[ -e "$old" ]] || continue
     name=$(basename "$old")
     if [[ ! -e "$SRC/$name" ]]; then
@@ -38,5 +38,11 @@ systemctl enable edgefinder.service >/dev/null
 for timer in "$SRC"/edgefinder*.timer; do
     # shellcheck disable=SC2086
     systemctl enable $START "$(basename "$timer")" >/dev/null
+done
+# Pfad-Unit des Admin-Runners (reagiert auf die Trigger-Datei der API)
+for path_unit in "$SRC"/edgefinder*.path; do
+    [[ -e "$path_unit" ]] || continue
+    # shellcheck disable=SC2086
+    systemctl enable $START "$(basename "$path_unit")" >/dev/null
 done
 echo "Units synchronisiert (geändert: $changed)."
