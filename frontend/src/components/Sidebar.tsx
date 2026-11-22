@@ -5,12 +5,14 @@ import { Wordmark } from "./Brand";
 import { IconKeyboard, IconSearch } from "./icons";
 import { isMac } from "./ShortcutsSheet";
 import { useUi } from "./ui-context";
-import { NAV } from "./nav";
+import { useIsAdmin } from "../lib/account";
+import { ADMIN_NAV, NAV } from "./nav";
 import { ThemeToggle } from "./ThemeToggle";
 
 /** Seitenleiste ab Desktop-Breite: Glasfläche, Wortmarke, Navigation, Darstellung. */
 export function Sidebar() {
   const { setPaletteOpen, setHelpOpen } = useUi();
+  const items = useIsAdmin() ? [...NAV, ADMIN_NAV] : NAV;
   return (
     <aside className="glass fixed inset-y-0 left-0 z-30 hidden w-sidebar flex-col border-r border-line px-3 pb-4 pt-6 lg:flex">
       <NavLink to="/" aria-label="E-Giant, zur Übersicht" className="mb-6 flex items-center px-3 py-1 text-ink">
@@ -27,7 +29,7 @@ export function Sidebar() {
         <kbd className="ml-auto font-sans text-footnote">{isMac() ? "⌘K" : "Strg K"}</kbd>
       </button>
       <nav aria-label="Hauptnavigation" className="flex flex-col gap-0.5">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
+        {items.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

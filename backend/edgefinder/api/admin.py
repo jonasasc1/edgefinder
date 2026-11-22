@@ -144,6 +144,8 @@ def create_admin_router(config: Config, resolver: IdentityResolver) -> APIRouter
                 for name in config.admin.jobs
             ]
             recent = admin_jobs.recent_jobs(conn)
+            for entry in recent:
+                entry.pop("log_tail", None)  # Logauszug nur auf Abruf (GET /jobs/{id})
         return {
             "now": now.isoformat(timespec="seconds"),
             "model_version": config.scoring.model_version,

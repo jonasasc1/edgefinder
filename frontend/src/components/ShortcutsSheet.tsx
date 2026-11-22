@@ -1,3 +1,4 @@
+import { useIsAdmin } from "../lib/account";
 import { Kbd } from "./CommandPalette";
 import { Sheet } from "./Sheet";
 import { useUi } from "./ui-context";
@@ -32,6 +33,10 @@ const GROUPS: { title: string; rows: Row[] }[] = [
 export function ShortcutsSheet() {
   const { helpOpen, setHelpOpen } = useUi();
   const mod = isMac() ? "⌘" : "Strg";
+  const isAdmin = useIsAdmin();
+  const groups = isAdmin
+    ? GROUPS.map((g, i) => (i === 0 ? { ...g, rows: [...g.rows, { keys: [["g", "a"]], text: "Admin" }] } : g))
+    : GROUPS;
   return (
     <Sheet open={helpOpen} onOpenChange={setHelpOpen} title="Tastenkürzel" description="Die Kürzel gelten nicht, solange du in ein Textfeld tippst.">
       <div className="flex flex-col gap-5">
@@ -44,7 +49,7 @@ export function ShortcutsSheet() {
             </div>
           </dl>
         </div>
-        {GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.title}>
             <h3 className="mb-1 text-footnote font-semibold text-ink-2">{group.title}</h3>
             <dl className="divide-y divide-line">

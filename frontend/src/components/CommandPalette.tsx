@@ -10,7 +10,8 @@ import { matches, rank } from "../lib/search";
 import { useTheme } from "../lib/theme";
 import { CLASS_LABEL } from "../pages/overview/model";
 import { IconAuto, IconCompare, IconKeyboard, IconMoon, IconSearch, IconStar, IconSun } from "./icons";
-import { NAV } from "./nav";
+import { useIsAdmin } from "../lib/account";
+import { ADMIN_NAV, NAV } from "./nav";
 import { useUi } from "./ui-context";
 
 type Item = { id: string; group: string; label: string; hint?: string; icon: ReactNode; keywords?: string; run: (compare: boolean) => void };
@@ -29,6 +30,7 @@ export function CommandPalette() {
 // Der Inhalt wird nur bei geöffneter Palette eingehängt: Eingabe und Auswahl starten so jedes Mal neu.
 function PaletteBody() {
   const { setPaletteOpen, setHelpOpen } = useUi();
+  const isAdmin = useIsAdmin();
   const navigate = useNavigate();
   const { setPref } = useTheme();
   const favorites = useFavorites();
@@ -70,7 +72,7 @@ function PaletteBody() {
       const favs = favorites.flatMap((id) => assets.filter((asset) => asset.id === id));
       out.push(...favs.slice(0, 5).map((asset) => assetItem(asset, "Favoriten")));
     }
-    for (const nav of NAV) {
+    for (const nav of isAdmin ? [...NAV, ADMIN_NAV] : NAV) {
       out.push({ id: `nav-${nav.to}`, group: "Seiten", label: nav.label, icon: <nav.icon size={20} />, run: go(nav.to) });
     }
     out.push({ id: "nav-compare", group: "Seiten", label: "Vergleich", hint: "Assets nebeneinander", icon: <IconCompare size={20} />, run: go("/vergleich") });
@@ -85,7 +87,7 @@ function PaletteBody() {
     const filtered = q ? rest.filter((item) => matches(q, item.label, item.hint ?? "", item.keywords ?? "", item.group)) : rest;
     return [...lead, ...filtered];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- close/go sind stabil genug (lesen nur Setter)
-  }, [state, query, favorites, navigate, setPref, setHelpOpen]);
+  }, [state, query, favorites, navigate, setPref, setHelpOpen, isAdmin]);
 
   useEffect(() => {
     listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });

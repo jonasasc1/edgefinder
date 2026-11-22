@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-import { IconBilanz, IconChanges, IconMacro, IconOverview, IconStar, IconStatus } from "./icons";
+import { IconAdmin, IconBilanz, IconChanges, IconMacro, IconOverview, IconStar, IconStatus } from "./icons";
 
 export type NavItem = {
   to: string;
@@ -20,3 +20,6 @@ export const NAV: NavItem[] = [
   { to: "/bilanz", label: "Bilanz", icon: IconBilanz },
   { to: "/status", label: "Status", icon: IconStatus, tab: false },
 ];
+
+/** Nur für Admins eingeblendet (Sidebar, Palette); am Handy im Konto-/Darstellungs-Sheet statt als Tab. */
+export const ADMIN_NAV: NavItem = { to: "/admin", label: "Admin", icon: IconAdmin, tab: false };

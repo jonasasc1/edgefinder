@@ -1,4 +1,5 @@
 // Typen und Abrufe der JSON-API (siehe backend/edgefinder/api/schemas.py).
+import { errorMessage, type AdminJob } from "./adminLogic";
 import { setOffline } from "./offline";
 
 export type ProfileKey = "swing" | "long_term";
@@ -233,7 +234,7 @@ export const fetchScorecard = (assetId: string, profile: ProfileKey, signal?: Ab
 
 import type { Prefs } from "./accountLogic";
 
-export type Me = { email: string; display_name: string; created_at: string; preferences: Prefs; favorites: string[] };
+export type Me = { email: string; is_admin: boolean; display_name: string; created_at: string; preferences: Prefs; favorites: string[] };
 
 /** Ergebnis von GET /api/me: Konto, „lokal“ (nicht angemeldet, 401/403/404) oder Fehler (Netz, Server). */
 export type MeResult = { kind: "ok"; me: Me } | { kind: "local" } | { kind: "error" };
@@ -435,3 +436,67 @@ export type AssetTrackrecord = {
 export const fetchTrackrecord = (profile: ProfileKey, signal?: AbortSignal) => getJson<Trackrecord>(`/api/trackrecord?profile=${profile}`, signal);
 export const fetchAssetTrackrecord = (assetId: string, profile: ProfileKey, signal?: AbortSignal) =>
   getJson<AssetTrackrecord>(`/api/assets/${encodeURIComponent(assetId)}/trackrecord?profile=${profile}&limit=10`, signal);
+
+// --- Admin (nur für Konten mit Admin-Rolle; der Server prüft bei jedem Aufruf) ---
+
+export type AdminRun = {
+  source: string;
+  last_success: string | null;
+  last_run_status: string | null;
+  last_run_at: string | null;
+  last_error: string | null;
+  stale_after_hours: number;
+  stale: boolean;
+};
+export type AdminJobInfo = { job: string; cooldown_minutes: number; wait_seconds: number; active_id: number | null };
+export type AdminOverview = {
+  now: string;
+  model_version: string;
+  last_score_date: string | null;
+  last_scored_at: string | null;
+  calibration: { available: boolean; generated_at: string | null; first_date: string | null; data_through: string | null };
+  live: { live_since: string | null; evaluated: number | null; open: number | null; progress: number | null };
+  runs: AdminRun[];
+  jobs: AdminJobInfo[];
+  recent_jobs: AdminJob[];
+};
+export type AdminReport = {
+  review_md: string | null;
+  review_updated_at: string | null;
+  drift: unknown;
+  drift_updated_at: string | null;
+  filename: string;
+};
+export type AdminUser = { email: string; created_at: string; last_seen_at: string; favorites: number; is_admin: boolean };
+
+/** Fehler mit HTTP-Status (403 = kein Admin) und dem deutschen Text des Servers. */
+export class AdminError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(path, { cache: "no-store", ...init, headers: { Accept: "application/json", ...init.headers } });
+  if (!response.ok) {
+    let detail: string | null = null;
+    try {
+      const body = (await response.json()) as { detail?: unknown };
+      if (typeof body.detail === "string") detail = body.detail;
+    } catch {
+      // kein JSON-Body
+    }
+    throw new AdminError(response.status, errorMessage(response.status, detail));
+  }
+  return (await response.json()) as T;
+}
+
+export const fetchAdminOverview = (signal?: AbortSignal) => adminRequest<AdminOverview>("/api/admin/overview", { signal });
+export const fetchAdminReport = (signal?: AbortSignal) => adminRequest<AdminReport>("/api/admin/report", { signal });
+export const fetchAdminUsers = (signal?: AbortSignal) => adminRequest<{ users: AdminUser[] }>("/api/admin/users", { signal });
+export const fetchAdminJob = (id: number, signal?: AbortSignal) => adminRequest<AdminJob>(`/api/admin/jobs/${id}`, { signal });
+export const startAdminJob = (job: string) =>
+  adminRequest<AdminJob>("/api/admin/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job }) });

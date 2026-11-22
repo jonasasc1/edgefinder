@@ -52,6 +52,12 @@ export const IconStatus = (p: IconProps) => (
     <path d="M3.5 12h4l2.5-6 4 12 2.5-6h4" />
   </Icon>
 );
+export const IconAdmin = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3.5l7 2.6v5.4c0 4.2-2.8 7.3-7 9-4.2-1.7-7-4.8-7-9V6.1z" />
+    <path d="M9.2 12l2 2 3.6-4" />
+  </Icon>
+);
 export const IconBilanz = (p: IconProps) => (
   <Icon {...p}>
     <path d="M5 20V12M12 20V5M19 20v-5" />

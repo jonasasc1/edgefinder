@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 
+import { adminVisible } from "./adminLogic";
 import { fetchMe, putFavorites, putPreferences } from "./api";
 import {
   DEFAULT_PREFS,
@@ -21,7 +22,7 @@ import { onUserChange, readStored, storeValue } from "./usePersistentState";
 // bisher von dort, der Abgleich mit dem Server passiert hier (laden beim Start, gebündelt speichern).
 
 export type AccountStatus = "loading" | "ready" | "local" | "error";
-export type AccountInfo = { email: string; displayName: string; createdAt: string };
+export type AccountInfo = { email: string; displayName: string; createdAt: string; isAdmin: boolean };
 export type AccountState = { status: AccountStatus; info: AccountInfo | null; notice: string | null; saveError: boolean };
 
 const EMAIL_KEY = "ef-account"; // zuletzt angemeldete E-Mail auf diesem Gerät (Kontowechsel erkennen)
@@ -51,6 +52,12 @@ export function useAccount(): AccountState {
     () => state,
     () => state,
   );
+}
+
+/** Zeigt das Konto Admin-Funktionen? (Nur Anzeige; der Server prüft jeden Admin-Aufruf selbst.) */
+export function useIsAdmin(): boolean {
+  const { status, info } = useAccount();
+  return adminVisible(status, info?.isAdmin);
 }
 
 /** API-Antworten dieses Geräts verwerfen (Service-Worker-Cache `ef-api-*`), z. B. beim Abmelden. */
@@ -109,7 +116,7 @@ export async function loadAccount(): Promise<void> {
   replaceFavorites(merged.favorites);
   setState({
     status: "ready",
-    info: { email: me.email, displayName: me.display_name, createdAt: me.created_at },
+    info: { email: me.email, displayName: me.display_name, createdAt: me.created_at, isAdmin: me.is_admin === true },
     notice,
     saveError: false,
   });

@@ -14,6 +14,7 @@ import { StatusPage } from "./pages/status/StatusPage";
 const AssetPage = lazy(() => import("./pages/asset/AssetPage").then((m) => ({ default: m.AssetPage })));
 const BilanzPage = lazy(() => import("./pages/bilanz/BilanzPage").then((m) => ({ default: m.BilanzPage })));
 const ComparePage = lazy(() => import("./pages/compare/ComparePage").then((m) => ({ default: m.ComparePage })));
+const AdminPage = lazy(() => import("./pages/admin/AdminPage").then((m) => ({ default: m.AdminPage })));
 const later = (node: React.ReactNode) => <Suspense fallback={<BoltLoader />}>{node}</Suspense>;
 
 // Design-Seite erst bei Bedarf laden.
@@ -28,6 +29,7 @@ export function App() {
         <Route path="aenderungen" element={<ChangesPage />} />
         <Route path="favoriten" element={<FavoritesPage />} />
         <Route path="bilanz" element={later(<BilanzPage />)} />
+        <Route path="admin" element={later(<AdminPage />)} />
         <Route path="status" element={<StatusPage />} />
         <Route path="vergleich" element={later(<ComparePage />)} />
         <Route path="asset/:id" element={later(<AssetPage />)} />

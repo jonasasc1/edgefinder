@@ -1,3 +1,5 @@
+import { NavLink } from "react-router";
+
 import { loadAccount, LOGOUT_URL, signOutCleanup, useAccount } from "../lib/account";
 import { setCalmFx, useCalmFx } from "../lib/calm";
 import { formatDateMedium } from "../lib/format";
@@ -44,6 +46,19 @@ function CalmSwitch() {
         />
       </span>
     </button>
+  );
+}
+
+/** Am Handy: Zugang zum Admin-Bereich über das Darstellung-Sheet (nur für Admins, kein 6. Tab). */
+function AdminLink() {
+  return (
+    <NavLink
+      to="/admin"
+      className="flex min-h-touch items-center justify-between gap-3 rounded-control bg-fill px-3 text-subhead font-medium text-ink"
+    >
+      Admin-Bereich
+      <span aria-hidden="true" className="text-ink-2">›</span>
+    </NavLink>
   );
 }
 
@@ -124,6 +139,8 @@ export function AccountPanel({ variant }: { variant: Variant }) {
       )}
 
       <CalmSwitch />
+
+      {variant === "sheet" && status === "ready" && info?.isAdmin && <AdminLink />}
 
       {status === "ready" && (
         <a

@@ -210,6 +210,34 @@ dann den Hostnamen veröffentlichen.** Auf der Agent-VM wird an Cloudflare und C
    die Firewall Port 8420 ausschließlich von 10.10.20.20 (cloudflared) zulässt; der strikte JWT-Modus (stärker)
    lässt sich optional zuschalten.
 
+## Admin
+
+Nur Jonas ist Admin. Der Admin-Bereich löst die **algorithmische Prüfung** auf dem Server aus und stellt den Bericht für Claude bereit. Claude selbst
+wird von der Webseite nie gestartet (auf „trading“ gibt es bewusst keine Claude-Zugänge). Eine wöchentliche automatische Claude-Prüfung gibt es nicht; du löst sie bei Bedarf selbst aus.
+
+### Einmalig einrichten (nach dem Deploy, VM/CT „trading“)
+1. Auf „trading“ anmelden (SSH wie beim Deploy).
+2. Units installieren (macht `deploy/deploy.sh` bereits, sonst von Hand): `sudo /opt/edgefinder/deploy/sync-units.sh`
+3. Prüfen: `systemctl list-units 'edgefinder-adminjobs*'` zeigt `.path` und `.timer` als aktiv.
+4. Dich zum Admin machen (deine Google-Adresse, mit der du bei Cloudflare Access anmeldest):
+   `cd /opt/edgefinder && sudo -u edgefinder .venv/bin/edgefinder admin grant deine@adresse.de`
+5. Kontrolle: `sudo -u edgefinder .venv/bin/edgefinder admin list`
+6. Im Browser die Seite neu laden (Strg+Umschalt+R). In der Seitenleiste erscheint „Admin“ (am Handy: Übersicht, Zahnrad „Darstellung“, „Admin-Bereich“).
+
+### Prüfung auslösen und an Claude übergeben
+1. „Admin“ öffnen, bei „Prüfung jetzt ausführen“ auf **Prüfung starten** tippen.
+2. Warten: die Karte zeigt „Wartet“, „Läuft“, dann „Fertig“ (meist Sekunden bis wenige Minuten; „Eichung neu erzeugen“ dauert länger).
+3. Unter „Prüfbericht“ erscheint die aktuelle Bilanz. Auf **Für Claude kopieren** tippen („Kopiert“ erscheint).
+4. In einer Claude-Code-Sitzung (auf deinem Rechner/der Agent-VM) einfügen und senden. Der Text enthält die Regeln des Modellpflege-Zyklus und die Anweisung „nur analysieren, keine Änderungen ohne Freigabe“.
+5. Alternativ **Download .md** und die Datei an Claude geben.
+
+### Admin entziehen / weitere Admins
+`sudo -u edgefinder .venv/bin/edgefinder admin revoke name@adresse.de` (den letzten Admin entfernt nur `--force`). Die Wirkung gilt sofort.
+
+### Fehlersuche
+- Auftrag bleibt „Wartet“: `systemctl status edgefinder-adminjobs.service` und `journalctl -u edgefinder-adminjobs -n 50`. Eine laufende Wartung/ein Fetch-Job hält die Jobsperre; der Auftrag startet danach. Der Timer holt ihn spätestens nach 2 Minuten nach.
+- „Abkühlzeit“/„läuft bereits“: gewollt (Schutz vor Dauerklicken), kurz warten.
+
 ## Bilanz und Modellpflege
 
 Die Seite **Bilanz** prüft die Signale von heute nach Ablauf ihres Zeitraums gegen den realen Kurs (Forward-Test). Zwei Timer

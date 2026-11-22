@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 
+import { useIsAdmin } from "./account";
+
 // Tastenkürzel: Strg/⌘+K, „/“, „?“ und „g“ + Buchstabe (Navigation). Nicht beim Tippen in Feldern.
 export const GO_TARGETS: Record<string, string> = {
   o: "/",
@@ -11,6 +13,8 @@ export const GO_TARGETS: Record<string, string> = {
   s: "/status",
   v: "/vergleich",
 };
+/** Nur für Admins (der Server entscheidet trotzdem über den Zugriff). */
+export const ADMIN_GO_TARGETS: Record<string, string> = { a: "/admin" };
 
 export function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -20,6 +24,7 @@ export function isTypingTarget(target: EventTarget | null): boolean {
 export function useShortcuts(actions: { togglePalette: () => void; openPalette: () => void; openHelp: () => void }) {
   const navigate = useNavigate();
   const { togglePalette, openPalette, openHelp } = actions;
+  const isAdmin = useIsAdmin();
   useEffect(() => {
     let pending: number | null = null;
     const clear = () => {
@@ -35,7 +40,8 @@ export function useShortcuts(actions: { togglePalette: () => void; openPalette: 
       if (event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented || isTypingTarget(event.target)) return;
       if (document.querySelector('[role="dialog"]')) return; // offene Fenster behalten die Tasten
       if (pending !== null) {
-        const target = GO_TARGETS[event.key.toLowerCase()];
+        const key = event.key.toLowerCase();
+        const target = GO_TARGETS[key] ?? (isAdmin ? ADMIN_GO_TARGETS[key] : undefined);
         clear();
         if (target) {
           event.preventDefault();
@@ -58,5 +64,5 @@ export function useShortcuts(actions: { togglePalette: () => void; openPalette: 
       window.removeEventListener("keydown", onKey);
       clear();
     };
-  }, [navigate, togglePalette, openPalette, openHelp]);
+  }, [navigate, togglePalette, openPalette, openHelp, isAdmin]);
 }

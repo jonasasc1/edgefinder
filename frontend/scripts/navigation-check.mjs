@@ -66,7 +66,7 @@ for (const [name, viewport] of [["desktop", { width: 1440, height: 900 }]]) {
     await nav(page).getByRole("link", { name: label }).click();
     await blank(page, `${name}: Sidebar → ${label}`);
   }
-  for (const [path, label] of [["/vergleich?ids=EURUSD,GOLD", "Vergleich"], ["/asset/EURUSD", "Asset"], ["/design", "Design"], ["/gibt-es-nicht", "404"]]) {
+  for (const [path, label] of [["/vergleich?ids=EURUSD,GOLD", "Vergleich"], ["/asset/EURUSD", "Asset"], ["/design", "Design"], ["/admin", "Admin (ohne Rechte: Kein Zugriff)"], ["/gibt-es-nicht", "404"]]) {
     await page.goto(base + path, { waitUntil: "networkidle" });
     await blank(page, `${name}: ${label}`);
     await nav(page).getByRole("link", { name: "Status" }).click(); // Wechsel weg von der lazy Seite

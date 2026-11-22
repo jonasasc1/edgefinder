@@ -8,6 +8,8 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
+**Admin-Bereich (2026-11-22, Etappe p, noch NICHT deployt):** Rolle per CLI, Job-Warteschlange mit Runner-Units, Seite `/admin`. Siehe „Admin-Bereich“. Nach dem Deploy: Migration 0005 (deploy.sh), Units per sync-units, dann `edgefinder admin grant <Jonas' E-Mail>` (README „Admin“).
+
 **Bilanz/Wartung (2026-11-21, Etappe o, wird mit dem nächsten Deploy live):** Forward-Test, Seite „Bilanz“, Timer `evaluate` (täglich) und `maintain` (sonntags). Siehe „Bilanz und Wartungszyklus“.
 Nach dem Deploy: Migration 0004 läuft über deploy.sh; Timer per sync-units; erster `maintain`-Lauf baut den Backfill (ca. 5–15 min), danach erscheint `<data>/calibration.json`.
 
@@ -459,6 +461,35 @@ Profil-Umschalter, abhängig vom Klassenfilter), Asset-Hero und Vergleich (wenn 
   `fx.css`, `useReducedFx`, BackgroundFx/MotionConfig; `theme-init.js` setzt es vor dem Rendern). Konto-Bereich in Sidebar und „Darstellung“-Sheet.
 - **Service Worker:** `/api/me*` ist network-only (kein `respondWith`, nie gecacht), alle anderen API-Antworten wie bisher network-first.
 - **Tests:** `backend/tests/test_accounts.py` (Header, JWT mit lokalem RSA-Paar + gemockter JWKS, Isolation, Validierung, CSRF, Migration), Vitest `accountLogic.test.ts`.
+
+### Admin-Bereich (Etappe p, 2026-11-22)
+- **Zweck/Entscheidung Jonas:** Prüf- und Wartungsläufe löst Jonas **manuell** im Admin-Bereich aus; die geplante wöchentliche Claude-Prüfung wird
+  **nicht** als Zeitplan eingerichtet. **Claude Code ist aus der Weboberfläche nicht startbar** (auf „trading“ liegen bewusst keine Claude-Zugänge, der
+  Server startet nie Agenten). Die Seite löst nur die algorithmische Prüfung aus und liefert den Bericht zur Übergabe: „Für Claude kopieren“
+  (Zwischenablage, fertiger deutscher Prompt = Regeln des Modellpflege-Zyklus + `review.md` + „nur analysieren, keine Änderungen ohne Freigabe“,
+  `lib/adminLogic.ts: buildClaudePrompt`) und „Download .md“. Jonas fügt den Text in eine Claude-Code-Sitzung ein.
+- **Rolle (Migration 0005):** `users.is_admin` (0/1). **Kein API-Weg**, Admin zu werden; nur CLI auf dem Server: `edgefinder admin grant|revoke <email>`
+  (E-Mail normalisiert, `grant` legt das Konto an, `revoke` des letzten Admins nur mit `--force`), `admin list`. `GET /api/me` liefert `is_admin`; das
+  Frontend blendet „Admin“ nur dafür ein (Sidebar, Palette, `g a`, am Handy Link im Darstellung-Sheet), entscheidet aber nichts.
+- **Autorisierung (`api/admin.py`, `require_admin`):** bei JEDEM Aufruf Identität (Header/JWT wie `/api/me`) + frische DB-Zeile. Keine Identität 401;
+  Konto fehlt oder kein Admin 403 mit immer gleicher Meldung „Kein Zugriff.“ (kein Konto wird dabei angelegt). Revoke wirkt sofort. Alle Antworten `no-store`
+  (Middleware), Service Worker network-only. Schreibend (`POST /jobs`): `guard.py` (Origin/Sec-Fetch-Site, nur JSON, ≤ 256 B); Admin-Prüfung vor Body-Auswertung.
+- **Endpunkte:** `GET /api/admin/overview` (Läufe/Stale aus `fetch_runs`, Modellversion, Eichung, Live-Zahlen, Jobs mit Abkühlzeit, letzte 20 Aufträge ohne Log),
+  `POST /api/admin/jobs {job}` (202), `GET /api/admin/jobs/{id}` (mit `log_tail`), `GET /api/admin/report` und `/report.md` (nur `<data>/review.md` und
+  `drift-report.json`, feste Pfade, Größenlimit, Dateiname fest `edgefinder-pruefbericht.md`), `GET /api/admin/users` (nur lesen).
+- **Warteschlange/Runner (`admin_jobs.py`):** Tabelle `admin_jobs` (queued|running|ok|error|rejected, `summary` ≤ 300, `log_tail` ≤ `admin.log_tail_bytes`), `admin_audit`
+  (Akteur, Aktion, Zeit; auch grant/revoke). Teil-Index erzwingt je Typ höchstens einen wartenden/laufenden Auftrag (409), Abkühlzeit je Typ nach Ende
+  (429 + Retry-After; `admin.cooldown_minutes` 10, `review` 2), `admin.max_queue` (429). Der Webprozess startet **nichts**: er schreibt die Zeile und berührt
+  `<data>/.adminjobs.trigger`. Dienst `edgefinder-adminjobs.service` (`flock … edgefinder admin run`, gleiche Härtung/Nice/MemoryMax wie die anderen Jobs) startet
+  über `edgefinder-adminjobs.path` (PathChanged) und als Sicherheitsnetz über `edgefinder-adminjobs.timer` (alle 2 min, leere Queue = billig, falls `.path` im LXC
+  nicht auslöst). Alle drei Units werden aus `config.yaml` erzeugt (`gen-systemd`); `sync-units.sh` aktiviert auch `.path`.
+- **Allowlist (`config.yaml: admin.jobs`, zusätzlich fest in `JOBS`):** `review` (= evaluate + Bilanz/Drift neu + `review.md`/`drift-report.json`), `maintain`, `score`
+  (heute), `evaluate`. Feste Python-Funktionen, kein Shell, kein `subprocess`, keine Client-Eingabe im Befehl (Test prüft den Quelltext). Keine Fetcher, kein Rebuild, kein Löschen.
+  Hängende „running“-Zeilen (Runner abgebrochen) markiert der nächste Runner als Fehler (er hält die Jobsperre).
+- **Frontend:** `pages/admin/*` (lazy `/admin`): Karten je Job mit Fortschritt (Polling alle 3 s nur bei aktiven Aufträgen und sichtbarer Seite), Bestätigung nur bei
+  „Scores neu berechnen“, Logauszug auf Abruf, Prüfbericht-Tabelle, Systemzustand, Konten (nur lesen, CLI-Befehl als Text). Nicht-Admin: „Kein Zugriff“.
+  Prüfung: `node scripts/shots-admin.mjs <Ordner> <URL>` (gemockte API; Zustände nichtadmin/leer/laeuft/fertig/fehler; axe, Konsole, Überlauf), Ablage `~/remote/edgefinder-shots/etappe-p/`;
+  `check:nav` besucht `/admin` ohne Rechte.
 
 ### Frontend
 - Design-Tokens (Farben, Abstände, Radien, Typografie, hell/dunkel) als CSS-Variablen, in Tailwind
