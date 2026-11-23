@@ -567,6 +567,51 @@ Profil-Umschalter, abhängig vom Klassenfilter), Asset-Hero und Vergleich (wenn 
 - Rechenintensives (npm install, Builds) mit `nice -n 19 ionice -c3` starten.
 - Privates Repo `edgefinder` auf GitHub; „trading“ liest über einen read-only Deploy-Key.
 
+### Claude-Prüfagent (Etappe q)
+
+Stand 2026-11-23: gebaut und getestet, **nicht installiert, nicht deployt**; `claude.enabled: false`. Vorgabe von Jonas:
+Claude-Läufe starten **nur**, wenn Jonas dem Hauptagenten schreibt (kein Zeitplan, kein Fallback-Timer); der Button
+„Claude-Analyse starten“ ist vorbereitet und zeigt bis zur Aktivierung „noch nicht aktiviert“.
+
+- **Zweck/Phase 1:** headless Claude Code (`claude -p`, Abo-Login) auf „trading“ nur zum Prüfen/Analysieren (Datenzuverlässigkeit,
+  Bilanz/Drift, Fehlerbild) und für **Vorschläge als Text** (`output/analysis.md`, `proposal-N.diff`). Nichts wird eingespielt.
+- **Ablauf:** Admin-Button → `POST /api/admin/claude` → Allowlist-Job `claude_review` (`claude_review.py`, nur Python-Dateioperationen,
+  kein subprocess): `review` neu rechnen, Eingabepaket nach `/var/lib/claude-review/runs/<id>/input/` (Schnappschuss der
+  versionierten Textdateien ohne data/.env/node_modules/dist/.venv/Schlüssel, `fetch-runs.json`, `data-status.json`,
+  `scores-stats.json`, Eichungs-Eckdaten, Bericht, `MANIFEST.json`; Secrets geschwärzt, E-Mail maskiert; `CLAUDE.md` heißt dort
+  `CLAUDE.md.txt`), danach `inbox/<id>.json`. Lauf-ID = Admin-Auftrags-ID (nur Zahl).
+- **Ausführung:** `claude-review.path` (PathChanged auf die Inbox) → `claude-review.service` (oneshot, User `claude-review`): erst
+  `ExecStartPre=+prepare.py` (root: Anforderung validieren, journald-Auszug 24 h scrubben → `input/journal.txt`, `output/` und
+  Protokolldateien anlegen), dann `run.sh` (Wrapper, Lauf-ID nur validierte Zahl) → `claude -p <PROMPT.md> --output-format stream-json
+  --verbose --max-turns N --settings /opt/claude-review/settings.json --strict-mcp-config --disable-slash-commands --no-session-persistence`.
+  **Kein Timer.** Units werden aus `config.yaml` erzeugt (`edgefinder gen-systemd`, Ziel `deploy/claude-review/systemd/`); `sync-units.sh`
+  fasst sie nie an, nur `deploy/claude-review/install.sh`.
+- **Rechte/Abschottung:** eigener Benutzer ohne sudo/Shell/Gruppe edgefinder; kein Zugriff auf /opt/edgefinder, /var/lib/edgefinder,
+  .env, Deploy-Key (zusätzlich `InaccessiblePaths`). systemd: `NoNewPrivileges`, `ProtectSystem=strict` (rw nur `/var/lib/claude-review`),
+  Private Tmp/Devices, `MemoryMax=700M`, `CPUQuota=50%`, `RuntimeMaxSec`, `IPAddressDeny=any` + `IPAddressAllow=localhost`,
+  `AF_UNIX AF_INET`. Netz nur über lokalen tinyproxy (127.0.0.1:8888, CONNECT nur :443, Allowlist api.anthropic.com, claude.ai,
+  platform.claude.com, console.anthropic.com) + nftables-Fragment `nftables-claude.conf` (skuid claude-review: nur Loopback:8888;
+  nur `install.sh --apply-firewall`, 60-s-Rollback; nft im LXC ungetestet). Telemetrie/Auto-Update/Memory/MCP aus.
+  Berechtigungen: `settings.json` (Allowlist Read/Grep/Glob, Write nur `output/`, Bash nur ls/cat/grep/wc/head/tail/diff/…, `python -m pytest|ruff|json.tool`
+  im venv; Deny für Netzwerk-/Admin-Tools, WebFetch/WebSearch/Task/Skill/mcp), als `/etc/claude-code/managed-settings.json` und per `--settings`
+  (root-eigen, vom Agenten nicht änderbar). Zweite Sperre: Hook `audit.py` (PreToolUse deny-by-default für Werkzeuge/Pfade/Befehle).
+  Keine DB-Kopie als Eingabe (Kennzahlen reichen; DB enthält Konten).
+- **Schutz:** ein aktiver Lauf (409), `claude.cooldown_minutes` 30, `claude.max_runs_per_day` 3 (rollierend 24 h), Paket ≤ `max_package_mb` 5 MB,
+  `enabled`/`installed`-Prüfung. Aufbewahrung `retention_days` 90 (im `cleanup`-Lauf).
+- **Protokoll (lückenlos):** `journalctl -t claude-review` (Hook-Zeilen + Dienst-Ausgabe, vom Benutzer nicht änderbar), `runs/<id>/audit.jsonl`
+  (Werkzeugaufrufe, gekürzt/geschwärzt), `transcript.jsonl` (stream-json, geschwärzt), `status.json` (Start/Ende/Dauer/Exit/Turns/Kosten), `claude.stderr`.
+  Lesen vom Hauptagenten per SSH: `ssh claude@trading 'sudo journalctl -t claude-review --since today'`,
+  `sudo ls /var/lib/claude-review/runs/`, `sudo cat /var/lib/claude-review/runs/<id>/output/analysis.md`, `… audit.jsonl | tail`.
+  API: `GET /api/admin/claude/runs`, `/runs/{id}`, `/runs/{id}/audit?offset&limit` (feste Pfade, Zahl validiert, O_NOFOLLOW, Limits).
+- **Grenzen:** Prompt-Injection über Logs/Berichte ist im Prompt benannt (Daten ≠ Anweisungen) und durch Rechte begrenzt; Abo-Sitzungslimit
+  gilt (Läufe können fehlschlagen → Status `error`); `python -c` bewusst nicht erlaubt (Analyse mit grep/wc, Kennzahlen-JSON).
+- **Phase 2 (nur geplant, NICHT gebaut):** automatisches Einspielen kleiner Datenzuverlässigkeits-Fixes mit Rollback. Jonas' Ausnahme:
+  für kleine Fixes darf der manuelle /security-review durch Tests + Semgrep + Gitleaks + Audit + einen zweiten Claude-Sicherheitslauf
+  ersetzt werden; alles andere weiter /security-review + Jonas-Freigabe. Score/Gewichte nie „klein“.
+- **Entscheidungen Jonas (2026-11-22/23):** Abo-Login (er macht ihn selbst, Zugangsdaten nie ins Repo/Logs), nur dieser Container, Phase 1 nur Analyse,
+  Rollback-Wunsch für Phase 2, vorerst nur auf Zuruf an den Hauptagenten.
+- **Anleitung/Installation:** `deploy/claude-review/README.md`.
+
 ## Prüfen (vor jedem Commit einer Etappe)
 
 ```

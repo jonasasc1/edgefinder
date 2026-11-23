@@ -180,7 +180,7 @@ export function JobsSection({ overview, loadedAt, reload }: { overview: AdminOve
     <section aria-labelledby="auftraege-title">
       <SectionTitle title="Prüfung auslösen" id="auftraege-title" />
       <p className="mb-3 text-subhead text-ink-2">
-        Diese Läufe rechnet der Server. Danach kannst du den Bericht unten an Claude übergeben – Claude selbst wird von hier aus nie gestartet.
+        Diese Läufe rechnet der Server. Danach kannst du den Bericht unten an Claude übergeben Die Claude-Analyse (nur Analyse, ändert nichts) startest du weiter unten.
       </p>
       <div aria-live="polite" className="min-h-0">
         {message && (

@@ -238,6 +238,12 @@ wird von der Webseite nie gestartet (auf „trading“ gibt es bewusst keine Cla
 - Auftrag bleibt „Wartet“: `systemctl status edgefinder-adminjobs.service` und `journalctl -u edgefinder-adminjobs -n 50`. Eine laufende Wartung/ein Fetch-Job hält die Jobsperre; der Auftrag startet danach. Der Timer holt ihn spätestens nach 2 Minuten nach.
 - „Abkühlzeit“/„läuft bereits“: gewollt (Schutz vor Dauerklicken), kurz warten.
 
+## Claude-Prüfagent
+
+Optionaler, abgeschotteter Claude-Code-Agent auf „trading“ (nur Analyse/Vorschläge, alles protokolliert), ausgelöst per Button auf
+der Admin-Seite. Vorerst nur auf Zuruf an den Hauptagenten; `claude.enabled: false`. Schritt für Schritt (Installation freigeben,
+Login, Button, Protokoll, Notaus): [deploy/claude-review/README.md](deploy/claude-review/README.md).
+
 ## Bilanz und Modellpflege
 
 Die Seite **Bilanz** prüft die Signale von heute nach Ablauf ihres Zeitraums gegen den realen Kurs (Forward-Test). Zwei Timer

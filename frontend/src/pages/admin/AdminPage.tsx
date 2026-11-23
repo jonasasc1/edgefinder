@@ -7,6 +7,7 @@ import { Skeleton } from "../../components/Skeleton";
 import { loadAccount, useAccount } from "../../lib/account";
 import { adminVisible } from "../../lib/adminLogic";
 import { Card } from "../../components/Card";
+import { ClaudeSection } from "./ClaudeSection";
 import { JobsSection } from "./JobsSection";
 import { ReportSection } from "./ReportSection";
 import { SystemSection } from "./SystemSection";
@@ -69,6 +70,7 @@ function AdminContent() {
       <div className="flex flex-col gap-8 px-4 pb-8 sm:px-8">
         <JobsSection overview={data} loadedAt={loadedAt} reload={reload} />
         <ReportSection refreshKey={reportKey} />
+        <ClaudeSection overview={data} reload={reload} />
         <SystemSection overview={data} />
         <UsersSection />
       </div>

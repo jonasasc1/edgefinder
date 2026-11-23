@@ -1,5 +1,6 @@
 // Typen und Abrufe der JSON-API (siehe backend/edgefinder/api/schemas.py).
 import { errorMessage, type AdminJob } from "./adminLogic";
+import type { AuditEntry, ClaudeOverview, ClaudeRun, ClaudeRunDetail } from "./claudeLogic";
 import { setOffline } from "./offline";
 
 export type ProfileKey = "swing" | "long_term";
@@ -459,6 +460,7 @@ export type AdminOverview = {
   runs: AdminRun[];
   jobs: AdminJobInfo[];
   recent_jobs: AdminJob[];
+  claude: ClaudeOverview;
 };
 export type AdminReport = {
   review_md: string | null;
@@ -500,3 +502,14 @@ export const fetchAdminUsers = (signal?: AbortSignal) => adminRequest<{ users: A
 export const fetchAdminJob = (id: number, signal?: AbortSignal) => adminRequest<AdminJob>(`/api/admin/jobs/${id}`, { signal });
 export const startAdminJob = (job: string) =>
   adminRequest<AdminJob>("/api/admin/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job }) });
+
+// --- Claude-Prüfagent (Etappe q): feste Pfade, Lauf-ID nur als Zahl ---
+export const fetchClaudeRuns = (signal?: AbortSignal) =>
+  adminRequest<{ overview: ClaudeOverview; runs: ClaudeRun[] }>("/api/admin/claude/runs", { signal });
+export const fetchClaudeRun = (id: number, signal?: AbortSignal) => adminRequest<ClaudeRunDetail>(`/api/admin/claude/runs/${Math.trunc(id)}`, { signal });
+export const fetchClaudeAudit = (id: number, offset: number, limit: number, signal?: AbortSignal) =>
+  adminRequest<{ total: number; offset: number; limit: number; entries: AuditEntry[] }>(
+    `/api/admin/claude/runs/${Math.trunc(id)}/audit?offset=${Math.trunc(offset)}&limit=${Math.trunc(limit)}`,
+    { signal },
+  );
+export const startClaudeRun = () => adminRequest<AdminJob>("/api/admin/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
