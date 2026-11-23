@@ -332,7 +332,7 @@ class LiveConfig(_Model):
     done: DoneConfig = Field(default_factory=DoneConfig)
 
 
-ADMIN_JOB_NAMES = ("review", "maintain", "score", "evaluate")
+ADMIN_JOB_NAMES = ("review", "maintain", "score", "evaluate", "claude_review")
 
 
 class AdminConfig(_Model):
@@ -341,11 +341,13 @@ class AdminConfig(_Model):
     Bewusst nur lesende/rechnende Jobs: keine Fetcher (Rate-Limits), kein Rebuild, kein Löschen.
     """
 
-    jobs: list[Literal["review", "maintain", "score", "evaluate"]] = Field(
+    jobs: list[Literal["review", "maintain", "score", "evaluate", "claude_review"]] = Field(
         default_factory=lambda: list(ADMIN_JOB_NAMES)
     )
     cooldown_minutes: int = Field(default=10, ge=0, le=1440)
-    cooldown_overrides: dict[str, int] = Field(default_factory=lambda: {"review": 2})
+    cooldown_overrides: dict[str, int] = Field(
+        default_factory=lambda: {"review": 2, "claude_review": 0}
+    )
     max_queue: int = Field(default=4, ge=1, le=20)
     log_tail_bytes: int = Field(default=4096, ge=256, le=8192)
 
@@ -357,6 +359,26 @@ class AdminConfig(_Model):
 
     def cooldown_for(self, job: str) -> int:
         return self.cooldown_overrides.get(job, self.cooldown_minutes)
+
+
+class ClaudeConfig(_Model):
+    """Claude-Prüfagent (Etappe q): nur Analyse und Vorschläge, nichts wird eingespielt.
+
+    `enabled: false`, bis `deploy/claude-review/install.sh` gelaufen und der Abo-Login erledigt ist.
+    Die Abkühlzeit und das Tageslimit schützen das Abo-Kontingent (rollierend 24 h).
+    """
+
+    enabled: bool = False
+    base_dir: Path = Path("/var/lib/claude-review")
+    source_dir: Path = Path("/opt/edgefinder")  # Quelltext-Schnappschuss (nur lesen)
+    cooldown_minutes: int = Field(default=30, ge=0, le=1440)
+    max_runs_per_day: int = Field(default=3, ge=1, le=20)
+    max_package_mb: int = Field(default=5, ge=1, le=50)
+    max_turns: int = Field(default=40, ge=1, le=200)
+    runtime_max_seconds: int = Field(default=1200, ge=60, le=7200)  # = RuntimeMaxSec der Unit
+    retention_days: int = Field(default=90, ge=1, le=3650)
+    fetch_runs_days: int = Field(default=30, ge=1, le=365)
+    journal_hours: int = Field(default=24, ge=1, le=168)
 
 
 class AuthConfig(_Model):
@@ -385,6 +407,7 @@ class Config(_Model):
     profiles: dict[str, Profile]
     auth: AuthConfig = Field(default_factory=AuthConfig)
     admin: AdminConfig = Field(default_factory=AdminConfig)
+    claude: ClaudeConfig = Field(default_factory=ClaudeConfig)
     backtest: BacktestConfig = Field(default_factory=BacktestConfig)
     maintenance: MaintenanceConfig = Field(default_factory=MaintenanceConfig)
     live: LiveConfig = Field(default_factory=LiveConfig)

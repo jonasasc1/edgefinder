@@ -15,7 +15,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from edgefinder import maintenance
+from edgefinder import claude_review, maintenance
 from edgefinder.config import Config
 from edgefinder.db import connect, migrate, transaction
 
@@ -33,6 +33,8 @@ JOBS: dict[str, JobFunc] = {
     "maintain": lambda conn, config: maintenance.run_maintain(conn, config),
     "score": lambda conn, config: maintenance.run_score(conn, config),
     "evaluate": lambda conn, config: maintenance.run_evaluate(conn, config),
+    # Eingabepaket für den Claude-Prüfagenten bauen (läuft selbst nicht; Dienst `claude-review`)
+    "claude_review": claude_review.run_job,
 }
 
 
@@ -163,6 +165,10 @@ def enqueue(
             raise AdminJobError(
                 429, "Die Warteschlange ist voll; bitte später erneut versuchen.", 30
             )
+        if (
+            job == claude_review.JOB
+        ):  # eigene Prüfungen: aktiviert, installiert, aktiver Lauf, Limits
+            claude_review.check_allowed(conn, config, now)
         wait = cooldown_wait(conn, config, job, now)
         if wait:
             raise AdminJobError(

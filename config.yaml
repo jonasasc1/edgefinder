@@ -453,11 +453,31 @@ maintenance:
 # Keine Fetcher, kein Rebuild, kein Löschen. Admins vergibt nur die CLI (`edgefinder admin grant`).
 # ---------------------------------------------------------------------------
 admin:
-  jobs: [review, maintain, score, evaluate]
+  jobs: [review, maintain, score, evaluate, claude_review]
   cooldown_minutes: 10        # Abkühlzeit je Job-Typ nach Ende des letzten Laufs
-  cooldown_overrides: {review: 2}
+  cooldown_overrides: {review: 2, claude_review: 0}  # claude: eigene Abkühlzeit unter `claude:`
   max_queue: 4                # wartende + laufende Aufträge insgesamt
   log_tail_bytes: 4096        # gespeicherter Logauszug je Auftrag
+
+# ---------------------------------------------------------------------------
+# Claude-Prüfagent (Etappe q): headless Claude Code auf „trading“, nur Analyse/Vorschläge.
+# Der Job `claude_review` baut ein Eingabepaket und legt eine Anforderung in die Inbox; ein getrennter,
+# stark abgeschotteter systemd-Dienst (Benutzer claude-review) führt den Agenten aus. enabled bleibt
+# false, bis deploy/claude-review/install.sh gelaufen und der Abo-Login erledigt ist (README).
+# Abkühlzeit/Tageslimit (rollierend 24 h) schützen das Abo-Kontingent.
+# ---------------------------------------------------------------------------
+claude:
+  enabled: false
+  base_dir: /var/lib/claude-review
+  source_dir: /opt/edgefinder  # Quelltext-Schnappschuss (nur versionierte Textdateien)
+  cooldown_minutes: 30
+  max_runs_per_day: 3
+  max_package_mb: 5
+  max_turns: 40
+  runtime_max_seconds: 1200    # RuntimeMaxSec der Unit
+  retention_days: 90           # Läufe älter als das löscht `edgefinder cleanup`
+  fetch_runs_days: 30
+  journal_hours: 24
 
 # ---------------------------------------------------------------------------
 # Live-Bilanz (Etappe o): Forward-Test der heutigen Signale und Drift gegen die Eichung.

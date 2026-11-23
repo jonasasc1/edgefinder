@@ -18,11 +18,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from edgefinder import admin_jobs, maintenance
+from edgefinder import admin_jobs, claude_review, maintenance
 from edgefinder.api import guard
 from edgefinder.api.auth import AuthError, IdentityResolver
 from edgefinder.backtest import live
@@ -41,6 +41,10 @@ class JobIn(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     job: str = Field(min_length=1, max_length=32)
+
+
+class EmptyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
 
 
 def _read_text(path: Path, limit: int) -> tuple[str, str] | None:
@@ -142,8 +146,10 @@ def create_admin_router(config: Config, resolver: IdentityResolver) -> APIRouter
                     "active_id": active.get(name),
                 }
                 for name in config.admin.jobs
+                if name != claude_review.JOB  # eigener Abschnitt „Claude-Analyse“
             ]
             recent = admin_jobs.recent_jobs(conn)
+            claude_info = claude_review.overview(conn, config, now)
             for entry in recent:
                 entry.pop("log_tail", None)  # Logauszug nur auf Abruf (GET /jobs/{id})
         return {
@@ -165,7 +171,8 @@ def create_admin_router(config: Config, resolver: IdentityResolver) -> APIRouter
             },
             "runs": runs,
             "jobs": jobs,
-            "recent_jobs": recent,
+            "recent_jobs": [e for e in recent if e["job"] != claude_review.JOB],
+            "claude": claude_info,
         }
 
     @router.get("/overview")
@@ -204,6 +211,70 @@ def create_admin_router(config: Config, resolver: IdentityResolver) -> APIRouter
         if found is None:
             raise HTTPException(status_code=404, detail="Auftrag nicht gefunden.")
         return found
+
+    # ------------------------------------------------------------------ Claude-Prüfagent
+    # Feste Pfade unter claude.base_dir/runs/<Zahl>; der Client liefert nur die Zahl (validiert).
+    def parse_run_id(run_id: str) -> int:
+        value = claude_review.valid_run_id(run_id)
+        if value is None:
+            raise HTTPException(status_code=404, detail="Lauf nicht gefunden.")
+        return value
+
+    @router.post("/claude", status_code=202)
+    async def start_claude(request: Request) -> dict[str, Any]:
+        guard.check_origin(request, extra_hosts)
+        user_id, email = require_admin(request)
+        data = await guard.read_json(request, MAX_BODY_BYTES)
+        try:
+            EmptyIn.model_validate(data)
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail="Ungültige Anfrage.") from exc
+
+        def enqueue() -> dict[str, Any]:
+            with db() as conn:
+                return admin_jobs.enqueue(conn, config, claude_review.JOB, user_id, email)
+
+        try:
+            created = await run_in_threadpool(enqueue)
+        except admin_jobs.AdminJobError as exc:
+            headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
+            raise HTTPException(status_code=exc.status, detail=exc.detail, headers=headers) from exc
+        admin_jobs.touch_trigger(config)
+        created.pop("log_tail", None)
+        return created
+
+    @router.get("/claude/runs")
+    def claude_runs(request: Request) -> dict[str, Any]:
+        require_admin(request)
+        with db() as conn:
+            return {
+                "overview": claude_review.overview(conn, config),
+                "runs": claude_review.list_runs(conn, config),
+            }
+
+    @router.get("/claude/runs/{run_id}")
+    def claude_run(run_id: str, request: Request) -> dict[str, Any]:
+        require_admin(request)
+        number = parse_run_id(run_id)
+        with db() as conn:
+            found = claude_review.get_run(conn, config, number)
+        if found is None:
+            raise HTTPException(status_code=404, detail="Lauf nicht gefunden.")
+        return found
+
+    @router.get("/claude/runs/{run_id}/audit")
+    def claude_audit(
+        run_id: str,
+        request: Request,
+        offset: int = Query(default=0, ge=0, le=1_000_000),
+        limit: int = Query(default=100, ge=1, le=claude_review.MAX_AUDIT_PAGE),
+    ) -> dict[str, Any]:
+        require_admin(request)
+        number = parse_run_id(run_id)
+        page = claude_review.read_audit(config, number, offset, limit)
+        if page is None:
+            raise HTTPException(status_code=404, detail="Kein Protokoll vorhanden.")
+        return page
 
     # ------------------------------------------------------------------ Bericht
     @router.get("/report")

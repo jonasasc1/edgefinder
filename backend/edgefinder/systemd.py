@@ -1,3 +1,4 @@
+# ruff: noqa: E501  (lange deutsche Texte in den erzeugten Units)
 """Erzeugt die systemd-Units und -Timer aus `config.yaml` (`edgefinder gen-systemd`).
 
 Der Admin-Runner (`edgefinder-adminjobs.*`) hat eine `.path`-Unit (Trigger-Datei) und einen
@@ -31,6 +32,18 @@ class Layout:
     app_dir: str = "/opt/edgefinder"
     state_dir: str = "/var/lib/edgefinder"
     user: str = "edgefinder"
+    # Claude-Prüfagent (Etappe q): eigener Benutzer, eigenes Programm- und Datenverzeichnis
+    claude_app: str = "/opt/claude-review"
+    claude_state: str = "/var/lib/claude-review"
+    claude_user: str = "claude-review"
+
+    @property
+    def claude_inbox(self) -> str:
+        return f"{self.claude_state}/inbox"
+
+    @property
+    def claude_runs(self) -> str:
+        return f"{self.claude_state}/runs"
 
     @property
     def exe(self) -> str:
@@ -69,10 +82,12 @@ WantedBy=multi-user.target
 """
 
 
-def _hardening(layout: Layout) -> str:
+def _hardening(layout: Layout, extra_rw: tuple[str, ...] = ()) -> str:
+    """Härtung; `extra_rw`: zusätzliche schreibbare Pfade (mit `-`: fehlt der Pfad, ist das kein Fehler)."""
+    paths = " ".join((layout.state_dir, *extra_rw))
     return f"""NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths={layout.state_dir}
+ReadWritePaths={paths}
 PrivateTmp=true
 PrivateDevices=true
 ProtectHome=true
@@ -88,7 +103,9 @@ UMask=0027
 """
 
 
-def _job_service(description: str, command: str, layout: Layout) -> str:
+def _job_service(
+    description: str, command: str, layout: Layout, extra_rw: tuple[str, ...] = ()
+) -> str:
     """Oneshot-Job: niedrige Priorität, serialisiert über eine Sperrdatei (SQLite, 2 GB RAM)."""
     return f"""{HEADER}[Unit]
 Description={description}
@@ -107,7 +124,7 @@ CPUSchedulingPolicy=idle
 MemoryMax=1G
 TimeoutStartSec=3h
 SyslogIdentifier=edgefinder
-{_hardening(layout)}"""
+{_hardening(layout, extra_rw)}"""
 
 
 def _timer(description: str, schedule: str | list[str], unit: str) -> str:
@@ -166,7 +183,10 @@ def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
         FETCH_SERVICE: _job_service("edgefinder: Quelle %i holen", "fetch %i", layout),
         "edgefinder-score.service": _job_service("edgefinder: Scores berechnen", "score", layout),
         "edgefinder-cleanup.service": _job_service(
-            "edgefinder: alte Rohdaten löschen", "cleanup", layout
+            "edgefinder: alte Rohdaten und Claude-Läufe löschen",
+            "cleanup",
+            layout,
+            (f"-{layout.claude_runs}",),
         ),
         "edgefinder-evaluate.service": _job_service(
             "edgefinder: Live-Signale auswerten", "evaluate", layout
@@ -174,7 +194,13 @@ def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
         "edgefinder-maintain.service": _job_service(
             "edgefinder: Eichung neu erzeugen", "maintain", layout
         ),
-        ADMIN_SERVICE: _job_service("edgefinder: Admin-Aufträge abarbeiten", "admin run", layout),
+        # schreibt zusätzlich Eingabepakete und Anforderungen für den Claude-Prüfagenten
+        ADMIN_SERVICE: _job_service(
+            "edgefinder: Admin-Aufträge abarbeiten",
+            "admin run",
+            layout,
+            (f"-{layout.claude_inbox}", f"-{layout.claude_runs}"),
+        ),
     }
     files["edgefinder-adminjobs.path"] = _admin_path(layout)
     files["edgefinder-adminjobs.timer"] = _admin_timer()
@@ -206,14 +232,95 @@ def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
     return files
 
 
-def write(files: dict[str, str], out: Path) -> list[str]:
-    """Schreibt die Dateien nach `out` und entfernt dort veraltete edgefinder-Units."""
+CLAUDE_SERVICE = "claude-review.service"
+
+
+def generate_claude(config: Config, layout: Layout | None = None) -> dict[str, str]:
+    """Units des Claude-Prüfagenten (`claude-review.*`); getrennt von den edgefinder-Units.
+
+    Bewusst ohne Timer: kein Zeitplan, kein Fallback; Läufe entstehen nur durch eine Anforderung in der Inbox.
+
+    Sie liegen in `deploy/claude-review/systemd/` und werden nur von `deploy/claude-review/install.sh`
+    installiert (nie von `sync-units.sh`/`deploy.sh`): der Agent wird erst nach Jonas' Freigabe aktiv.
+    """
+    layout = layout or Layout()
+    c = config.claude
+    runtime = c.runtime_max_seconds
+    service = f"""{HEADER}[Unit]
+Description=edgefinder: Claude-Prüfagent (headless; nur Analyse; Netz nur zum lokalen Allowlist-Proxy)
+Documentation=file://{layout.app_dir}/deploy/claude-review/README.md
+ConditionPathExists={layout.claude_app}/bin/run.sh
+After=tinyproxy.service
+
+[Service]
+Type=oneshot
+User={layout.claude_user}
+Group={layout.claude_user}
+WorkingDirectory={layout.claude_state}
+RuntimeDirectory=claude-review
+RuntimeDirectoryMode=0755
+# Als root (Präfix „+“): nächste Anforderung validieren, journald-Auszug geschwärzt ins Paket, Ausgabeordner
+ExecStartPre=+{layout.claude_app}/bin/prepare.py
+ExecStart={layout.claude_app}/bin/run.sh
+SyslogIdentifier=claude-review
+StandardOutput=journal
+StandardError=journal
+Nice=19
+IOSchedulingClass=idle
+CPUSchedulingPolicy=idle
+CPUQuota=50%
+MemoryMax=700M
+MemorySwapMax=0
+TasksMax=128
+RuntimeMaxSec={runtime}
+TimeoutStartSec={runtime + 120}
+# Sandbox: kein Zugriff auf die App, die Daten oder andere Konten; Netz nur Loopback (Proxy)
+NoNewPrivileges=true
+CapabilityBoundingSet=
+ProtectSystem=strict
+ReadWritePaths={layout.claude_state}
+InaccessiblePaths={layout.claude_inbox} {layout.app_dir} {layout.state_dir} /home /root
+PrivateTmp=true
+PrivateDevices=true
+PrivateMounts=true
+ProtectHome=true
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_UNIX AF_INET
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+IPAddressDeny=any
+IPAddressAllow=localhost
+UMask=0022
+"""
+    path = f"""{HEADER}[Unit]
+Description=edgefinder: Claude-Prüfagent starten, sobald eine Anforderung in der Inbox liegt
+
+[Path]
+PathChanged={layout.claude_inbox}
+Unit={CLAUDE_SERVICE}
+
+[Install]
+WantedBy=multi-user.target
+"""
+    return {CLAUDE_SERVICE: service, "claude-review.path": path}
+
+
+def write(files: dict[str, str], out: Path, prefix: str = "edgefinder") -> list[str]:
+    """Schreibt die Dateien nach `out` und entfernt dort veraltete Units mit dem Präfix."""
     out.mkdir(parents=True, exist_ok=True)
     removed = []
     olds = [
-        p
-        for pattern in ("*.timer", "*.service", "*.path")
-        for p in out.glob(f"edgefinder{pattern}")
+        p for pattern in ("*.timer", "*.service", "*.path") for p in out.glob(f"{prefix}{pattern}")
     ]
     for old in sorted(olds):
         if old.name not in files:

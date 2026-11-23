@@ -1,7 +1,7 @@
 # ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
 # Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
 [Unit]
-Description=edgefinder: alte Rohdaten löschen
+Description=edgefinder: alte Rohdaten und Claude-Läufe löschen
 After=network-online.target
 Wants=network-online.target
 
@@ -19,7 +19,7 @@ TimeoutStartSec=3h
 SyslogIdentifier=edgefinder
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/edgefinder
+ReadWritePaths=/var/lib/edgefinder -/var/lib/claude-review/runs
 PrivateTmp=true
 PrivateDevices=true
 ProtectHome=true

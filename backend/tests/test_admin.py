@@ -252,7 +252,7 @@ def test_runner_has_no_shell_or_process_path() -> None:
     for text in (source, api):
         for forbidden in ("subprocess", "os.system", "shell=True", "popen", "systemctl", "eval("):
             assert forbidden not in text
-    assert set(admin_jobs.JOBS) == {"review", "maintain", "score", "evaluate"}
+    assert set(admin_jobs.JOBS) == {"review", "maintain", "score", "evaluate", "claude_review"}
 
 
 def test_real_review_and_evaluate_on_small_db(client: TestClient, config: Config) -> None:

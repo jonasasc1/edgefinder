@@ -74,19 +74,29 @@ def _cmd_gen_systemd(config: Config, args: argparse.Namespace) -> int:
     """systemd-Units/-Timer aus config.yaml erzeugen (`--check`: nur auf Abweichung prüfen)."""
     from edgefinder import systemd
 
-    files = systemd.generate(config, systemd.Layout(app_dir=args.app_dir, state_dir=args.state_dir))
+    layout = systemd.Layout(app_dir=args.app_dir, state_dir=args.state_dir)
+    files = systemd.generate(config, layout)
+    claude_files = systemd.generate_claude(config, layout)
+    claude_out = args.claude_out or args.out.parent / "claude-review" / "systemd"
     if args.check:
-        stale = [
-            n
-            for n, c in files.items()
-            if not (args.out / n).is_file() or (args.out / n).read_text(encoding="utf-8") != c
-        ]
-        extra = [p.name for p in args.out.glob("edgefinder*.*") if p.name not in files]
-        if stale or extra:
-            log.error("%s weicht von config.yaml ab: %s", args.out, ", ".join(stale + extra))
-            return 1
-        log.info("%d Dateien in %s sind aktuell", len(files), args.out)
-        return 0
+        bad = False
+        for out, expected, prefix in (
+            (args.out, files, "edgefinder"),
+            (claude_out, claude_files, "claude-review"),
+        ):
+            stale = [
+                n
+                for n, c in expected.items()
+                if not (out / n).is_file() or (out / n).read_text(encoding="utf-8") != c
+            ]
+            extra = [p.name for p in out.glob(f"{prefix}*.*") if p.name not in expected]
+            if stale or extra:
+                log.error("%s weicht von config.yaml ab: %s", out, ", ".join(stale + extra))
+                bad = True
+            else:
+                log.info("%d Dateien in %s sind aktuell", len(expected), out)
+        return 1 if bad else 0
+    systemd.write(claude_files, claude_out, "claude-review")
     removed = systemd.write(files, args.out)
     log.info(
         "%d Dateien nach %s geschrieben, %d veraltete entfernt", len(files), args.out, len(removed)
@@ -295,6 +305,13 @@ def _cmd_cleanup(config: Config, args: argparse.Namespace) -> int:
         result = cleanup_raw(conn, config.storage.raw_dir, days, dry_run=args.dry_run)
     finally:
         conn.close()
+    from edgefinder import claude_review
+
+    old_runs = claude_review.cleanup_runs(config, dry_run=args.dry_run)
+    if old_runs:
+        log.info(
+            "Claude-Läufe älter als %d Tage: %d entfernt", config.claude.retention_days, old_runs
+        )
     log.info(
         "Aufräumen%s: %d Dateien (%.1f MB) älter als %d Tage, %d Einträge, %d fehlende Dateien",
         " (Probelauf)" if args.dry_run else "",
@@ -467,6 +484,11 @@ def build_parser() -> argparse.ArgumentParser:
     cleanup.set_defaults(func=_cmd_cleanup)
     gen = commands.add_parser("gen-systemd", help="systemd-Units/-Timer aus config.yaml erzeugen")
     gen.add_argument("--out", type=Path, default=Path("deploy/systemd"), help="Zielordner")
+    gen.add_argument(
+        "--claude-out",
+        type=Path,
+        help="Zielordner der claude-review-Units (Standard: <out>/../claude-review/systemd)",
+    )
     gen.add_argument("--app-dir", default="/opt/edgefinder", help="App-Verzeichnis auf dem Server")
     gen.add_argument(
         "--state-dir", default="/var/lib/edgefinder", help="Datenverzeichnis (schreibbar)"
