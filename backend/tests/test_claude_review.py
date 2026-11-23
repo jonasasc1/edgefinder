@@ -699,6 +699,7 @@ def test_settings_json_forbids_everything_dangerous(settings: dict[str, Any]) ->
     ):
         assert f"Bash({cmd} *)" in deny and f"Bash({cmd})" in deny, cmd
     for path in (
+        "//var/lib/claude-review/.home/**",
         "//var/lib/claude-review/.claude/**",
         "//var/lib/edgefinder/**",
         "//opt/edgefinder/**",
@@ -1249,6 +1250,31 @@ def test_prepare_prunes_old_runs_but_not_the_new_one(
     _stage(base, 3, retention_days=10)
     assert prep.main() == 0
     assert not old.exists() and young.exists() and (base / "runs" / "3").exists()
+
+
+def test_prepare_requires_base_owned_by_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prep, base = _prep(tmp_path, monkeypatch, "claude_prepare_base")
+    _stage(base, 1)
+    other = prep.Ids(
+        os.getuid() + 1, os.getuid(), os.getuid(), os.getgid()
+    )  # „root“ ist ein anderer
+    monkeypatch.setattr(prep, "resolve_ids", lambda: other)
+    assert prep.main() == 1  # BASE gehört nicht „root“: nichts wird angefasst
+    assert (base / "inbox" / "1.json").exists() and not (base / "runs" / "1").exists()
+
+
+def test_base_is_root_owned_and_agent_home_is_a_subdirectory() -> None:
+    install = (CR / "install.sh").read_text(encoding="utf-8")
+    assert 'install -d -o root -g root -m 0755 "$STATE"' in install
+    assert 'install -d -o "$AGENT" -g "$AGENT" -m 0700 "$STATE/.home"' in install
+    assert '--home-dir "$STATE/.home"' in install
+    assert "env HOME=$STATE/.home " in install
+    assert 'install -d -o "$AGENT" -g "$AGENT" -m 0751 "$STATE"' not in install
+    assert 'export HOME="$BASE/.home"' in (CR / "bin" / "run.sh").read_text(encoding="utf-8")
+    readme = (CR / "README.md").read_text(encoding="utf-8")
+    assert "/var/lib/claude-review/.home/.claude/" in readme
 
 
 @pytest.fixture

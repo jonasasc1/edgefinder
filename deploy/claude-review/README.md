@@ -13,7 +13,7 @@ Technik und Grenzen: `CLAUDE.md`, Abschnitt „Claude-Prüfagent (Etappe q)“. 
 ## 2. Login (du, manuell – der Hauptagent sieht nie Zugangsdaten)
 Das Skript gibt am Ende die Schritte aus: `sudo -u claude-review -H env … claude` auf trading starten, Anmeldung per Abo wählen,
 die angezeigte URL auf deinem Rechner im Browser öffnen, den Code ins Terminal einfügen, `/status` prüfen, `/exit`.
-Zugangsdaten bleiben in `/var/lib/claude-review/.claude/` (700/600). Geht der Login nicht: `sudo tail /var/log/tinyproxy/tinyproxy.log`,
+Zugangsdaten bleiben in `/var/lib/claude-review/.home/.claude/` (700/600; Home des Agenten ist `.home`, `/var/lib/claude-review` selbst gehört root). Geht der Login nicht: `sudo tail /var/log/tinyproxy/tinyproxy.log`,
 fehlenden Host vorübergehend in `/etc/tinyproxy/claude-allow.filter` ergänzen und `sudo systemctl reload tinyproxy`.
 
 ## 3. Aktivieren und benutzen
@@ -35,5 +35,5 @@ Alte Läufe räumt `prepare.py` auf (Aufbewahrung aus der Anforderung), das Zwis
 ## 5. Notaus
 - Läufe verhindern: `claude.enabled: false` deployen, oder `sudo systemctl disable --now claude-review.path`.
 - Netz kappen: `sudo systemctl disable --now tinyproxy`.
-- Benutzer sperren: `sudo usermod -L -s /usr/sbin/nologin claude-review` und `sudo rm -rf /var/lib/claude-review/.claude` (Login entfernen).
+- Benutzer sperren: `sudo usermod -L -s /usr/sbin/nologin claude-review` und `sudo rm -rf /var/lib/claude-review/.home/.claude /var/lib/claude-review/.home/.claude.json` (Login entfernen).
 - Abo-Zugriff widerrufen: im Claude-Konto die Sitzung/den Zugriff beenden.

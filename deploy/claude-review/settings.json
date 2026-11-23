@@ -149,6 +149,7 @@
       "Bash(xargs)",
       "Bash(awk)",
       "Bash(sed)",
+      "Read(//var/lib/claude-review/.home/**)",
       "Read(//var/lib/claude-review/.claude/**)",
       "Read(//var/lib/claude-review/inbox/**)",
       "Read(//var/lib/claude-review/staging/**)",

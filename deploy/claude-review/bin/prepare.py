@@ -360,10 +360,13 @@ def build_run(runs_fd: int, staging_fd: int, run_id: int, request: dict, ids: Id
 def main() -> int:
     ids = resolve_ids()
     try:
-        base_fd = open_dir(BASE)
-    except (OSError, Rejected):
+        base_fd = open_dir(BASE, owners={ids.root})  # BASE gehört root (Agent hat nur .home)
+    except FileNotFoundError:
         log("keine Anforderung")
         return 0
+    except (OSError, Rejected) as exc:
+        log(f"{BASE} unzulässig (muss root gehören, kein Symlink; install.sh erneut): {exc}")
+        return 1
     try:
         try:
             inbox_fd = open_dir("inbox", base_fd, {ids.app})

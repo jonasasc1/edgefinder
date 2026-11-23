@@ -614,6 +614,9 @@ Claude-Läufe starten **nur**, wenn Jonas dem Hauptagenten schreibt (kein Zeitpl
   und **kopiert** das Paket per `dir_fd`/`O_NOFOLLOW` (nur reguläre Dateien/Verzeichnisse, Namen `[A-Za-z0-9._+@=~,()[] -]`, keine Symlinks,
   Limits `claude.max_package_mb`/`max_package_files` mit harten Obergrenzen); Besitzer root:claude-review, 0750/0640 (nach der Übergabe nicht
   mehr änderbar). `chown`/`chmod` nur als `fchown`/`fchmod` am Deskriptor (Test prüft den Quelltext), `current` mit `O_EXCL|O_NOFOLLOW`.
+  `/var/lib/claude-review` gehört **root** (0755); der Agent hat nur sein Home `.home` (0700, dort `.claude`/Login, `HOME` in `run.sh`),
+  kann also `runs/`/`inbox/`/`staging/` nicht austauschen; `prepare.py` erzwingt root als Besitzer von BASE und `runs/`. Schreiben darf er nur
+  `runs/<id>/output` und die vorab angelegten Protokolldateien (Besitzer claude-review, Rechte statt Pfad-Freigabe).
   Das Aufräumen alter Läufe (`retention_days`) macht deshalb `prepare.py` (root); `cleanup` löscht nur das Zwischenlager (> 2 Tage).
 - **Schutz:** ein aktiver Lauf (409), `claude.cooldown_minutes` 30, `claude.max_runs_per_day` 3 (rollierend 24 h), Paket ≤ `max_package_mb` 5 MB,
   `enabled`/`installed`-Prüfung. Aufbewahrung `retention_days` 90 (im `cleanup`-Lauf).

@@ -44,8 +44,8 @@ run() { if ((DRY)); then printf '   [dry-run] %s\n' "$(printf '%q ' "$@")"; else
 # --- 0. Plan: was dieses Skript ändert (immer zuerst anzeigen) ---------------------------------
 section "0. Was dieses Skript ändert"
 cat <<PLAN
-   1. Benutzer/Gruppe $AGENT (System, keine Shell, kein sudo, Passwort gesperrt), Home $STATE
-   2. Verzeichnisse: $STATE (0751), inbox + staging (edgefinder), runs (root, 0755; Läufe legt prepare.py als root an), .claude (0700)
+   1. Benutzer/Gruppe $AGENT (System, keine Shell, kein sudo, Passwort gesperrt), Home $STATE/.home
+   2. Verzeichnisse: $STATE (root:root, 0755), .home (Agent-Home, 0700), inbox + staging (edgefinder), runs (root, 0755; Läufe legt prepare.py als root an)
    3. apt: nur das Paket tinyproxy; /etc/tinyproxy/tinyproxy.conf + claude-allow.filter (Original als .orig)
    4. Claude Code $CLAUDE_VERSION per 'npm ci' (Lockfile mit Integrität) nach $PREFIX/node_modules (root-eigen)
    5. Python-Umgebung $PREFIX/venv (uv sync --frozen --no-install-project) für Tests des Agenten (optional)
@@ -86,11 +86,18 @@ section "2. Benutzer $AGENT und Verzeichnisse"
 if id "$AGENT" >/dev/null 2>&1; then
     info "Benutzer $AGENT existiert"
 else
-    run $SUDO useradd --system --user-group --home-dir "$STATE" --no-create-home --shell /usr/sbin/nologin \
+    run $SUDO useradd --system --user-group --home-dir "$STATE/.home" --no-create-home --shell /usr/sbin/nologin \
         --comment "Claude-Pruefagent (nur Analyse)" "$AGENT"
 fi
-run $SUDO install -d -o "$AGENT" -g "$AGENT" -m 0751 "$STATE"
-run $SUDO install -d -o "$AGENT" -g "$AGENT" -m 0700 "$STATE/.claude"
+# BASE gehört root (Schutz gegen Austausch von runs/inbox/staging durch den Agenten); der Agent hat nur sein Home.
+run $SUDO install -d -o root -g root -m 0755 "$STATE"
+run $SUDO install -d -o "$AGENT" -g "$AGENT" -m 0700 "$STATE/.home"
+# Migration einer älteren Installation (Home war $STATE, Login in $STATE/.claude)
+if [[ -d "$STATE/.claude" && ! -e "$STATE/.home/.claude" ]]; then
+    run $SUDO mv "$STATE/.claude" "$STATE/.home/.claude"
+    [[ ! -f "$STATE/.claude.json" ]] || run $SUDO mv "$STATE/.claude.json" "$STATE/.home/.claude.json"
+fi
+run $SUDO usermod --home "$STATE/.home" "$AGENT"
 run $SUDO install -d -o "$APP_USER" -g "$APP_USER" -m 2770 "$STATE/inbox"
 # Zwischenlager des Webbenutzers: dort baut er das Eingabepaket; prepare.py (root) kopiert es per Deskriptor
 # nach runs/<id>/input. Der Agent kommt nicht heran (InaccessiblePaths).
@@ -177,7 +184,7 @@ for f in bin/run.sh bin/prepare.py bin/finish.py; do run $SUDO install -m 0755 -
 for f in hooks/audit.py hooks/scrub.py; do run $SUDO install -m 0755 -o root -g root "$SRC/$f" "$PREFIX/$f"; done
 for f in PROMPT.md settings.json; do run $SUDO install -m 0644 -o root -g root "$SRC/$f" "$PREFIX/$f"; done
 run $SUDO install -m 0644 -o root -g root "$SRC/settings.json" /etc/claude-code/managed-settings.json
-$SUDO rm -f "$STATE/.claude/settings.json" 2>/dev/null || true   # keine veränderbare Kopie im Home
+$SUDO rm -f "$STATE/.home/.claude/settings.json" 2>/dev/null || true   # keine veränderbare Kopie im Home
 
 # --- 7. systemd ---------------------------------------------------------------------------------
 section "7. systemd-Units (claude-review.service/.path)"
@@ -242,15 +249,15 @@ cat <<LOGIN
    Der Login wird NICHT vom Skript gemacht. Auf trading (Terminal, als User claude):
 
    1) Anmeldung starten (läuft als $AGENT, nur über den Allowlist-Proxy):
-        sudo -u $AGENT -H env HOME=$STATE HTTPS_PROXY=http://127.0.0.1:8888 HTTP_PROXY=http://127.0.0.1:8888 \\
+        sudo -u $AGENT -H env HOME=$STATE/.home HTTPS_PROXY=http://127.0.0.1:8888 HTTP_PROXY=http://127.0.0.1:8888 \\
           NO_PROXY=127.0.0.1,localhost DISABLE_AUTOUPDATER=1 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \\
           $PREFIX/node_modules/.bin/claude
    2) In der Oberfläche: Anmeldung per Abo (Claude-Konto) wählen. Claude Code zeigt eine URL.
       Diese URL auf DEINEM Rechner im Browser öffnen, anmelden, den angezeigten Code kopieren und im
       Terminal einfügen (Server hat keinen Browser; es werden nur Anthropic-Hosts angesprochen).
    3) Mit /status prüfen: angemeldet; "Setting sources" soll die verwaltete Einstellungsdatei nennen.
-      Dann /exit. Die Zugangsdaten bleiben in $STATE/.claude/ (Rechte 700/600) und werden nie kopiert.
-   4) Kontrolle: sudo ls -l $STATE/.claude   (Besitzer $AGENT, Dateien 600)
+      Dann /exit. Die Zugangsdaten bleiben in $STATE/.home/.claude/ (Rechte 700/600) und werden nie kopiert.
+   4) Kontrolle: sudo ls -l $STATE/.home/.claude   (Besitzer $AGENT, Dateien 600)
    5) In config.yaml: claude.enabled: true setzen, deployen. Dann Button „Claude-Analyse starten“.
 
    Funktioniert der Login nicht: Proxy-Log lesen (abgelehnte Hosts):

@@ -30,7 +30,7 @@ START=$(date +%s)
 cd "$RUN"
 
 # Umgebung: nur lokaler Proxy, keine Telemetrie, kein Auto-Update, kein Gedächtnis
-export HOME="$BASE"
+export HOME="$BASE/.home"
 export PATH="$APP/venv/bin:/usr/bin:/bin"
 export HTTPS_PROXY=http://127.0.0.1:8888 HTTP_PROXY=http://127.0.0.1:8888 NO_PROXY=127.0.0.1,localhost
 export https_proxy=$HTTPS_PROXY http_proxy=$HTTP_PROXY no_proxy=$NO_PROXY
