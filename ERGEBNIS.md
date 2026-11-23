@@ -181,3 +181,17 @@ Der Claude-Prüfagent ist weder installiert noch aktiviert; der Fund war vor Ins
 Weitere Durchsicht ohne Fund: `claude_review.py`/`claude_scrub.py` (Lauf-ID nur validierte Zahl, `O_NOFOLLOW`, feste Pfade, Größenlimits), `run.sh`/`finish.py` (keine Shell-Eingaben),
 Hook `audit.py` (deny-by-default), `tinyproxy.conf`/`claude-allow.filter` (CONNECT nur :443, Allowlist, auf Hostnamen verankert), Service-Härtung, Markdown-Renderer
 (nur Text-Knoten, kein HTML), EDGAR-Vorgänger-CIK (Konfigurationsvalidierung: positive ints, Ticker in der Watchlist; URL-Bau mit `:010d`-formatierter Zahl).
+
+## Pflicht-Checks vor Deploy Nr. 10 (2026-11-23, Änderungen seit ff3cb00: EdgeFinder-Scorecard – 14 Kernzeilen, Modell-Erwartung, Release-Kalender)
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Lint/Tests | ruff, pytest (536), `gen-systemd --check`, `npm run lint`/`build`/`test` (61), `check:nav` | grün |
+| Semgrep | `semgrep scan --config p/default --config p/secrets --metrics=off --severity ERROR .` | 0 Funde |
+| Gitleaks | `gitleaks git --redact .` | 0 Funde |
+| pip-audit / npm audit | keine Abhängigkeitsänderung (uv.lock, package.json unverändert) | 0 Funde |
+| Durchsicht (22 Dateien) | Migration 0006, FRED-Release-Kalender, Transforms `mom`/`sma`, Scorecard, Frontend | kein Fund |
+
+Durchsicht: Neue externe Aufrufe nur an die bestehende FRED-API (`series/release`, `release/dates`), Serien-IDs ausschließlich aus `config.yaml`, Release-ID als Zahl, Parameter über den HTTP-Client
+(Key per Parameter, `scrub` greift; Rohdaten enthalten keinen Key), Fehler je Serie → `partial`. SQL durchgehend parametrisiert (`DELETE … WHERE series_id = ? AND release_date >= ?`),
+keine f-String-SQL, keine HTML-Senken im Frontend. Die neuen Anzeige-Indikatoren (`display_only`) verändern keinen Score (Test + Vorher/Nachher-Vergleich EURUSD/GOLD/SPX/AAPL identisch).
