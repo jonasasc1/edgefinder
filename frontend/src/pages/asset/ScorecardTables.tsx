@@ -7,7 +7,7 @@ import { SectionTitle } from "../../components/SectionTitle";
 import type { Scorecard, ScorecardRow, ScorecardSection, Signal } from "../../lib/api";
 import { formatDecimal } from "../../lib/format";
 import type { TermKey } from "../../lib/glossary";
-import { formatCell, formatChange, formatDateCompact, formatSurprise, SIGNAL_LABEL, signalTone } from "./scorecardFormat";
+import { formatCell, formatChange, formatDateCompact, formatExpectation, formatIndicatorSurprise, formatSurprise, SIGNAL_LABEL, signalTone, splitSections } from "./scorecardFormat";
 
 const SECTION_TERM: Record<string, TermKey> = {
   technical: "trend",
@@ -17,6 +17,9 @@ const SECTION_TERM: Record<string, TermKey> = {
   insider: "insider",
   fundamentals: "fundamentals",
   earnings: "earnings",
+  "core-inflation": "macro",
+  "core-jobs": "macro",
+  "core-growth": "macro",
   "macro-growth": "macro",
   "macro-inflation": "macro",
   "macro-labor": "macro",
@@ -92,6 +95,11 @@ function Label({ row }: { row: ScorecardRow }) {
             Gegentrend-Signal <InfoTip term="counterTrend" />
           </span>
         )}
+        {row.substitute && (
+          <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-chip bg-fill px-1.5 text-caption font-semibold text-ink-2">
+            kein ISM <InfoTip term="substitutePmi" />
+          </span>
+        )}
         {row.info_only && (
           <span className="whitespace-nowrap text-caption text-ink-2" title="Nur zur Information, geht nicht in den Score ein">
             nur Info
@@ -99,6 +107,18 @@ function Label({ row }: { row: ScorecardRow }) {
         )}
       </div>
       {row.text && <p className="text-caption text-ink-2">{row.text}</p>}
+      {row.members && row.members.length > 0 && (
+        <p className="text-caption text-ink-2">
+          Mittel aus:{" "}
+          {row.members.map((member, index) => (
+            <span key={member.label}>
+              {index > 0 && " · "}
+              {member.label}{" "}
+              <span className="num font-semibold text-ink">{formatCell("index", member.value)}</span> ({formatDateCompact(member.date).slice(3)})
+            </span>
+          ))}
+        </p>
+      )}
     </div>
   );
 }
@@ -111,6 +131,25 @@ function columns(kind: ScorecardSection["kind"]): Column[] {
   const signal: Column = { head: <span className="inline-flex items-center gap-0.5">Signal <InfoTip term="signal" /></span>, right: true, w: "w-28", cell: (r) => <Pill signal={r.signal} score={r.score} /> };
   if (kind === "crowd" || kind === "positioning") {
     return [{ head: <span className="inline-flex items-center gap-0.5">Anteil <InfoTip term="longShort" /></span>, w: "w-56", cell: (r) => <LongShort row={r} /> }, change, date, signal];
+  }
+  if (kind === "core") {
+    return [
+      {
+        head: "Actual",
+        right: true,
+        w: "w-36",
+        cell: (r) => (
+          <span className="inline-flex flex-col items-end leading-tight">
+            <span className="font-semibold">{formatCell(r.unit, r.value)}</span>
+            {r.previous !== null && <span className="whitespace-nowrap text-caption font-normal text-ink-2">Vorwert {formatCell(r.unit, r.previous)}</span>}
+          </span>
+        ),
+      },
+      { head: <span className="inline-flex items-center gap-0.5">Erwartung* <InfoTip term="expectation" /></span>, right: true, w: "w-24", cell: (r) => formatExpectation(r) },
+      { head: <span className="inline-flex items-center gap-0.5">Surprise <InfoTip term="macroSurprise" /></span>, right: true, w: "w-24", cell: (r) => formatIndicatorSurprise(r) },
+      { head: <span className="inline-flex items-center gap-0.5">Datum <InfoTip term="nextRelease" /></span>, right: true, w: "w-24", cell: (r) => <DateCell row={r} /> },
+      signal,
+    ];
   }
   if (kind === "earnings") {
     return [
@@ -135,6 +174,8 @@ function MobileRow({ row, kind }: { row: ScorecardRow; kind: ScorecardSection["k
   const all: [string, ReactNode][] =
     kind === "earnings"
       ? [["Ist", formatCell(row.unit, row.value)], ["Schätzung", formatCell(row.unit, row.estimate)], ["Surprise", formatSurprise(row.surprise_pct)], ["Datum", <DateCell key="d" row={row} />]]
+      : kind === "core"
+        ? [["Actual", formatCell(row.unit, row.value)], ["Erwartung*", formatExpectation(row)], ["Surprise", formatIndicatorSurprise(row)], ["Datum", <DateCell key="d" row={row} />]]
       : kind === "indicator"
         ? [["Wert", formatCell(row.unit, row.value)], ["Vorwert", formatCell(row.unit, row.previous)], ["Änderung", formatChange(row, row.change)], ["Datum", <DateCell key="d" row={row} />]]
         : [["Änderung", formatChange(row, row.change)], ["Datum", <DateCell key="d" row={row} />]];
@@ -151,11 +192,16 @@ function MobileRow({ row, kind }: { row: ScorecardRow; kind: ScorecardSection["k
           <LongShort row={row} />
         </div>
       )}
-      <dl className={`mt-2.5 grid gap-x-3 ${metrics.length >= 4 ? "grid-cols-4" : metrics.length === 3 ? "grid-cols-3" : "grid-cols-2"} ${metrics.length === 0 ? "hidden" : ""}`}>
+      {kind === "core" && row.previous !== null && (
+        <p className="num mt-1 text-caption text-ink-2">
+          Vorwert {formatCell(row.unit, row.previous)} · Änderung {formatChange(row, row.change)}
+        </p>
+      )}
+      <dl className={`mt-2.5 grid gap-x-3 ${metrics.length >= 4 ? (kind === "core" ? "grid-cols-2 min-[420px]:grid-cols-4" : "grid-cols-4") : metrics.length === 3 ? "grid-cols-3" : "grid-cols-2"} ${metrics.length === 0 ? "hidden" : ""}`}>
         {metrics.map(([name, value]) => (
           <div key={name} className="min-w-0">
             <dt className="text-caption text-ink-2">{name}</dt>
-            <dd className="num truncate text-footnote font-semibold">{value}</dd>
+            <dd className={`num text-footnote font-semibold ${kind === "core" ? "" : "truncate"}`}>{value}</dd>
           </div>
         ))}
       </dl>
@@ -168,7 +214,7 @@ function Section({ section }: { section: ScorecardSection }) {
   const term = SECTION_TERM[section.key];
   const titleId = `sc-${section.key}`;
   return (
-    <section aria-labelledby={titleId}>
+    <section aria-labelledby={titleId} className={section.kind === "core" ? "2xl:col-span-2" : undefined}>
       <Card variant="group">
         <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
           <h3 id={titleId} className="flex items-center gap-1 text-body font-semibold tracking-tight">
@@ -177,7 +223,14 @@ function Section({ section }: { section: ScorecardSection }) {
           </h3>
           <div className="flex items-center gap-2">
             {!section.in_score && <span className="whitespace-nowrap text-caption text-ink-2" title="Nur zur Information, geht nicht in den Score ein">nur Info</span>}
-            <Pill signal={section.signal} score={section.score} />
+            {section.rating ? (
+              <Badge tone={signalTone(section.signal, section.score)} className="justify-center">
+                <span className="sr-only">Gruppenlabel: </span>
+                {section.rating}
+              </Badge>
+            ) : (
+              <Pill signal={section.signal} score={section.score} />
+            )}
           </div>
         </header>
         {section.rows.length === 0 ? (
@@ -229,6 +282,9 @@ function Section({ section }: { section: ScorecardSection }) {
 
 /** Gruppierte Tabellen der Scorecard, je Gruppe ein Block mit Gruppenlabel rechts im Kopf. */
 export function ScorecardTables({ scorecard, isStock }: { scorecard: Scorecard; isStock: boolean }) {
+  const { main, more } = splitSections(scorecard.sections);
+  const hasCore = main.some((section) => section.kind === "core");
+  const anySoon = scorecard.sections.some((s) => s.rows.some((r) => r.soon));
   return (
     <section aria-labelledby="scorecard-title">
       <SectionTitle
@@ -236,19 +292,35 @@ export function ScorecardTables({ scorecard, isStock }: { scorecard: Scorecard; 
         title="Scorecard"
         aside={
           <span className="inline-flex items-center gap-1 text-footnote text-ink-2">
-            {isStock ? "Earnings mit echter Schätzung" : "Ohne Prognosen"}
+            {isStock ? "Earnings mit echter Schätzung" : "Keine Konsens-Prognosen verfügbar"}
             <InfoTip term="noForecast" />
           </span>
         }
       />
       <div className="grid items-start gap-4 2xl:grid-cols-2">
-        {scorecard.sections.map((section) => (
+        {main.map((section) => (
           <Section key={section.key} section={section} />
         ))}
       </div>
+      {more.length > 0 && (
+        <details className="group mt-4 rounded-card border border-line bg-surface">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-card px-4 py-2.5 text-body font-semibold tracking-tight [&::-webkit-details-marker]:hidden">
+            <span>Weitere Indikatoren</span>
+            <span aria-hidden="true" className="text-ink-2 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none">
+              ▾
+            </span>
+          </summary>
+          <div className="grid items-start gap-4 border-t border-line p-3 2xl:grid-cols-2">
+            {more.map((section) => (
+              <Section key={section.key} section={section} />
+            ))}
+          </div>
+        </details>
+      )}
       <p className="mt-4 text-caption text-ink-2">
-        Signal = Lesart des Scores je Zeile (bullish/bearish ab ±{formatDecimal(scorecard.signal_threshold, 2)}). Für Makrodaten stehen keine kostenlosen Konsensprognosen zur Verfügung, daher Wert, Vorwert und Änderung statt Forecast und Surprise.
-        {scorecard.sections.some((s) => s.rows.some((r) => r.soon)) && " ★ = neue Daten bald erwartet."} Keine Anlageberatung.
+        Signal = Lesart des Scores je Zeile (bullish/bearish ab ±{formatDecimal(scorecard.signal_threshold, 2)}); das Gruppenlabel kommt aus dem Gruppenscore.
+        {hasCore && " * Erwartung = Modell-Erwartung (gleitender Durchschnitt der letzten Veröffentlichungen, kein Analysten-Konsens); Surprise = Actual − Erwartung. „Ersatz“ = regionale Fed-Umfragen statt ISM-PMI (nicht kostenlos verfügbar)."}
+        {anySoon && " ★ = neue Daten in den nächsten zwei Tagen erwartet (FRED-Kalender)."} Keine Anlageberatung.
       </p>
     </section>
   );

@@ -111,6 +111,8 @@ class Indicator(_Model):
     # Fenster (Beobachtungen) für `transform: sma`
     window: int | None = Field(default=None, ge=2, le=250)
     expectation: Expectation | None = None
+    # Kurzname für Einzelwerte in Misch-Zeilen (Ersatz-PMI)
+    short: str | None = None
 
     @model_validator(mode="after")
     def _check_transform(self) -> Indicator:

@@ -562,10 +562,7 @@ class Builder:
                     if value < previous - 1e-9
                     else "unverändert"
                 )
-                text = (
-                    f"Rendite {move} (Mittel über {back} Handelstage, "
-                    f"Vorwert = {back} Handelstage zuvor)"
-                )
+                text = f"Rendite {move} ({back}-Tage-Mittel, Vorwert {back} Handelstage zuvor)"
         else:
             previous = values[-2][1] if len(values) > 1 else None
         expectation = None
@@ -625,6 +622,10 @@ class Builder:
             if self.config.economies[code].indicators[m].source == "fred"
             and self.config.economies[code].indicators[m].category != "rates"
         ]
+        shorts = [
+            self.config.economies[code].indicators[m].short or r.label
+            for (m, _), r in zip(parts, rows, strict=True)
+        ]
         next_date = self._next_release(series_ids)
         return s.ScorecardRowOut(
             key=f"{code}-{spec.key}",
@@ -642,8 +643,8 @@ class Builder:
             expectation=None if expectation is None else round(expectation, 4),
             surprise=None if expectation is None else round(value - expectation, 4),
             members=[
-                s.ScorecardMemberOut(label=r.label, value=r.value, date=r.date)  # type: ignore[arg-type]
-                for r in rows
+                s.ScorecardMemberOut(label=short, value=r.value, date=r.date)  # type: ignore[arg-type]
+                for short, r in zip(shorts, rows, strict=True)
             ],
             next_date=next_date,
             soon=self._soon(next_date),
@@ -776,7 +777,7 @@ class Builder:
                 _section(
                     f"macro-{category}",
                     "macro",
-                    CATEGORY_LABEL[category],
+                    f"{CATEGORY_LABEL[category]} – weitere Reihen",
                     "indicator",
                     rows,
                     self.threshold,

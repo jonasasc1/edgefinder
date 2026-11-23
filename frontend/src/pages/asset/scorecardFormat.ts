@@ -48,6 +48,21 @@ export function formatChange(row: Pick<ScorecardRow, "unit" | "change_unit">, ch
   }
 }
 
+/** Modell-Erwartung (kein Konsens) in der Einheit der Zeile. */
+export const formatExpectation = (row: Pick<ScorecardRow, "unit" | "expectation">) => formatCell(row.unit, row.expectation ?? null);
+
+/** Surprise = Actual − Modell-Erwartung, mit Vorzeichen und Einheit (Prozentwerte in PP). */
+export const formatIndicatorSurprise = (row: Pick<ScorecardRow, "unit" | "change_unit" | "surprise">) =>
+  formatChange(row, row.surprise ?? null);
+
+/** Teilt die Abschnitte: sichtbar (Kerngruppen u. a.) und zugeklappt („Weitere Indikatoren“, leere entfallen). */
+export function splitSections<T extends { collapsed?: boolean; rows: unknown[] }>(sections: T[]): { main: T[]; more: T[] } {
+  return {
+    main: sections.filter((section) => !section.collapsed),
+    more: sections.filter((section) => section.collapsed && section.rows.length > 0),
+  };
+}
+
 export const formatSurprise = (value: number | null) => (value === null ? "–" : `${sign(value, abs(value, 1))} %`);
 
 export const SIGNAL_LABEL: Record<Signal, string> = { bullish: "Bullish", bearish: "Bearish", neutral: "Neutral" };

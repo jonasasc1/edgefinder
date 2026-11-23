@@ -188,16 +188,31 @@ export type ScorecardRow = {
   next_date: string | null;
   soon: boolean;
   info_only?: boolean;
+  /** Modell-Erwartung (gleitender Durchschnitt der letzten Veröffentlichungen), KEIN Analysten-Konsens. */
+  expectation?: number | null;
+  /** Actual − Modell-Erwartung, in der Einheit der Zeile. */
+  surprise?: number | null;
+  /** Nur Anzeige: Pille ist eine Lesart, die Zeile geht nicht in den Score ein. */
+  display_only?: boolean;
+  /** Ersatz (z. B. Regional-Fed-Umfragen statt ISM-PMI). */
+  substitute?: boolean;
+  members?: ScorecardMember[] | null;
   counter_trend?: boolean;
 };
+
+export type ScorecardMember = { label: string; value: number; date: string };
 
 export type ScorecardSection = {
   key: string;
   group: GroupKey;
   label: string;
-  kind: "indicator" | "crowd" | "positioning" | "earnings";
+  kind: "indicator" | "core" | "crowd" | "positioning" | "earnings";
   signal: Signal | null;
   score: number | null;
+  /** Gruppenlabel aus dem Gruppenscore („Stark bearish“ …), nur bei Makro-Kerngruppen. */
+  rating?: string | null;
+  /** „Weitere Indikatoren“: standardmäßig zugeklappt. */
+  collapsed?: boolean;
   rows: ScorecardRow[];
   empty_reason: string | null;
   in_score: boolean;

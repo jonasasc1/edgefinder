@@ -8,6 +8,11 @@ Privates Projekt von Jonas. Sprache der Oberfläche: Deutsch (Fachbegriffe wie C
 
 ## Stand und nächster Schritt
 
+**Scorecard nach EdgeFinder-Muster (2026-11-23, Etappe r, noch NICHT deployt):** Makro-Tabellen in den Gruppen **Inflation / Jobs market / Economic growth**
+mit 14 Kernzeilen (`scorecard.core` in config.yaml), Spalten Actual | Erwartung* | Surprise | Datum (+ ★), Gruppenlabel im Kopf; der Rest unter „Weitere Indikatoren“
+(zugeklappt). **Score, Engine, Gewichte, Backfill, Eichung unverändert** (Nachweis: Scores EURUSD/GOLD/SPX/AAPL vorher = nachher, auch mit altem Code auf der neu geholten DB).
+Nach dem Deploy: Migration 0006 (deploy.sh), danach `edgefinder fetch fred` (holt neue Reihen + Release-Kalender), kein neuer `score`/`calibrate` nötig. Details unten „Scorecard-Kernzeilen“.
+
 **Admin-Bereich (2026-11-22, Etappe p, noch NICHT deployt):** Rolle per CLI, Job-Warteschlange mit Runner-Units, Seite `/admin`. Siehe „Admin-Bereich“. Nach dem Deploy: Migration 0005 (deploy.sh), Units per sync-units, dann `edgefinder admin grant <Jonas' E-Mail>` (README „Admin“).
 
 **Bilanz/Wartung (2026-11-21, Etappe o, wird mit dem nächsten Deploy live):** Forward-Test, Seite „Bilanz“, Timer `evaluate` (täglich) und `maintain` (sonntags). Siehe „Bilanz und Wartungszyklus“.
@@ -296,6 +301,31 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   löscht Dateien und `raw_files`-Einträge, die älter sind (nie außerhalb `raw_dir`, leere Ordner werden entfernt);
   normalisierte Tabellen bleiben. Timer: `edgefinder-cleanup.timer` (wöchentlich, siehe `maintenance:`).
 - **Sicherung:** kein App-eigenes Backup (`edgefinder backup` entfernt, 2026-11-18); Jonas sichert CT 122 per Proxmox-Snapshot/-Backup.
+
+### Scorecard-Kernzeilen (Etappe r, 2026-11-23)
+- **Kein Konsens, kein ISM (Entscheidung Jonas: erst kostenlos, ehrlich beschriftet):** Es gibt keine freie Analysten-Konsens-Prognose und keine freien ISM-PMIs.
+  Statt Forecast zeigt die Spalte **„Erwartung*“ eine Modell-Erwartung** (gleitender Durchschnitt, überall so beschriftet: Spaltenkopf, Glossar `expectation`,
+  Fußtext, Hinweis „Keine Konsens-Prognosen verfügbar“). **Surprise = Actual − Modell-Erwartung** (Einheit der Zeile, Prozent in PP). Keine Wertung der Surprise (keine Farbe).
+- **Display-only (`display_only: true`):** Indikator erscheint in der Scorecard (mit Pille = `indicator_score`-Lesart, Erwartung, Surprise), geht aber nie in Teilscore/Kategorie-Mittel,
+  Backtest oder Eichung ein (`DataStore.economy` setzt intern `info_only`), fehlt auf der Makro-Seite. Validierung in `Config`: `mom`/`sma` nur mit display_only, `sma` braucht `window`, display_only und info_only schließen sich aus.
+  Test `test_display_only_indicators_never_change_the_score`.
+- **Neue Transforms (nur Anzeige):** `mom` (Änderung zum Vorwert in %), `sma` (einfacher Mittelwert über `window` Beobachtungen; DGS2 21 Tage). Bei `sma` ist der Vorwert der SMA `window` Beobachtungen
+  davor, `text` = „Rendite steigt/fällt/unverändert (…)“ (neutral, keine Handlungsempfehlung). BIP QoQ = `A191RL1Q225SBEA` mit `level` (Quote bereits annualisiert).
+- **Neue Reihen (live geprüft 2026-11-23):** `A191RL1Q225SBEA` (Q3-2026: 3,4), `RSAFS` als MoM, `DGS2` als SMA (auch EZ-2Y aus der EZB). **Ersatz-PMI Industrie:** Mittel aus Philly (GACDFSA066MSFRBPHI) und Empire State
+  (GACDISA066MSFRBNY). **Ersatz-PMI Dienstleistungen:** Mittel aus Philly Nonmanufacturing (`GARBNDIF066MSFRBPHI`), NY Fed Business Leaders Survey (`BACDINA066MNFRBNY`, = Empire-Services) und Texas Service Sector
+  (`TSSOSBACTSAMFRBDAL`). Nicht auf FRED gefunden: Richmond-/Kansas-City-Services. Chicago Fed `CFSBCACTIVITYNMFG` existiert, ist aber ein Index anderer Skala (nicht gemittelt). Skala 0 = unverändert (nicht ISM 50).
+  Misch-Zeilen: `scorecard.core[].rows[].members`, Einzelwerte mit Kurzname (`short`) unter der Zeile; Pille = Mittel der Mitglieds-Scores; Kennzeichen „kein ISM“ (`substitute`).
+- **Modell-Erwartung je Indikator (`expectation: {method: mean_last, window: N}`):** Mittel der N Werte der *transformierten* Reihe **vor** dem aktuellen Wert (`macro.expectation_of`; zu wenige Vorwerte → keine Erwartung;
+  Reihen sind bereits auf den Stichtag begrenzt, also kein Look-ahead). Wahl je Typ: Quoten/YoY (CPI, PPI, PCE, Arbeitslosenquote), JOLTS, Umfragen/Vertrauen, Einzelhandel MoM: **3** (kurzes Gedächtnis, glättet Ausreißer);
+  Zuwächse (NFP, ADP; transformiert = Monatsänderung): **6** (Monatsänderungen sind volatil); Claims (wöchentlich): **4** (Standard-4-Wochen-Mittel); BIP QoQ: **4 Quartale**; 2Y-SMA: **5** Beobachtungen. Rates (Leitzins, Renditen, Dollar) ohne Erwartung.
+- **Release-Kalender (Migration 0006 `macro_release_calendar(series_id, release_date, fetched_at)`):** der FRED-Fetcher holt nach den Beobachtungen je Kernzeilen-Serie (ohne Kategorie rates) `series/release` (ID in `source_state`)
+  und `release/dates` (ab heute, `include_release_dates_with_no_data=true`), höchstens 1× je Tag und Serie (`source_state calendar:<serie>`), Fehler je Serie → `partial`. Stern (`soon`) = nächster Termin ≤ `SOON_DAYS` (2) Tage.
+  Option `sources.fred.options.release_calendar: false` schaltet es ab. Nur Anzeige.
+- **Pillen außerhalb des Scores (Änderung):** Indizes (nur Wachstum/Arbeitsmarkt im Score) und Rohstoffe (Gold/Silber: Inflation + Zinsen/Dollar, WTI: Wachstum/Arbeitsmarkt) zeigen Zeilen anderer Kategorien ohne Pille/Gruppenlabel („nur Info“);
+  bei Edelmetallen sind Zins-Zeilen wie in der Engine gespiegelt (steigend = bearish). Die 2Y-Rendite steht in der Gruppe Inflation (nur Darstellung, Kategorie bleibt rates).
+- **API:** Zeilen neu `expectation`, `surprise`, `display_only`, `substitute`, `members`; Abschnitte `kind: "core"` (`core-inflation|jobs|growth`, `rating` = Gruppenlabel aus `scoring.labels`, `collapsed`), die alten Kategorie-Abschnitte (`macro-*`, „… – weitere Reihen“) ohne Kernzeilen, `collapsed: true`.
+- **Frontend:** `ScorecardTables.tsx` (Spalten, mobil 2×2-Kennzahlen, „Weitere Indikatoren“ als `<details>`), `scorecardFormat.ts` (`formatExpectation`, `formatIndicatorSurprise`, `splitSections`), Glossar `expectation|macroSurprise|substitutePmi|nextRelease`.
+  Screenshots: `node scripts/shots-scorecard.mjs` → `~/remote/edgefinder-shots/etappe-r/`.
 
 ### Score-Engine (Etappe d)
 - Aufruf: `uv run edgefinder score [--as-of YYYY-MM-DD] [--asset ID ...] [--from D --to D]`.

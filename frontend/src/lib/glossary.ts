@@ -29,6 +29,10 @@ export type TermKey =
   | "signal"
   | "previousValue"
   | "noForecast"
+  | "expectation"
+  | "macroSurprise"
+  | "substitutePmi"
+  | "nextRelease"
   | "longShort"
   | "scoreHistory"
   | "longTermNotice"
@@ -89,8 +93,24 @@ export const TERMS: Record<TermKey, { title: string; text: string }> = {
     text: "Wert der vorherigen Veröffentlichung derselben Reihe. Die Änderung ist Wert minus Vorwert; Prozentwerte ändern sich in Prozentpunkten (PP).",
   },
   noForecast: {
-    title: "Keine Prognosen",
-    text: "Für Makrodaten stehen keine kostenlosen Konsensprognosen zur Verfügung. Darum zeigt die Tabelle Wert, Vorwert, Änderung und Datum statt Forecast und Surprise. Nur bei Earnings gibt es echte Schätzungen.",
+    title: "Keine Konsens-Prognosen verfügbar",
+    text: "Für Makrodaten gibt es keine kostenlose Konsens-Prognose von Analysten. Statt eines Forecasts zeigt die Tabelle eine Modell-Erwartung (Spalte „Erwartung*“): der gleitende Durchschnitt der letzten Veröffentlichungen. Sie ist ausdrücklich kein Analysten-Konsens. Nur bei Earnings gibt es echte Schätzungen.",
+  },
+  expectation: {
+    title: "Erwartung* (Modell-Erwartung)",
+    text: "Gleitender Durchschnitt der zuletzt veröffentlichten Werte derselben Reihe, ohne den aktuellen Wert (zum Beispiel die letzten drei Monate bei der Inflation, die letzten sechs Monatsänderungen bei Beschäftigung). Es ist KEIN Analysten-Konsens, sondern nur eine einfache, nachvollziehbare Vergleichsgröße: Liegt der aktuelle Wert darüber oder darunter?\n\nDie Methode steht je Indikator in config.yaml. Sie nutzt nur Werte, die vor dem aktuellen Wert veröffentlicht waren.",
+  },
+  macroSurprise: {
+    title: "Surprise (Überraschung)",
+    text: "Aktueller Wert (Actual) minus Modell-Erwartung, in der Einheit der Zeile (Prozentwerte in Prozentpunkten). Positiv heißt: höher als der gleitende Durchschnitt der letzten Veröffentlichungen, negativ: niedriger. Weil die Erwartung kein Analysten-Konsens ist, ist das keine „Überraschung“ im Börsensinn, sondern der Abstand zum jüngsten Durchschnitt. Die Pille richtet sich nicht danach, sondern nach dem Score der Zeile.",
+  },
+  substitutePmi: {
+    title: "Ersatz für den PMI",
+    text: "Die ISM-Einkaufsmanagerindizes (PMI) sind nicht kostenlos verfügbar. Als Ersatz dient der Mittelwert regionaler Umfragen der US-Notenbanken (Fed Philadelphia und NY Fed Empire State für die Industrie; Fed Philadelphia Nonmanufacturing, NY Fed Business Leaders Survey und Fed Dallas Texas Service Sector für Dienstleistungen). Das ist KEIN ISM-PMI: andere Befragte, andere Skala (0 = unverändert, nicht 50). Die Einzelwerte stehen unter der Zeile. Nur Anzeige, geht nicht in den Score ein.",
+  },
+  nextRelease: {
+    title: "Nächste Veröffentlichung (★)",
+    text: "Der Stern erscheint, wenn laut FRED-Veröffentlichungskalender in den nächsten zwei Tagen neue Daten dieser Reihe erwartet werden. Der Termin steht beim Tippen bzw. Überfahren des Sterns. Termine dienen nur der Anzeige.",
   },
   longShort: {
     title: "Long- und Short-Anteil",
