@@ -169,24 +169,31 @@ economies:
   US:
     name: USA
     indicators:
-      gdp:           {label: "BIP (real)",              source: fred, series: GDPC1,    category: growth,    transform: yoy,   higher_is: bullish}
-      industrial:    {label: "Industrieproduktion",     source: fred, series: INDPRO,   category: growth,    transform: yoy,   higher_is: bullish}
-      retail_sales:  {label: "Einzelhandelsumsätze",    source: fred, series: RSAFS,    category: growth,    transform: yoy,   higher_is: bullish}
-      consumer_confidence: {label: "Verbrauchervertrauen (Uni Michigan)", source: fred, series: UMCSENT, category: growth, transform: level, higher_is: bullish}
-      philly_fed:    {label: "Industrie-Stimmung (Fed Philadelphia, PMI-Ersatz)", source: fred, series: GACDFSA066MSFRBPHI, category: growth, transform: level, higher_is: bullish}
-      empire_state:  {label: "Industrie-Stimmung (Empire State, NY Fed, PMI-Ersatz)", source: fred, series: GACDISA066MSFRBNY, category: growth, transform: level, higher_is: bullish}
-      durable_goods: {label: "Auftragseingang Langlebige Güter", source: fred, series: DGORDER, category: growth, transform: yoy, higher_is: bullish}
-      housing_starts: {label: "Baubeginne", source: fred, series: HOUST, category: growth, transform: yoy, higher_is: bullish}
-      cpi:           {label: "Inflation (CPI)",         source: fred, series: CPIAUCSL, category: inflation, transform: yoy,   higher_is: bullish}
-      core_cpi:      {label: "Kerninflation (CPI)",     source: fred, series: CPILFESL, category: inflation, transform: yoy,   higher_is: bullish}
-      ppi:           {label: "Erzeugerpreise (PPI, Endnachfrage)", source: fred, series: PPIFIS, category: inflation, transform: yoy, higher_is: bullish}
-      pce:           {label: "Inflation (PCE)",         source: fred, series: PCEPI,    category: inflation, transform: yoy,   higher_is: bullish}
-      core_pce:      {label: "Kerninflation (PCE)",     source: fred, series: PCEPILFE, category: inflation, transform: yoy,   higher_is: bullish}
-      unemployment:  {label: "Arbeitslosenquote",       source: fred, series: UNRATE,   category: labor,     transform: level, higher_is: bearish}
-      payrolls:      {label: "Beschäftigung (NFP)",     source: fred, series: PAYEMS,   category: labor,     transform: diff,  higher_is: bullish}
-      jobless:       {label: "Erstanträge Arbeitslosenhilfe", source: fred, series: ICSA, category: labor,   transform: level, higher_is: bearish}
-      jolts:         {label: "Offene Stellen (JOLTS)",  source: fred, series: JTSJOL,   category: labor,     transform: level, higher_is: bullish}
-      adp:           {label: "Beschäftigung privat (ADP)", source: fred, series: ADPMNUSNERSA, category: labor, transform: diff, higher_is: bullish}
+      gdp:           {label: "BIP (real)",              source: fred, series: GDPC1,    category: growth,    transform: yoy,   higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      industrial:    {label: "Industrieproduktion",     source: fred, series: INDPRO,   category: growth,    transform: yoy,   higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      retail_sales:  {label: "Einzelhandelsumsätze",    source: fred, series: RSAFS,    category: growth,    transform: yoy,   higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      consumer_confidence: {label: "Verbrauchervertrauen (Uni Michigan)", source: fred, series: UMCSENT, category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      philly_fed:    {label: "Industrie-Stimmung (Fed Philadelphia, PMI-Ersatz)", source: fred, series: GACDFSA066MSFRBPHI, category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      empire_state:  {label: "Industrie-Stimmung (Empire State, NY Fed, PMI-Ersatz)", source: fred, series: GACDISA066MSFRBNY, category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      durable_goods: {label: "Auftragseingang Langlebige Güter", source: fred, series: DGORDER, category: growth, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      housing_starts: {label: "Baubeginne", source: fred, series: HOUST, category: growth, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      cpi:           {label: "Inflation (CPI)",         source: fred, series: CPIAUCSL, category: inflation, transform: yoy,   higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      core_cpi:      {label: "Kerninflation (CPI)",     source: fred, series: CPILFESL, category: inflation, transform: yoy,   higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      ppi:           {label: "Erzeugerpreise (PPI, Endnachfrage)", source: fred, series: PPIFIS, category: inflation, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      pce:           {label: "Inflation (PCE)",         source: fred, series: PCEPI,    category: inflation, transform: yoy,   higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      core_pce:      {label: "Kerninflation (PCE)",     source: fred, series: PCEPILFE, category: inflation, transform: yoy,   higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      unemployment:  {label: "Arbeitslosenquote",       source: fred, series: UNRATE,   category: labor,     transform: level, higher_is: bearish, expectation: {method: mean_last, window: 3}}
+      payrolls:      {label: "Beschäftigung (NFP)",     source: fred, series: PAYEMS,   category: labor,     transform: diff,  higher_is: bullish, expectation: {method: mean_last, window: 6}}
+      jobless:       {label: "Erstanträge Arbeitslosenhilfe", source: fred, series: ICSA, category: labor,   transform: level, higher_is: bearish, expectation: {method: mean_last, window: 4}}
+      jolts:         {label: "Offene Stellen (JOLTS)",  source: fred, series: JTSJOL,   category: labor,     transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      adp:           {label: "Beschäftigung privat (ADP)", source: fred, series: ADPMNUSNERSA, category: labor, transform: diff, higher_is: bullish, expectation: {method: mean_last, window: 6}}
+      # Nur Anzeige (display_only): gehen nie in den Score ein, erscheinen aber in der Scorecard.
+      gdp_qoq:       {label: "BIP-Wachstum QoQ (annualisiert)", source: fred, series: A191RL1Q225SBEA, category: growth, transform: level, higher_is: bullish, display_only: true, expectation: {method: mean_last, window: 4}}
+      retail_sales_mom: {label: "Einzelhandelsumsätze MoM", source: fred, series: RSAFS, category: growth, transform: mom, higher_is: bullish, display_only: true, expectation: {method: mean_last, window: 3}}
+      yield_2y_sma:  {label: "Rendite 2 Jahre (21-Tage-Mittel)", source: fred, series: DGS2, category: rates, transform: sma, window: 21, higher_is: bullish, display_only: true, expectation: {method: mean_last, window: 5}}
+      services_philly: {label: "Dienstleistungen (Fed Philadelphia, Nonmanufacturing)", source: fred, series: GARBNDIF066MSFRBPHI, category: growth, transform: level, higher_is: bullish, display_only: true, expectation: {method: mean_last, window: 3}}
+      services_empire: {label: "Dienstleistungen (NY Fed Business Leaders Survey)", source: fred, series: BACDINA066MNFRBNY, category: growth, transform: level, higher_is: bullish, display_only: true, expectation: {method: mean_last, window: 3}}
+      services_texas: {label: "Dienstleistungen (Fed Dallas, Texas Service Sector)", source: fred, series: TSSOSBACTSAMFRBDAL, category: growth, transform: level, higher_is: bullish, display_only: true, expectation: {method: mean_last, window: 3}}
       policy_rate:   {label: "Leitzins (Fed Funds)",    source: fred, series: FEDFUNDS, category: rates,     transform: level, higher_is: bullish}
       yield_2y:      {label: "Rendite 2 Jahre",         source: fred, series: DGS2,     category: rates,     transform: level, higher_is: bullish}
       yield_10y:     {label: "Rendite 10 Jahre",        source: fred, series: DGS10,    category: rates,     transform: level, higher_is: bullish}
@@ -195,86 +202,122 @@ economies:
   EZ:
     name: Euroraum
     indicators:
-      gdp:           {label: "BIP (real, Vorjahr in %)", source: eurostat, series: "namq_10_gdp?s_adj=SCA&unit=CLV_PCH_SM&na_item=B1GQ&geo=EA21", category: growth, transform: level, higher_is: bullish}
-      industrial:    {label: "Industrieproduktion", source: eurostat, series: "sts_inpr_m?indic_bt=PRD&nace_r2=B-D&s_adj=SCA&unit=I21&geo=EA21", category: growth, transform: yoy, higher_is: bullish}
-      retail_sales:  {label: "Einzelhandelsumsätze (Volumen)", source: eurostat, series: "sts_trtu_m?indic_bt=VOL_SLS&nace_r2=G47&s_adj=SCA&unit=I21&geo=EA21", category: growth, transform: yoy, higher_is: bullish}
-      cpi:           {label: "Inflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOTAL&unit=RCH_A&geo=EA", category: inflation, transform: level, higher_is: bullish}
-      core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=EA", category: inflation, transform: level, higher_is: bullish}
-      consumer_confidence: {label: "Verbrauchervertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsco_m?indic=BS-CSMCI&s_adj=SA&unit=BAL&geo=EA21", category: growth, transform: level, higher_is: bullish}
-      industry_confidence: {label: "Industrievertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsin_m_r2?indic=BS-ICI&s_adj=SA&unit=BAL&geo=EA21", category: growth, transform: level, higher_is: bullish}
-      ppi:           {label: "Erzeugerpreise (Industrie)", source: eurostat, series: "sts_inpp_m?indic_bt=PRC_PRR&nace_r2=B-E36&s_adj=NSA&unit=I21&geo=EA21", category: inflation, transform: yoy, higher_is: bullish, info_only: true}
-      unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=EA21", category: labor, transform: level, higher_is: bearish}
+      gdp:           {label: "BIP (real, Vorjahr in %)", source: eurostat, series: "namq_10_gdp?s_adj=SCA&unit=CLV_PCH_SM&na_item=B1GQ&geo=EA21", category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      industrial:    {label: "Industrieproduktion", source: eurostat, series: "sts_inpr_m?indic_bt=PRD&nace_r2=B-D&s_adj=SCA&unit=I21&geo=EA21", category: growth, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen)", source: eurostat, series: "sts_trtu_m?indic_bt=VOL_SLS&nace_r2=G47&s_adj=SCA&unit=I21&geo=EA21", category: growth, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      cpi:           {label: "Inflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOTAL&unit=RCH_A&geo=EA", category: inflation, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=EA", category: inflation, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      consumer_confidence: {label: "Verbrauchervertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsco_m?indic=BS-CSMCI&s_adj=SA&unit=BAL&geo=EA21", category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      industry_confidence: {label: "Industrievertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsin_m_r2?indic=BS-ICI&s_adj=SA&unit=BAL&geo=EA21", category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      ppi:           {label: "Erzeugerpreise (Industrie)", source: eurostat, series: "sts_inpp_m?indic_bt=PRC_PRR&nace_r2=B-E36&s_adj=NSA&unit=I21&geo=EA21", category: inflation, transform: yoy, higher_is: bullish, info_only: true, expectation: {method: mean_last, window: 3}}
+      unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=EA21", category: labor, transform: level, higher_is: bearish, expectation: {method: mean_last, window: 3}}
       policy_rate:   {label: "Leitzins (EZB Einlagesatz)", source: ecb, series: FM/D.U2.EUR.4F.KR.DFR.LEV, category: rates, transform: level, higher_is: bullish}
       yield_2y:      {label: "Rendite 2 Jahre (Euro-Staatsanleihen, AAA)", source: ecb, series: YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y, category: rates, transform: level, higher_is: bullish}
+      yield_2y_sma:  {label: "Rendite 2 Jahre (21-Tage-Mittel)", source: ecb, series: YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y, category: rates, transform: sma, window: 21, higher_is: bullish, display_only: true, expectation: {method: mean_last, window: 5}}
       yield_10y:     {label: "Rendite 10 Jahre (Euro-Staatsanleihen, AAA)", source: ecb, series: YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_10Y, category: rates, transform: level, higher_is: bullish}
   DE:
     name: Deutschland
     indicators:
-      gdp:           {label: "BIP (real, Vorjahr in %)", source: eurostat, series: "namq_10_gdp?s_adj=SCA&unit=CLV_PCH_SM&na_item=B1GQ&geo=DE", category: growth, transform: level, higher_is: bullish}
-      industrial:    {label: "Industrieproduktion", source: eurostat, series: "sts_inpr_m?indic_bt=PRD&nace_r2=B-D&s_adj=SCA&unit=I21&geo=DE", category: growth, transform: yoy, higher_is: bullish}
-      retail_sales:  {label: "Einzelhandelsumsätze (Volumen)", source: eurostat, series: "sts_trtu_m?indic_bt=VOL_SLS&nace_r2=G47&s_adj=SCA&unit=I21&geo=DE", category: growth, transform: yoy, higher_is: bullish}
-      cpi:           {label: "Inflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOTAL&unit=RCH_A&geo=DE", category: inflation, transform: level, higher_is: bullish}
-      core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=DE", category: inflation, transform: level, higher_is: bullish}
-      consumer_confidence: {label: "Verbrauchervertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsco_m?indic=BS-CSMCI&s_adj=SA&unit=BAL&geo=DE", category: growth, transform: level, higher_is: bullish}
-      industry_confidence: {label: "Industrievertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsin_m_r2?indic=BS-ICI&s_adj=SA&unit=BAL&geo=DE", category: growth, transform: level, higher_is: bullish}
-      ppi:           {label: "Erzeugerpreise (Industrie)", source: eurostat, series: "sts_inpp_m?indic_bt=PRC_PRR&nace_r2=B-E36&s_adj=NSA&unit=I21&geo=DE", category: inflation, transform: yoy, higher_is: bullish, info_only: true}
-      unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=DE", category: labor, transform: level, higher_is: bearish}
+      gdp:           {label: "BIP (real, Vorjahr in %)", source: eurostat, series: "namq_10_gdp?s_adj=SCA&unit=CLV_PCH_SM&na_item=B1GQ&geo=DE", category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      industrial:    {label: "Industrieproduktion", source: eurostat, series: "sts_inpr_m?indic_bt=PRD&nace_r2=B-D&s_adj=SCA&unit=I21&geo=DE", category: growth, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen)", source: eurostat, series: "sts_trtu_m?indic_bt=VOL_SLS&nace_r2=G47&s_adj=SCA&unit=I21&geo=DE", category: growth, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      cpi:           {label: "Inflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOTAL&unit=RCH_A&geo=DE", category: inflation, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=DE", category: inflation, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      consumer_confidence: {label: "Verbrauchervertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsco_m?indic=BS-CSMCI&s_adj=SA&unit=BAL&geo=DE", category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      industry_confidence: {label: "Industrievertrauen (EU-Kommission, Saldo)", source: eurostat, series: "ei_bsin_m_r2?indic=BS-ICI&s_adj=SA&unit=BAL&geo=DE", category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      ppi:           {label: "Erzeugerpreise (Industrie)", source: eurostat, series: "sts_inpp_m?indic_bt=PRC_PRR&nace_r2=B-E36&s_adj=NSA&unit=I21&geo=DE", category: inflation, transform: yoy, higher_is: bullish, info_only: true, expectation: {method: mean_last, window: 3}}
+      unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=DE", category: labor, transform: level, higher_is: bearish, expectation: {method: mean_last, window: 3}}
       yield_10y:     {label: "Rendite 10 Jahre (Bund, Monatswert)", source: fred, series: IRLTLT01DEM156N, category: rates, transform: level, higher_is: bullish}
   UK:
     name: Großbritannien
     indicators:
-      cpi:           {label: "Inflation (CPI, Vorjahr in %)", source: ons, series: "D7G7/mm23", category: inflation, transform: level, higher_is: bullish}
-      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCGBQ, category: growth, transform: yoy, higher_is: bullish}
-      industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: GBRPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish}
-      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: GBRSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
-      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRHUTTTTGBM156S, category: labor, transform: level, higher_is: bearish}
+      cpi:           {label: "Inflation (CPI, Vorjahr in %)", source: ons, series: "D7G7/mm23", category: inflation, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCGBQ, category: growth, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: GBRPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: GBRSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRHUTTTTGBM156S, category: labor, transform: level, higher_is: bearish, expectation: {method: mean_last, window: 3}}
       policy_rate:   {label: "Leitzins-Proxy (SONIA, Tagesgeld)", source: fred, series: IUDSOIA, category: rates, transform: level, higher_is: bullish}
       yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01GBM156N, category: rates, transform: level, higher_is: bullish}
   JP:
     name: Japan
     indicators:
-      cpi:           {label: "Inflation (CPI-Index, IMF)", source: imf, series: "CPI/JPN.CPI._T.IX.M", category: inflation, transform: yoy, higher_is: bullish, publication_lag_days: 75}
-      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCJPQ, category: growth, transform: yoy, higher_is: bullish}
-      industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: JPNPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish}
-      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: JPNSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
-      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRUNTTTTJPM156S, category: labor, transform: level, higher_is: bearish}
+      cpi:           {label: "Inflation (CPI-Index, IMF)", source: imf, series: "CPI/JPN.CPI._T.IX.M", category: inflation, transform: yoy, higher_is: bullish, publication_lag_days: 75, expectation: {method: mean_last, window: 3}}
+      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCJPQ, category: growth, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: JPNPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: JPNSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRUNTTTTJPM156S, category: labor, transform: level, higher_is: bearish, expectation: {method: mean_last, window: 3}}
       policy_rate:   {label: "Leitzins-Proxy (Tagesgeldsatz)", source: fred, series: IRSTCI01JPM156N, category: rates, transform: level, higher_is: bullish}
       yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01JPM156N, category: rates, transform: level, higher_is: bullish}
   CH:
     name: Schweiz
     indicators:
-      gdp:           {label: "BIP (real, Vorjahr in %)", source: eurostat, series: "namq_10_gdp?s_adj=SCA&unit=CLV_PCH_SM&na_item=B1GQ&geo=CH", category: growth, transform: level, higher_is: bullish}
-      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: CHESLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
-      cpi:           {label: "Inflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOTAL&unit=RCH_A&geo=CH", category: inflation, transform: level, higher_is: bullish}
-      core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=CH", category: inflation, transform: level, higher_is: bullish}
-      unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=CH", category: labor, transform: level, higher_is: bearish}
+      gdp:           {label: "BIP (real, Vorjahr in %)", source: eurostat, series: "namq_10_gdp?s_adj=SCA&unit=CLV_PCH_SM&na_item=B1GQ&geo=CH", category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: CHESLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      cpi:           {label: "Inflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOTAL&unit=RCH_A&geo=CH", category: inflation, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      core_cpi:      {label: "Kerninflation (HICP, Vorjahr in %)", source: eurostat, series: "prc_hicp_minr?coicop18=TOT_X_NRG_FOOD&unit=RCH_A&geo=CH", category: inflation, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      unemployment:  {label: "Arbeitslosenquote", source: eurostat, series: "une_rt_m?s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&geo=CH", category: labor, transform: level, higher_is: bearish, expectation: {method: mean_last, window: 3}}
       policy_rate:   {label: "Leitzins-Proxy (Tagesgeldsatz)", source: fred, series: IRSTCI01CHM156N, category: rates, transform: level, higher_is: bullish}
       yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01CHM156N, category: rates, transform: level, higher_is: bullish}
   AU:
     name: Australien
     indicators:
-      cpi:           {label: "Inflation (CPI-Index, Quartal)", source: abs, series: "CPI/1.10001.10.50.Q", category: inflation, transform: yoy, higher_is: bullish}
-      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCAUQ, category: growth, transform: yoy, higher_is: bullish}
-      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRHUTTTTAUM156S, category: labor, transform: level, higher_is: bearish}
+      cpi:           {label: "Inflation (CPI-Index, Quartal)", source: abs, series: "CPI/1.10001.10.50.Q", category: inflation, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCAUQ, category: growth, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRHUTTTTAUM156S, category: labor, transform: level, higher_is: bearish, expectation: {method: mean_last, window: 3}}
       policy_rate:   {label: "Leitzins-Proxy (Tagesgeldsatz)", source: fred, series: IRSTCI01AUM156N, category: rates, transform: level, higher_is: bullish}
       yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01AUM156N, category: rates, transform: level, higher_is: bullish}
   CA:
     name: Kanada
     indicators:
-      cpi:           {label: "Inflation (CPI-Index)", source: statcan, series: "41690973", category: inflation, transform: yoy, higher_is: bullish}
-      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCCAQ, category: growth, transform: yoy, higher_is: bullish}
-      industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: CANPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish}
-      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: CANSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish}
-      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRUNTTTTCAM156S, category: labor, transform: level, higher_is: bearish}
+      cpi:           {label: "Inflation (CPI-Index)", source: statcan, series: "41690973", category: inflation, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      gdp:           {label: "BIP (real)", source: fred, series: NGDPRSAXDCCAQ, category: growth, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      industrial:    {label: "Industrieproduktion (Vorjahr in %)", source: fred, series: CANPRINTO01GYSAM, category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      retail_sales:  {label: "Einzelhandelsumsätze (Volumen, Vorjahr in %)", source: fred, series: CANSLRTTO01GYSAM, category: growth, transform: level, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      unemployment:  {label: "Arbeitslosenquote", source: fred, series: LRUNTTTTCAM156S, category: labor, transform: level, higher_is: bearish, expectation: {method: mean_last, window: 3}}
       policy_rate:   {label: "Leitzins-Proxy (Tagesgeldsatz)", source: fred, series: IRSTCI01CAM156N, category: rates, transform: level, higher_is: bullish}
       yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01CAM156N, category: rates, transform: level, higher_is: bullish}
   NZ:
     name: Neuseeland
     indicators:
-      cpi:           {label: "Inflation (CPI-Index, Quartal, IMF)", source: imf, series: "CPI/NZL.CPI._T.IX.Q", category: inflation, transform: yoy, higher_is: bullish}
-      unemployment:  {label: "Arbeitslosenquote (Quartal)", source: fred, series: LRUNTTTTNZQ156S, category: labor, transform: level, higher_is: bearish}
+      cpi:           {label: "Inflation (CPI-Index, Quartal, IMF)", source: imf, series: "CPI/NZL.CPI._T.IX.Q", category: inflation, transform: yoy, higher_is: bullish, expectation: {method: mean_last, window: 3}}
+      unemployment:  {label: "Arbeitslosenquote (Quartal)", source: fred, series: LRUNTTTTNZQ156S, category: labor, transform: level, higher_is: bearish, expectation: {method: mean_last, window: 3}}
       policy_rate:   {label: "Leitzins-Proxy (3-Monats-Interbankzins)", source: fred, series: IR3TIB01NZM156N, category: rates, transform: level, higher_is: bullish}
       yield_10y:     {label: "Rendite 10 Jahre (Monatswert)", source: fred, series: IRLTLT01NZM156N, category: rates, transform: level, higher_is: bullish}
+
+# ---------------------------------------------------------------------------
+# Scorecard: Kernzeilen der Makro-Tabellen (EdgeFinder-Muster). Reihenfolge = Anzeige. `key` =
+# Indikator-Schlüssel der Volkswirtschaft; `members` = Mittel mehrerer Schlüssel (Ersatz-PMI,
+# kein ISM). Gruppenlabel = Score der Kategorie `category` (nur Darstellung, Score unverändert).
+# Alles andere steht unter „Weitere Indikatoren“.
+# ---------------------------------------------------------------------------
+scorecard:
+  core:
+    - key: inflation
+      label: Inflation
+      category: inflation
+      rows:
+        - {key: cpi, label: "CPI YoY"}
+        - {key: ppi, label: "PPI YoY"}
+        - {key: pce, label: "PCE YoY"}
+        - {key: yield_2y_sma, label: "2Y Yield (21-Tage-SMA)"}
+    - key: jobs
+      label: Jobs market
+      category: labor
+      rows:
+        - {key: payrolls, label: "Non-Farm Payroll"}
+        - {key: unemployment, label: "Unemployment Rate"}
+        - {key: jobless, label: "Weekly Jobless Claims"}
+        - {key: adp, label: "ADP Employment Change"}
+        - {key: jolts, label: "JOLTS Job Openings"}
+    - key: growth
+      label: Economic growth
+      category: growth
+      rows:
+        - {key: gdp_qoq, label: "GDP Growth QoQ"}
+        - {key: pmi_manufacturing, label: "Manufacturing PMI (Ersatz)", members: [philly_fed, empire_state], substitute: true}
+        - {key: pmi_services, label: "Services PMI (Ersatz)", members: [services_philly, services_empire, services_texas], substitute: true}
+        - {key: retail_sales_mom, label: "Retail Sales MoM"}
+        - {key: consumer_confidence, label: "Consumer Confidence"}
 
 # ---------------------------------------------------------------------------
 # Währungen: Zuordnung zu Volkswirtschaft und CFTC-Kontrakt (Legacy-Report)

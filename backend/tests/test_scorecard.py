@@ -120,8 +120,16 @@ def test_crowd_row_uses_retail_with_24h_change(client: TestClient) -> None:
 
 def test_macro_rows_have_previous_and_change(client: TestClient) -> None:
     body = client.get("/api/assets/EURUSD/scorecard").json()
-    keys = [k for k in _sections(body) if k.startswith("macro-")]
-    assert keys == ["macro-growth", "macro-inflation", "macro-labor", "macro-rates"]
+    keys = [k for k in _sections(body) if k.startswith(("core-", "macro-"))]
+    assert keys == [
+        "core-inflation",
+        "core-jobs",
+        "core-growth",
+        "macro-growth",
+        "macro-inflation",
+        "macro-labor",
+        "macro-rates",
+    ]
     rows = [r for k in keys for r in _sections(body)[k]["rows"]]
     for row in rows:
         assert row["side"] in ("EUR", "USD")
@@ -147,11 +155,11 @@ def test_index_shows_inflation_and_rates_as_info_only(client: TestClient) -> Non
     keys = [k for k in secs if "macro-" in k]
     assert keys == ["macro-growth", "macro-inflation", "macro-labor", "macro-rates"]
     assert secs["macro-growth"]["in_score"] is True
-    for key in ("macro-inflation", "macro-rates"):
+    for key in ("macro-inflation", "macro-rates", "core-inflation"):
         assert secs[key]["in_score"] is False
         assert secs[key]["signal"] is None and secs[key]["score"] is None
-    cpi = secs["macro-inflation"]["rows"][0]
-    assert cpi["label"] == "Inflation (CPI)" and cpi["value"] == pytest.approx(3.6, abs=0.1)
+    cpi = secs["core-inflation"]["rows"][0]
+    assert cpi["label"] == "CPI YoY" and cpi["value"] == pytest.approx(3.6, abs=0.1)
     assert cpi["signal"] is None and cpi["score"] is None  # keine Währungs-Lesart bei Indizes
 
 

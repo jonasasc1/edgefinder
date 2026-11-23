@@ -51,10 +51,11 @@ class IndicatorData:
     key: str
     label: str
     category: str
-    transform: str  # level | yoy | diff
+    transform: str  # level | yoy | diff (Score) | mom | sma (nur Anzeige)
     higher_is: str  # bullish | bearish
     series: list[tuple[str, float]] = field(default_factory=list)  # (Datum, Wert), aufsteigend
-    info_only: bool = False  # nur Anzeige, nie im Score
+    info_only: bool = False  # nur Anzeige, nie im Score (auch display_only-Reihen)
+    window: int | None = None  # Fenster für transform sma
 
 
 @dataclass
@@ -92,12 +93,28 @@ def _value_at_or_before(
 
 
 def transformed(ind: IndicatorData) -> list[tuple[str, float]]:
-    """Wendet `transform` an (level = unverändert, yoy = Vorjahresveränderung in %, diff)."""
+    """Wendet `transform` an: level, yoy (Vorjahresveränderung in %), diff (Änderung zum Vorwert),
+    mom (Änderung zum Vorwert in %) und sma (gleitender Mittelwert über `window` Beobachtungen)."""
     series = ind.series
     if ind.transform == "level":
         return list(series)
     if ind.transform == "diff":
         return [(series[i][0], series[i][1] - series[i - 1][1]) for i in range(1, len(series))]
+    if ind.transform == "mom":
+        return [
+            (series[i][0], (series[i][1] / series[i - 1][1] - 1) * 100)
+            for i in range(1, len(series))
+            if series[i - 1][1] > 0
+        ]
+    if ind.transform == "sma":
+        window = ind.window or 0
+        if window < 2:
+            return []
+        values_sma = [v for _, v in series]
+        return [
+            (series[i][0], sum(values_sma[i - window + 1 : i + 1]) / window)
+            for i in range(window - 1, len(series))
+        ]
     dates = [d for d, _ in series]
     values = [v for _, v in series]
     out: list[tuple[str, float]] = []
@@ -106,6 +123,16 @@ def transformed(ind: IndicatorData) -> list[tuple[str, float]]:
         if ref is not None and ref[1] > 0 and ref[0] != d:
             out.append((d, (v / ref[1] - 1) * 100))
     return out
+
+
+def expectation_of(values: list[tuple[str, float]], window: int) -> float | None:
+    """Modell-Erwartung für den letzten Wert: Mittel der bis dahin veröffentlichten `window` Werte
+    davor (der aktuelle Wert selbst und alles Spätere zählt nie mit, also kein Look-ahead).
+    Gibt es weniger als `window` Vorwerte, gibt es keine Erwartung (None)."""
+    prior = [v for _, v in values[:-1]]
+    if window < 1 or len(prior) < window:
+        return None
+    return sum(prior[-window:]) / window
 
 
 def _fresh(series: list[tuple[str, float]], as_of: date, max_age_days: int) -> bool:

@@ -195,6 +195,14 @@ class ScorecardTileOut(BaseModel):
     factors: list[str]  # Faktoren mit Daten, die in die Gruppe eingehen
 
 
+class ScorecardMemberOut(BaseModel):
+    """Einzelwert einer Misch-Zeile (Ersatz-PMI aus Regional-Fed-Umfragen), für den Tooltip."""
+
+    label: str
+    value: float
+    date: str
+
+
 class ScorecardRowOut(BaseModel):
     """Eine Tabellenzeile; nicht belegte Felder sind None (die Oberfläche zeigt „–“)."""
 
@@ -221,6 +229,11 @@ class ScorecardRowOut(BaseModel):
     next_date: str | None = None  # nächster sicher bekannter Termin
     soon: bool = False  # nächster Termin liegt in den nächsten Tagen (Stern)
     info_only: bool = False  # Indikator nur zur Information, ohne Pille und nicht im Score
+    expectation: float | None = None  # Modell-Erwartung (gleitender Durchschnitt, KEIN Konsens)
+    surprise: float | None = None  # Actual − Modell-Erwartung, Einheit wie `unit`/`change_unit`
+    display_only: bool = False  # nur Anzeige: Pille ist Lesart, geht nicht in den Score ein
+    substitute: bool = False  # Ersatz (z. B. Regional-Fed-Umfragen statt ISM-PMI)
+    members: list[ScorecardMemberOut] | None = None  # Einzelwerte einer Misch-Zeile
     counter_trend: bool = False  # Trend-Signal erwartet eine Bewegung gegen den Kurstrend (Umkehr)
 
 
@@ -228,9 +241,13 @@ class ScorecardSectionOut(BaseModel):
     key: str
     group: Literal["technical", "sentiment", "institutional", "macro"]
     label: str
-    kind: Literal["indicator", "crowd", "positioning", "earnings"]
+    kind: Literal["indicator", "core", "crowd", "positioning", "earnings"]
     signal: Signal | None
     score: float | None  # −1…+1
+    rating: str | None = (
+        None  # Gruppenlabel aus dem Gruppenscore (scoring.labels), nur bei Makro-Kern
+    )
+    collapsed: bool = False  # „Weitere Indikatoren“: standardmäßig zugeklappt
     rows: list[ScorecardRowOut]
     empty_reason: str | None = None  # warum keine Zeilen da sind
     in_score: bool = True  # False: nur zur Information, geht nicht in den Score ein

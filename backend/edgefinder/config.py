@@ -81,12 +81,23 @@ class SourceConfig(_Model):
     options: dict[str, Any] = Field(default_factory=dict)
 
 
+class Expectation(_Model):
+    """Modell-Erwartung (nur Anzeige, KEIN Analysten-Konsens): Mittel der letzten `window`
+    veröffentlichten (transformierten) Werte vor dem aktuellen Wert."""
+
+    method: Literal["mean_last"] = "mean_last"
+    window: int = Field(ge=1, le=60)
+
+
 class Indicator(_Model):
     label: str
     source: Literal["fred", "eurostat", "ecb", "ons", "statcan", "abs", "imf"]
     series: str
     category: Literal["growth", "inflation", "labor", "rates"]
-    transform: Literal["level", "yoy", "diff"]
+    # level = unverändert, yoy = Vorjahresveränderung in %, diff = Änderung zum Vorwert,
+    # mom = Veränderung zum Vorwert in % (Anzeige), sma = einfacher gleitender Durchschnitt über
+    # `window` Beobachtungen (Anzeige)
+    transform: Literal["level", "yoy", "diff", "mom", "sma"]
     higher_is: Literal["bullish", "bearish"]
     # Geschätzte Verzögerung (Tage ab Periodenbeginn) bis zur Veröffentlichung, nur für Serien
     # ohne Vintages; None = Schätzung nach Frequenz (scoring/data.py)
@@ -94,6 +105,49 @@ class Indicator(_Model):
     # Nur Info: wird angezeigt (Scorecard, Makro-Seite), geht aber weder in Teilscore noch in das
     # Kategorie-Mittel ein
     info_only: bool = False
+    # Nur Anzeige: erscheint in der Scorecard (mit Pille, Erwartung, Surprise), geht aber nie in
+    # Teilscore, Kategorie-Mittel, Backtest oder Eichung ein und fehlt auf der Makro-Seite
+    display_only: bool = False
+    # Fenster (Beobachtungen) für `transform: sma`
+    window: int | None = Field(default=None, ge=2, le=250)
+    expectation: Expectation | None = None
+
+    @model_validator(mode="after")
+    def _check_transform(self) -> Indicator:
+        if self.transform == "sma" and self.window is None:
+            raise ValueError("transform 'sma' braucht `window`")
+        if self.transform != "sma" and self.window is not None:
+            raise ValueError("`window` ist nur bei transform 'sma' erlaubt")
+        if self.transform in ("mom", "sma") and not self.display_only:
+            raise ValueError(
+                f"transform '{self.transform}' ist nur für display_only-Indikatoren erlaubt "
+                "(der Score kennt nur level, yoy, diff)"
+            )
+        if self.display_only and self.info_only:
+            raise ValueError("display_only und info_only schließen sich aus")
+        return self
+
+
+class CoreRow(_Model):
+    """Eine Kernzeile der Scorecard: ein Indikator-Schlüssel oder ein Mittel aus `members`."""
+
+    key: str
+    label: str
+    members: list[str] = Field(default_factory=list)  # Mittelwert aus diesen Indikator-Schlüsseln
+    substitute: bool = False  # Ersatz (kein ISM): Hinweis in der Oberfläche
+
+
+class CoreGroup(_Model):
+    key: Literal["inflation", "jobs", "growth"]
+    label: str
+    category: Literal[
+        "growth", "inflation", "labor"
+    ]  # Kategorie, deren Score das Gruppenlabel gibt
+    rows: list[CoreRow]
+
+
+class ScorecardConfig(_Model):
+    core: list[CoreGroup] = Field(default_factory=list)
 
 
 class Economy(_Model):
@@ -412,6 +466,7 @@ class Config(_Model):
     backtest: BacktestConfig = Field(default_factory=BacktestConfig)
     maintenance: MaintenanceConfig = Field(default_factory=MaintenanceConfig)
     live: LiveConfig = Field(default_factory=LiveConfig)
+    scorecard: ScorecardConfig = Field(default_factory=ScorecardConfig)
 
     @model_validator(mode="after")
     def _check_references(self) -> Config:
@@ -439,6 +494,7 @@ class Config(_Model):
                 errors.append(f"Index {index.id}: unbekannte Volkswirtschaft '{index.economy}'")
 
         errors.extend(self._check_edgar_predecessors())
+        errors.extend(self._check_scorecard_core())
 
         if not self.profiles:
             errors.append("Mindestens ein Profil ist erforderlich")
@@ -446,6 +502,22 @@ class Config(_Model):
         if errors:
             raise ValueError("; ".join(errors))
         return self
+
+    def _check_scorecard_core(self) -> list[str]:
+        """`scorecard.core`: jeder Schlüssel/jedes Mitglied muss in einer Volkswirtschaft stehen."""
+        known = {key for eco in self.economies.values() for key in eco.indicators}
+        errors: list[str] = []
+        seen: set[str] = set()
+        for group in self.scorecard.core:
+            for row in group.rows:
+                if row.key in seen:
+                    errors.append(f"scorecard.core: Zeile '{row.key}' ist doppelt")
+                seen.add(row.key)
+                refs = row.members or [row.key]
+                for ref in refs:
+                    if ref not in known:
+                        errors.append(f"scorecard.core {row.key}: unbekannter Indikator '{ref}'")
+        return errors
 
     def _check_edgar_predecessors(self) -> list[str]:
         """`sources.edgar.options.predecessor_ciks`: {TICKER: [CIK, …]}, Ticker aus den Aktien."""

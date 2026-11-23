@@ -71,6 +71,14 @@ def make_config(config_data: dict[str, Any], tmp_path: Path) -> Callable[..., Co
         options["predecessor_ciks"] = {
             t: c for t, c in options.get("predecessor_ciks", {}).items() if t in present
         }
+        # verkleinerte Volkswirtschaften: Kernzeilen nur für vorhandene Indikatoren behalten
+        known = {k for eco in data["economies"].values() for k in eco["indicators"]}
+        for group in data.get("scorecard", {}).get("core", []):
+            group["rows"] = [
+                r
+                for r in group["rows"]
+                if all(k in known for k in (r.get("members") or [r["key"]]))
+            ]
         data["storage"] = {"database": str(tmp_path / "t.db"), "raw_dir": str(tmp_path / "raw")}
         return Config.model_validate(data)
 

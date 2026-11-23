@@ -18,6 +18,7 @@ from edgefinder.config import (
     Asset,
     AssetClass,
     Config,
+    CoreRow,
     ForexAsset,
     IndexAsset,
     StockAsset,
@@ -55,6 +56,9 @@ UNIT_BY_KEY = {  # sonst Prozent
     "philly_fed": "index",
     "empire_state": "index",
     "industry_confidence": "index",
+    "services_philly": "index",
+    "services_empire": "index",
+    "services_texas": "index",
 }
 
 
@@ -123,8 +127,11 @@ def _section(
     score: float | None = None,
     empty_reason: str | None = None,
     in_score: bool = True,
+    rating: str | None = None,
+    collapsed: bool = False,
+    fallback: bool = True,
 ) -> s.ScorecardSectionOut:
-    if score is None:
+    if score is None and fallback:
         scores = [r.score for r in rows if r.score is not None]
         score = sum(scores) / len(scores) if scores else None
     return s.ScorecardSectionOut(
@@ -137,7 +144,14 @@ def _section(
         rows=rows,
         empty_reason=None if rows else empty_reason,
         in_score=in_score,
+        rating=rating,
+        collapsed=collapsed,
     )
+
+
+def _in_engine(row: s.ScorecardRowOut) -> bool:
+    """Zeile geht mit ihrer Pille in den Score ein (nicht display_only/info_only, mit Wert)."""
+    return row.score is not None and not row.display_only and not row.info_only
 
 
 def _reason(components: dict[str, Component], *factors: str) -> str | None:
@@ -166,6 +180,7 @@ class Builder:
         self.threshold = config.scoring.signal_threshold
         self.store = DataStore(conn, config)
         self.params = config.profiles[profile].params
+        self._calendar: dict[str, str] | None = None
 
     def sig(self, score: float | None) -> s.Signal | None:
         return signal_of(score, self.threshold)
@@ -466,45 +481,263 @@ class Builder:
         ]
 
     # --- Makro -------------------------------------------------------------------------------
-    def _economy_rows(self, code: str, side: str | None, categories: tuple[str, ...]):
+    def _score_categories(self) -> set[str] | None:
+        """Kategorien, die beim Asset in den Score eingehen (None = alle, Forex).
+
+        Zeilen außerhalb tragen keine Pille: `higher_is` meint die Währungs-Lesart und wäre
+        für Indizes bzw. Rohstoffe irreführend (Engine: `scoring/factors/macro.py`)."""
+        asset = self.asset
+        if isinstance(asset, ForexAsset):
+            return None
+        if isinstance(asset, IndexAsset):
+            return set(INDEX_SCORE_CATEGORIES)
+        driver = getattr(asset, "macro_driver", None)
+        if driver == "safe_haven":
+            return {"inflation", "rates"}
+        if driver == "cyclical":
+            return set(INDEX_SCORE_CATEGORIES)
+        return set()
+
+    def _next_release(self, series_ids: list[str]) -> str | None:
+        """Frühester künftiger Veröffentlichungstermin (heute eingeschlossen) der Serien."""
+        if self._calendar is None:
+            rows = self.conn.execute(
+                "SELECT series_id, MIN(release_date) FROM macro_release_calendar"
+                " WHERE release_date >= ? GROUP BY series_id",
+                (self.as_of.isoformat(),),
+            ).fetchall()
+            self._calendar = {r[0]: r[1] for r in rows}
+        found = [self._calendar[x] for x in series_ids if x in self._calendar]
+        return min(found) if found else None
+
+    def _soon(self, next_date: str | None) -> bool:
+        return (
+            next_date is not None and (date.fromisoformat(next_date) - self.as_of).days <= SOON_DAYS
+        )
+
+    def _indicator_row(
+        self, code: str, side: str | None, key: str, label: str | None = None
+    ) -> s.ScorecardRowOut | None:
+        """Eine Makro-Zeile; None, wenn die Volkswirtschaft den Indikator nicht (aktuell) hat."""
         params = self.params.get("macro", {})
+        ind = self.config.economies[code].indicators.get(key)
         data = self.store.economy(code, self.as_of)
+        series = data.indicators.get(key)
+        if ind is None or series is None:
+            return None
+        values = macro_factor.transformed(series)
+        if not values:
+            return None
+        categories = self._score_categories()
+        strip = categories is not None and ind.category not in categories
+        scored = None
+        if not ind.info_only and not strip:
+            rated = series
+            if (
+                getattr(self.asset, "macro_driver", None) == "safe_haven"
+                and ind.category == "rates"
+            ):
+                # Edelmetalle: steigende Zinsen/Renditen/Dollar belasten (wie in der Engine)
+                rated = macro_factor.IndicatorData(
+                    series.key,
+                    series.label,
+                    series.category,
+                    series.transform,
+                    "bearish",
+                    series.series,
+                    window=series.window,
+                )
+            scored = macro_factor.indicator_score(rated, self.as_of, params)
+        unit = UNIT_BY_KEY.get(key, "%")
+        value = values[-1][1]
+        text = None
+        if ind.transform == "sma":
+            back = ind.window or 0
+            previous = values[-1 - back][1] if len(values) > back else None
+            if previous is not None:
+                move = (
+                    "steigt"
+                    if value > previous + 1e-9
+                    else "fällt"
+                    if value < previous - 1e-9
+                    else "unverändert"
+                )
+                text = (
+                    f"Rendite {move} (Mittel über {back} Handelstage, "
+                    f"Vorwert = {back} Handelstage zuvor)"
+                )
+        else:
+            previous = values[-2][1] if len(values) > 1 else None
+        expectation = None
+        if ind.expectation is not None:
+            expectation = macro_factor.expectation_of(values, ind.expectation.window)
+        next_date = (
+            self._next_release([ind.series])
+            if ind.source == "fred" and ind.category != "rates"
+            else None
+        )
+        return s.ScorecardRowOut(
+            key=f"{code}-{key}",
+            label=label or ind.label,
+            side=side,
+            unit=unit,
+            change_unit="pp" if unit == "%" else None,
+            value=round(value, 4),
+            previous=None if previous is None else round(previous, 4),
+            change=None if previous is None else round(value - previous, 4),
+            date=values[-1][0],
+            signal=self.sig(scored[0]) if scored else None,
+            score=round(scored[0], 3) if scored else None,
+            info_only=ind.info_only,
+            display_only=ind.display_only,
+            text=text,
+            expectation=None if expectation is None else round(expectation, 4),
+            surprise=None if expectation is None else round(value - expectation, 4),
+            next_date=next_date,
+            soon=self._soon(next_date),
+        )
+
+    def _mixed_row(self, code: str, side: str | None, spec: CoreRow) -> s.ScorecardRowOut | None:
+        """Misch-Zeile (Ersatz-PMI): Mittel der vorhandenen Mitglieder, Einzelwerte im Tooltip."""
+        parts: list[tuple[str, s.ScorecardRowOut]] = []
+        for member in spec.members:
+            row = self._indicator_row(code, side, member)
+            if row is not None and row.value is not None and row.date is not None:
+                parts.append((member, row))
+        if not parts:
+            return None
+        rows = [r for _, r in parts]
+
+        def mean(values: list[float | None]) -> float | None:
+            return None if None in values else sum(values) / len(values)  # type: ignore[arg-type]
+
+        value = sum(r.value for r in rows) / len(rows)  # type: ignore[misc]
+        previous = mean([r.previous for r in rows])
+        expectation = mean([r.expectation for r in rows])
+        score = (
+            mean([r.score for r in rows if r.signal is not None])
+            if any(r.signal for r in rows)
+            else None
+        )
+        series_ids = [
+            self.config.economies[code].indicators[m].series
+            for m, _ in parts
+            if self.config.economies[code].indicators[m].source == "fred"
+            and self.config.economies[code].indicators[m].category != "rates"
+        ]
+        next_date = self._next_release(series_ids)
+        return s.ScorecardRowOut(
+            key=f"{code}-{spec.key}",
+            label=spec.label,
+            side=side,
+            unit="index",
+            value=round(value, 4),
+            previous=None if previous is None else round(previous, 4),
+            change=None if previous is None else round(value - previous, 4),
+            date=max(r.date for r in rows if r.date),
+            signal=self.sig(score),
+            score=None if score is None else round(score, 3),
+            display_only=True,
+            substitute=spec.substitute,
+            expectation=None if expectation is None else round(expectation, 4),
+            surprise=None if expectation is None else round(value - expectation, 4),
+            members=[
+                s.ScorecardMemberOut(label=r.label, value=r.value, date=r.date)  # type: ignore[arg-type]
+                for r in rows
+            ],
+            next_date=next_date,
+            soon=self._soon(next_date),
+        )
+
+    def _economy_rows(
+        self, code: str, side: str | None, categories: tuple[str, ...], skip: set[str]
+    ):
         out: dict[str, list[s.ScorecardRowOut]] = {}
         for key, ind in self.config.economies[code].indicators.items():
-            if ind.category not in categories:
+            if ind.category not in categories or key in skip:
                 continue
-            series = data.indicators.get(key)
-            values = macro_factor.transformed(series) if series else []
-            if not values:
-                continue
-            scored = (
-                macro_factor.indicator_score(series, self.as_of, params)
-                if series and not ind.info_only
+            row = self._indicator_row(code, side, key)
+            if row is not None:
+                out.setdefault(ind.category, []).append(row)
+        return out
+
+    def _category_score(
+        self,
+        category: str,
+        per_side: list[tuple[str | None, dict[str, list[s.ScorecardRowOut]]]],
+        macro_inputs: dict[str, Any],
+    ) -> float | None:
+        if isinstance(self.asset, ForexAsset):  # Basis − Quote, wie in der Engine
+            mean = [
+                (sum(r.score for r in scored) / len(scored))
+                if (scored := [r for r in by.get(category, []) if _in_engine(r)])
                 else None
-            )
-            unit = UNIT_BY_KEY.get(key, "%")
-            previous = values[-2][1] if len(values) > 1 else None
-            out.setdefault(ind.category, []).append(
-                s.ScorecardRowOut(
-                    key=f"{code}-{key}",
-                    label=ind.label,
-                    side=side,
-                    unit=unit,
-                    change_unit="pp" if unit == "%" else None,
-                    value=round(values[-1][1], 4),
-                    previous=None if previous is None else round(previous, 4),
-                    change=None if previous is None else round(values[-1][1] - previous, 4),
-                    date=values[-1][0],
-                    signal=self.sig(scored[0]) if scored else None,
-                    score=round(scored[0], 3) if scored else None,
-                    info_only=ind.info_only,
+                for _, by in per_side
+            ]
+            if None not in mean:
+                return max(-1.0, min(1.0, mean[0] - mean[1]))  # type: ignore[operator]
+            return None
+        if isinstance(macro_inputs.get(category), dict):
+            return macro_inputs[category].get("score")
+        return None
+
+    def _in_score(self, category: str, macro_inputs: dict[str, Any]) -> bool:
+        categories = self._score_categories()
+        if categories is not None and category not in categories:
+            return False
+        return (
+            isinstance(self.asset, ForexAsset)
+            or category in macro_inputs
+            or (category == "rates" and "dollar" in macro_inputs)
+        )
+
+    def _core_sections(
+        self,
+        sides: list[tuple[str, str | None]],
+        macro_inputs: dict[str, Any],
+        per_side: list[tuple[str | None, dict[str, list[s.ScorecardRowOut]]]],
+    ) -> list[s.ScorecardSectionOut]:
+        """Die Kerngruppen (Inflation, Jobs market, Economic growth) nach `scorecard.core`."""
+        sections: list[s.ScorecardSectionOut] = []
+        for group in self.config.scorecard.core:
+            rows: list[s.ScorecardRowOut] = []
+            for spec in group.rows:
+                for code, side in sides:
+                    row = (
+                        self._mixed_row(code, side, spec)
+                        if spec.members
+                        else self._indicator_row(code, side, spec.key, spec.label)
+                    )
+                    if row is not None:
+                        rows.append(row)
+            score = self._category_score(group.category, per_side, macro_inputs)
+            in_score = self._in_score(group.category, macro_inputs)
+            if not in_score:
+                score = None
+                rows = [r.model_copy(update={"signal": None, "score": None}) for r in rows]
+            sections.append(
+                _section(
+                    f"core-{group.key}",
+                    "macro",
+                    group.label,
+                    "core",
+                    rows,
+                    self.threshold,
+                    score=score,
+                    empty_reason="Keine Daten für diese Volkswirtschaft.",
+                    in_score=in_score,
+                    fallback=False,
+                    rating=(
+                        self.config.scoring.label_for(score * 10)
+                        if in_score and score is not None
+                        else None
+                    ),
                 )
             )
-        return out
+        return sections
 
     def macro(self) -> list[s.ScorecardSectionOut]:
         asset = self.asset
-        sections: list[s.ScorecardSectionOut] = []
         if isinstance(asset, StockAsset):
             return self.fundamentals() + self.earnings()
         if isinstance(asset, ForexAsset):
@@ -512,34 +745,33 @@ class Builder:
                 (self.config.currencies[asset.base].economy, asset.base),
                 (self.config.currencies[asset.quote].economy, asset.quote),
             ]
-            categories = CATEGORY_ORDER
         elif isinstance(asset, IndexAsset):
-            sides, categories = [(asset.economy, None)], CATEGORY_ORDER
+            sides = [(asset.economy, None)]
         else:
-            sides, categories = [("US", None)], CATEGORY_ORDER
-        per_side = [(side, self._economy_rows(code, side, categories)) for code, side in sides]
+            sides = [("US", None)]
+        categories = CATEGORY_ORDER
+        core_keys = {
+            k for g in self.config.scorecard.core for r in g.rows for k in (r.members or [r.key])
+        }
         macro_inputs = self.c["macro"].inputs if "macro" in self.c else {}
+        # Kategorie-Score je Seite aus allen Zeilen (auch Kernzeilen), damit der Gruppenscore
+        # unverändert aus der Engine kommt; die Kernzeilen selbst entstehen in _core_sections.
+        per_side_all = [
+            (side, self._economy_rows(code, side, categories, set())) for code, side in sides
+        ]
+        sections = self._core_sections(sides, macro_inputs, per_side_all)
+        per_side = [
+            (side, self._economy_rows(code, side, categories, core_keys)) for code, side in sides
+        ]
         for category in categories:
             rows = [r for _, by_cat in per_side for r in by_cat.get(category, [])]
-            info_only_index = (
-                isinstance(asset, IndexAsset) and category not in INDEX_SCORE_CATEGORIES
-            )
-            if info_only_index:
-                # Die Richtung (`higher_is`) gilt für Währungen; für Aktienindizes wäre eine Pille
-                # irreführend. Nur Wert, Vorwert und Änderung zeigen.
+            in_score = self._in_score(category, macro_inputs)
+            score = self._category_score(category, per_side_all, macro_inputs)
+            if not in_score:
+                # Die Richtung (`higher_is`) gilt für Währungen; für Indizes/Rohstoffe außerhalb
+                # des Scores wäre eine Pille irreführend. Nur Wert, Vorwert und Änderung zeigen.
                 rows = [r.model_copy(update={"signal": None, "score": None}) for r in rows]
-            score = None
-            if isinstance(asset, ForexAsset):  # Basis − Quote, wie in der Engine
-                mean = [
-                    (sum(r.score for r in by.get(category, []) if r.score is not None) / n)
-                    if (n := len([r for r in by.get(category, []) if r.score is not None]))
-                    else None
-                    for _, by in per_side
-                ]
-                if None not in mean:
-                    score = max(-1.0, min(1.0, mean[0] - mean[1]))  # type: ignore[operator]
-            elif isinstance(macro_inputs.get(category), dict):
-                score = macro_inputs[category].get("score")
+                score = None
             sections.append(
                 _section(
                     f"macro-{category}",
@@ -549,13 +781,9 @@ class Builder:
                     rows,
                     self.threshold,
                     score=score,
-                    empty_reason="Keine aktuellen Daten für diese Kategorie.",
-                    in_score=not info_only_index
-                    and (
-                        isinstance(asset, ForexAsset)
-                        or category in macro_inputs
-                        or (category == "rates" and "dollar" in macro_inputs)
-                    ),
+                    empty_reason="Keine weiteren Indikatoren in dieser Kategorie.",
+                    in_score=in_score,
+                    collapsed=True,
                 )
             )
         return sections

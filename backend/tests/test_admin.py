@@ -369,7 +369,7 @@ def test_migration_0005_on_fresh_and_existing_database(tmp_path: Path) -> None:
         "INSERT INTO users (email, display_name, created_at, last_seen_at) VALUES ('a@b.de','a','x','x')"
     )
     applied = migrate(old)
-    assert [m.version for m in applied] == [5]
+    assert [m.version for m in applied] == [5, 6]
     assert old.execute("SELECT is_admin FROM users").fetchone()[0] == 0
     with pytest.raises(sqlite3.IntegrityError):
         old.execute("UPDATE users SET is_admin = 2")

@@ -160,7 +160,8 @@ class DataStore:
                     ind.transform,
                     ind.higher_is,
                     series,
-                    ind.info_only,
+                    ind.info_only or ind.display_only,
+                    ind.window,
                 )
         return data
 
