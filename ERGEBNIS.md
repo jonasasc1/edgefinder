@@ -158,3 +158,26 @@ SQL parametrisiert; der f-String mit `JOB_COLUMNS` setzt eine Modulkonstante ein
 Queue-Limit vorhanden. Unit `edgefinder-adminjobs.service`: User edgefinder, gleiche Härtung wie die übrigen Jobs, flock-Jobsperre. CSRF über `api/guard.py` (Origin, Sec-Fetch-Site,
 nur JSON, 256 B). Hinweis (kein Fund): Im Header-Modus ist die Admin-Identität nur so vertrauenswürdig wie die Firewall (8420 nur von cloudflared); der JWT-Modus schließt das
 und wird für die Admin-Funktion empfohlen. Auswirkung bei Ausnutzung wäre begrenzt (nur die vier Allowlist-Aufträge und Lesezugriff auf Berichte/Konten, keine Codeausführung).
+
+## Pflicht-Checks vor Deploy Nr. 9 (2026-11-23, Änderungen seit eda2224: Claude-Prüfagent Phase 1 [nicht installiert, `enabled: false`], EDGAR-Vorgänger-CIKs/XOM, Sicherheitsfix)
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Lint/Tests | ruff, pytest, `gen-systemd --check`, `bash -n` + `py_compile` aller Deploy-Skripte, `npm run lint`/`build`/`test` (59) | grün |
+| Semgrep | `semgrep scan --config p/default --config p/secrets --metrics=off --severity ERROR .` | 0 Funde |
+| Gitleaks | `gitleaks git --redact .` | 0 Funde |
+| pip-audit | keine neuen Python-Abhängigkeiten (uv.lock unverändert) | 0 Funde |
+| npm audit | Frontend `--omit=dev`; Claude-Code-Lockfile `deploy/claude-review/npm` | je 0 Funde |
+| /security-review | gegen eda2224 (49 Dateien) | **1 Fund (Medium), behoben und nachgeprüft** |
+
+**Fund (Medium, behoben in b5a662e, ergänzt in 4e3f5e5):** `deploy/claude-review/bin/prepare.py` (läuft als root, `ExecStartPre=+`) arbeitete in `runs/<id>/`, einem dem Web-Benutzer
+`edgefinder` gehörenden Verzeichnis, mit pfadbasierten `os.chown`/`os.chmod` nach dem Schreiben. Ein kompromittierter edgefinder-Prozess hätte die Datei im Zeitfenster durch einen Symlink ersetzen
+können (TOCTOU) und root ein beliebiges Ziel (z. B. /etc/sudoers) übereignen lassen: Rechteausweitung edgefinder → root. **Behebung:** `runs/` gehört root; der Webprozess baut das Paket in `staging/<id>/`
+(edgefinder-eigen); `prepare.py` legt `runs/<id>` als root an und kopiert per `dir_fd` mit `O_NOFOLLOW` (nur reguläre Dateien/Verzeichnisse, Namens-, Größen-, Tiefen- und Anzahl-Limits),
+`fchown`/`fchmod` ausschließlich am Deskriptor, Besitzer-/Typprüfung per `fstat`; `input/` gehört danach root:claude-review und ist für edgefinder nicht mehr erreichbar; `BASE` gehört root
+(Agenten-Home in `.home`). Quelltext-Test verbietet pfadbasierte `chown`/`chmod` in `prepare.py`. Nachprüfung: kein pfadbasiertes chown/chmod mehr, 28 fd-basierte Operationen.
+Der Claude-Prüfagent ist weder installiert noch aktiviert; der Fund war vor Installation behoben.
+
+Weitere Durchsicht ohne Fund: `claude_review.py`/`claude_scrub.py` (Lauf-ID nur validierte Zahl, `O_NOFOLLOW`, feste Pfade, Größenlimits), `run.sh`/`finish.py` (keine Shell-Eingaben),
+Hook `audit.py` (deny-by-default), `tinyproxy.conf`/`claude-allow.filter` (CONNECT nur :443, Allowlist, auf Hostnamen verankert), Service-Härtung, Markdown-Renderer
+(nur Text-Knoten, kein HTML), EDGAR-Vorgänger-CIK (Konfigurationsvalidierung: positive ints, Ticker in der Watchlist; URL-Bau mit `:010d`-formatierter Zahl).
