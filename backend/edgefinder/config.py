@@ -437,12 +437,36 @@ class Config(_Model):
             if index.economy not in self.economies:
                 errors.append(f"Index {index.id}: unbekannte Volkswirtschaft '{index.economy}'")
 
+        errors.extend(self._check_edgar_predecessors())
+
         if not self.profiles:
             errors.append("Mindestens ein Profil ist erforderlich")
 
         if errors:
             raise ValueError("; ".join(errors))
         return self
+
+    def _check_edgar_predecessors(self) -> list[str]:
+        """`sources.edgar.options.predecessor_ciks`: {TICKER: [CIK, …]}, Ticker aus den Aktien."""
+        edgar = self.sources.get("edgar")
+        raw = edgar.options.get("predecessor_ciks") if edgar else None
+        if raw is None:
+            return []
+        prefix = "sources.edgar.options.predecessor_ciks"
+        if not isinstance(raw, dict):
+            return [f"{prefix}: Mapping TICKER: [CIK, …] erwartet"]
+        tickers = {stock.ticker for stock in self.assets.stocks}
+        errors = []
+        for ticker, ciks in raw.items():
+            if ticker not in tickers:
+                errors.append(f"{prefix}: Ticker '{ticker}' steht nicht in der Aktien-Watchlist")
+            valid = isinstance(ciks, list) and bool(ciks)
+            valid = valid and all(isinstance(c, int) and not isinstance(c, bool) for c in ciks)
+            if not valid or any(c <= 0 for c in ciks):
+                errors.append(f"{prefix}.{ticker}: nichtleere Liste positiver ganzer CIKs erwartet")
+            elif len(set(ciks)) != len(ciks):
+                errors.append(f"{prefix}.{ticker}: doppelte CIK")
+        return errors
 
     @cached_property
     def assets_by_id(self) -> dict[str, Asset]:

@@ -1,0 +1,21 @@
+{
+ "_hinweis": "Synthetisch nach dem dokumentierten Antwortformat (kein Live-Abruf), Vorgänger/Holding-Fall",
+ "cik": "0002115436",
+ "name": "ExxonMobil Holdings Corp",
+ "filings": {
+  "recent": {
+   "accessionNumber": [
+    "0002115436-26-000001"
+   ],
+   "filingDate": [
+    "2026-10-02"
+   ],
+   "form": [
+    "4"
+   ],
+   "primaryDocument": [
+    "xslF345X05/form4_c.xml"
+   ]
+  }
+ }
+}

@@ -7,6 +7,12 @@
 - Form 4: aus `submissions` die Einreichungen der letzten `insider_lookback_days` Tage, je neue
   Einreichung das XML laden und nur offene Marktkäufe/-verkäufe (Code P/S, nicht abgeleitet)
   speichern. Jede ausgewertete Einreichung steht in `sec_filings_seen`.
+- Vorgänger-CIKs (`options.predecessor_ciks`, z. B. XOM nach Holding-Umbau): companyfacts und
+  Form 4 der alten CIK laufen zusätzlich unter demselben Ticker, je Vorgänger eigene Einheit und
+  eigene Refresh-Frist. Duplikate: `fundamentals` hat den Schlüssel (Ticker, Konzept, Einheit,
+  Periode, Einreichungsdatum) – gleiche Einreichung wird überschrieben, bei verschiedenen
+  Einreichungsdaten derselben Periode zählt im Faktor die jüngste (`ttm_series`); Form 4 ist über
+  die Accession-Nummer (`sec_filings_seen`) eindeutig.
 """
 
 from __future__ import annotations
@@ -165,7 +171,17 @@ class EdgarFetcher(Fetcher):
             with self.unit(f"{stock.ticker} Form 4"):
                 if cik is not None:
                     total += self._insider(stock.ticker, cik)
+            for old in self._predecessors(stock.ticker, cik):
+                with self.unit(f"{stock.ticker} Fundamentaldaten (Vorgänger-CIK {old})"):
+                    total += self._fundamentals(stock.ticker, old, predecessor=True)
+                with self.unit(f"{stock.ticker} Form 4 (Vorgänger-CIK {old})"):
+                    total += self._insider(stock.ticker, old, predecessor=True)
         return total
+
+    def _predecessors(self, ticker: str, current: int | None) -> list[int]:
+        """Vorgänger-CIKs aus der Config (ohne die aktuelle CIK, ohne Doppelte)."""
+        configured = (self.options.get("predecessor_ciks") or {}).get(ticker) or []
+        return [c for c in dict.fromkeys(int(c) for c in configured) if c != current]
 
     # ------------------------------------------------------------ CIK
     def _cik(self, ticker: str) -> int | None:
@@ -198,15 +214,16 @@ class EdgarFetcher(Fetcher):
         self.set_state(TICKERS_STATE, now)
 
     # ------------------------------------------------------------ Fundamentaldaten
-    def _fundamentals(self, ticker: str, cik: int) -> int:
-        key = f"facts:{ticker}"
+    def _fundamentals(self, ticker: str, cik: int, predecessor: bool = False) -> int:
+        suffix = f"_{cik}" if predecessor else ""
+        key = f"facts:{ticker}" + (f":{cik}" if predecessor else "")
         refresh = timedelta(days=float(self.options.get("fundamentals_refresh_days", 3)))
         state = self.get_state(key)
         if state and self.clock() - datetime.fromisoformat(state[1]) < refresh:
             return 0
         response = self._get(f"{self.options['base_url']}/api/xbrl/companyfacts/CIK{cik:010d}.json")
         data = response.json()
-        self.save_raw(f"companyfacts_{ticker}", gzip.compress(response.content), ".json.gz")
+        self.save_raw(f"companyfacts_{ticker}{suffix}", gzip.compress(response.content), ".json.gz")
         since = self.history_start(int(self.options.get("fundamentals_history_years", 10)))
         rows = parse_facts(
             data,
@@ -228,11 +245,12 @@ class EdgarFetcher(Fetcher):
         return len(rows)
 
     # ------------------------------------------------------------ Insider (Form 4)
-    def _insider(self, ticker: str, cik: int) -> int:
+    def _insider(self, ticker: str, cik: int, predecessor: bool = False) -> int:
         lookback = int(self.options.get("insider_lookback_days", 365))
         since = (self.clock() - timedelta(days=lookback)).strftime("%Y-%m-%d")
         response = self._get(f"{self.options['base_url']}/submissions/CIK{cik:010d}.json")
-        self.save_raw(f"submissions_{ticker}", gzip.compress(response.content), ".json.gz")
+        suffix = f"_{cik}" if predecessor else ""
+        self.save_raw(f"submissions_{ticker}{suffix}", gzip.compress(response.content), ".json.gz")
         stored = 0
         for accession, filed, document in recent_form4(response.json(), since):
             if self.conn.execute(

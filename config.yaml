@@ -87,6 +87,10 @@ sources:
       cik_refresh_days: 7          # company_tickers.json neu laden
       fundamentals_refresh_days: 3 # companyfacts sind mehrere MB je Ticker
       fundamentals_history_years: 10   # nach Einreichungsdatum
+      # Vorgänger-CIKs je Ticker (Holding-Umbau/Fusion): zusätzlich companyfacts + Form 4 der alten
+      # CIK, gespeichert unter demselben Ticker. Ticker müssen in der Aktien-Watchlist stehen.
+      predecessor_ciks:
+        XOM: [34088]               # Exxon Mobil Corp (alt); company_tickers.json zeigt die Holding 2115436
       fundamentals_forms: ["10-K", "10-Q"]
       fundamentals_concepts:       # "Taxonomie:Konzept"; fehlende Konzepte je Firma sind normal
         - us-gaap:Revenues

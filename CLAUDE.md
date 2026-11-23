@@ -264,6 +264,17 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
   (rohes XML), nur Code P/S aus der nicht abgeleiteten Tabelle in `insider_trades`. `submissions`
   „recent“ reicht für ≥ 1 Jahr bzw. 1000 Einreichungen. Form 4/A (Korrekturen) werden nicht
   ausgewertet.
+  **Vorgänger-CIKs (2026-11-23, Holding-/Fusionsfall XOM):** `sources.edgar.options.predecessor_ciks` (`TICKER: [CIK, …]`,
+  aktuell `XOM: [34088]`; `company_tickers.json` liefert dort die neue Holding 2115436, Historie und Form 4 liegen bei Exxon Mobil Corp).
+  Validierung in `Config` (`check-config`): Ticker muss in der Aktien-Watchlist stehen, CIKs positive ints, nichtleer, ohne Doppelte.
+  Der Fetcher holt für jeden Vorgänger zusätzlich companyfacts und submissions/Form 4 und speichert unter **demselben Ticker**; je Vorgänger
+  eigene `unit(...)` (Fehler → `partial`), eigene Refresh-Frist (`source_state` `facts:<TICKER>:<CIK>`), Rohdaten `companyfacts_<T>_<CIK>`,
+  `submissions_<T>_<CIK>`. **Duplikate:** `fundamentals` hat den PK (Ticker, Konzept, Einheit, Periode, Einreichungsdatum): dieselbe Einreichung
+  bei alter und neuer CIK wird überschrieben (eine Zeile); reicht die Holding eine Periode später neu ein, bleiben beide Versionen und
+  `ttm_series` nimmt je Periode die jüngste (Look-ahead-Schutz nach `filed` unverändert, Faktorlogik nicht angefasst). Form 4: Accession ist
+  PK in `sec_filings_seen`/`insider_trades`, eine in beiden `submissions` gelistete Einreichung wird nur einmal geladen.
+  **Neuen Vorgänger ergänzen:** alte CIK aus `https://www.sec.gov/cgi-bin/browse-edgar?company=…` bzw. der alten `company_tickers`-Zeile ermitteln,
+  in `config.yaml` eintragen, `edgefinder check-config`, nach Deploy `edgefinder fetch edgar`, Abdeckung prüfen.
 - **FINRA:** `POST api.finra.org/data/group/otcMarket/name/consolidatedShortInterest`, ohne Account
   (live geprüft). Filter: `settlementDate` > Start und `domainFilters` auf `symbolCode`; Symbol =
   Ticker ohne `-`/`.` (BRK-B → BRKB). Erstladung 2 Jahre, danach die letzten 60 Tage (Revisionen).
@@ -665,6 +676,11 @@ Bestätigung abwarten.
   (Overfitting-Verdacht). Zahlen: Anhang in `docs/backtest-report.md`, Skript `backend/scripts/longterm_research.py`.
   **Langfrist-Scores für Indizes/Aktien haben derzeit keinen belegten Vorhersagewert** (Hinweis im UI seit Etappe m, konfigurierbar).
   Nicht getestet: anderes Makro-Änderungsfenster (Neuberechnung nötig).
+- **EDGAR Holding-/Fusionsfall (2026-11-23):** XOM hatte nach dem Holding-Umbau nur 50 Fundamentals-Zeilen und keine Form 4 (Abdeckung 55 %);
+  Fix per `predecessor_ciks` (siehe EDGAR-Konventionen), **noch nicht deployt, Live-Prüfung nach dem Deploy offen** (Zeilenzahl XOM,
+  Abdeckung, ob die alte CIK im letzten Jahr noch Form 4 hat – `submissions` „recent“ der dormanten alten CIK könnte leer sein; dann
+  fehlen Insider-Daten weiter, Ursache wäre dann, dass Meldungen jetzt unter der Holding-CIK laufen, die schon geladen wird). Weitere
+  Fälle (Fusionen, Umfirmierungen) mit neuer CIK: gleiche Option.
 - **Rohdaten wachsen:** `data/raw` bekommt je Lauf neue Dateien (FRED mit Vintages ≈ 20 MB je
   Lauf). Regel: 30 Tage, `edgefinder cleanup`; Timer `edgefinder-cleanup` ist in `deploy/systemd` vorbereitet.
 - **yfinance** ist eine inoffizielle Schnittstelle (kann ohne Vorwarnung brechen); Forex-Volumen

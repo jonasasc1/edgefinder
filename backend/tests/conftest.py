@@ -65,6 +65,12 @@ def make_config(config_data: dict[str, Any], tmp_path: Path) -> Callable[..., Co
     def build(**sections: Any) -> Config:
         data = copy.deepcopy(config_data)
         data.update(sections)
+        # Tests mit verkleinerter Aktienliste: Vorgänger-CIKs nur für vorhandene Ticker behalten
+        options = data["sources"]["edgar"]["options"]
+        present = {stock["ticker"] for stock in data["assets"]["stocks"]}
+        options["predecessor_ciks"] = {
+            t: c for t, c in options.get("predecessor_ciks", {}).items() if t in present
+        }
         data["storage"] = {"database": str(tmp_path / "t.db"), "raw_dir": str(tmp_path / "raw")}
         return Config.model_validate(data)
 

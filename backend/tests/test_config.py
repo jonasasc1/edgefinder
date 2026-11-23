@@ -157,3 +157,25 @@ def test_profile_notices_are_validated(config_data: dict[str, Any]) -> None:
 def test_profile_notices_are_optional(config_data: dict[str, Any]) -> None:
     del config_data["profiles"]["long_term"]["notices"]
     assert Config.model_validate(config_data).profiles["long_term"].notices == []
+
+
+def test_edgar_predecessor_ciks_shipped_and_validated(config_data: dict[str, Any]) -> None:
+    config = Config.model_validate(config_data)
+    assert config.sources["edgar"].options["predecessor_ciks"] == {"XOM": [34088]}
+    options = config_data["sources"]["edgar"]["options"]
+    for bad in (
+        {"NOPE": [1]},  # Ticker nicht in der Watchlist
+        {"XOM": [0]},
+        {"XOM": [-5]},
+        {"XOM": ["34088"]},
+        {"XOM": [True]},
+        {"XOM": []},
+        {"XOM": 34088},
+        {"XOM": [34088, 34088]},
+        ["XOM"],
+    ):
+        options["predecessor_ciks"] = bad
+        with pytest.raises(ValidationError):
+            Config.model_validate(config_data)
+    del options["predecessor_ciks"]  # optional
+    Config.model_validate(config_data)

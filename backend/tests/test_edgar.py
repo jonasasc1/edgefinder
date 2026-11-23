@@ -264,3 +264,174 @@ def test_raw_companyfacts_roundtrip(
     relative = db.execute("SELECT path FROM raw_files WHERE key='companyfacts_AAPL'").fetchone()[0]
     raw = (tmp_path / "raw" / relative).read_bytes()
     assert json.loads(gzip.decompress(raw))["entityName"] == "Apple Inc."
+
+
+# ---------------------------------------------------------------- Vorgänger-CIKs (XOM-Fall)
+XOM_OLD, XOM_NEW = 34088, 2115436
+XOM_FORM4 = {  # Accession (ohne Striche) → Fixture, Pfad enthält die CIK des Einreichers
+    (XOM_OLD, "000003408826000007"): "edgar_form4_sale.xml",
+    (XOM_OLD, "000003408826000008"): "edgar_form4_buy.xml",
+    (XOM_NEW, "000211543626000001"): "edgar_form4_noopen.xml",
+    (XOM_OLD, "000211543626000001"): "edgar_form4_noopen.xml",
+}
+
+
+class FakeXom(FakeSec):
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        self.requests.append(request)
+        if any(part in path for part in self.failing):
+            return httpx.Response(500)
+        files = {
+            f"/companyfacts/CIK{XOM_OLD:010d}": "edgar_companyfacts_xom_old.json",
+            f"/companyfacts/CIK{XOM_NEW:010d}": "edgar_companyfacts_xom_new.json",
+            f"/submissions/CIK{XOM_OLD:010d}": "edgar_submissions_xom_old.json",
+            f"/submissions/CIK{XOM_NEW:010d}": "edgar_submissions_xom_new.json",
+        }
+        for part, name in files.items():
+            if part in path:
+                return httpx.Response(200, content=fixture_bytes(name))
+        if path.endswith("company_tickers.json"):
+            return httpx.Response(200, content=fixture_bytes("edgar_company_tickers.json"))
+        if path.startswith("/Archives/edgar/data/"):
+            _, _, _, _, cik, accession, _ = path.split("/")
+            name = XOM_FORM4.get((int(cik), accession))
+            if name:
+                return httpx.Response(200, content=fixture_bytes(name))
+        return httpx.Response(404)
+
+
+def _xom_with(make_config, config_data, secrets, db, clock, fake, **kwargs):
+    # make_config bekommt die geänderten Quellen über config_data["sources"]
+    config_data["assets"]["stocks"] = [
+        s for s in config_data["assets"]["stocks"] if s["ticker"] == "XOM"
+    ]
+    config_data["sources"]["edgar"]["options"]["predecessor_ciks"] = kwargs.get(
+        "predecessors", {"XOM": [XOM_OLD]}
+    )
+    config = make_config(assets=config_data["assets"], sources=config_data["sources"])
+    return EdgarFetcher(
+        config, secrets, db, client=mock_client(fake), sleep=clock.sleep, clock=clock
+    )
+
+
+def _rows(db):
+    return [
+        tuple(r)
+        for r in db.execute(
+            "SELECT period_end, filed, value FROM fundamentals WHERE concept='us-gaap:Revenues'"
+            " ORDER BY period_end, filed"
+        )
+    ]
+
+
+def test_predecessor_cik_is_loaded_under_same_ticker(
+    make_config, config_data, edgar_secrets, db, clock
+) -> None:
+    fake = FakeXom()
+    result = _xom_with(make_config, config_data, edgar_secrets, db, clock, fake).run()
+    assert result.status == "success", result.errors
+    assert db.execute("SELECT cik FROM sec_companies WHERE ticker='XOM'").fetchone()[0] == XOM_NEW
+    assert {r[0] for r in db.execute("SELECT DISTINCT ticker FROM fundamentals")} == {"XOM"}
+    paths = fake.paths()
+    assert f"/api/xbrl/companyfacts/CIK{XOM_OLD:010d}.json" in paths
+    assert f"/submissions/CIK{XOM_OLD:010d}.json" in paths
+    # Form 4 des Vorgängers wird unter dessen CIK abgerufen, gespeichert unter XOM
+    assert "/Archives/edgar/data/34088/000003408826000007/form4_a.xml" in paths
+    trades = db.execute("SELECT ticker, transaction_code FROM insider_trades ORDER BY 2").fetchall()
+    assert [tuple(t) for t in trades] == [("XOM", "P"), ("XOM", "S")]
+    keys = {r[0] for r in db.execute("SELECT key FROM raw_files WHERE source='edgar'")}
+    assert {"companyfacts_XOM", f"companyfacts_XOM_{XOM_OLD}"} <= keys
+    assert {"submissions_XOM", f"submissions_XOM_{XOM_OLD}"} <= keys
+
+
+def test_predecessor_duplicates_do_not_count_twice(
+    make_config, config_data, edgar_secrets, db, clock
+) -> None:
+    from edgefinder.scoring.factors.fundamentals import Fact, ttm_series
+
+    _xom_with(make_config, config_data, edgar_secrets, db, clock, FakeXom()).run()
+    rows = _rows(db)
+    # FY2025: gleiche Einreichung bei alter und neuer CIK → eine Zeile (gleicher Schlüssel)
+    assert [r for r in rows if r[0] == "2025-12-31"] == [("2025-12-31", "2026-02-20", 360000.0)]
+    # FY2024: Neu-Einreichung der Holding mit anderem Datum bleibt als eigene Version erhalten
+    assert [r for r in rows if r[0] == "2024-12-31"] == [
+        ("2024-12-31", "2025-02-20", 350000.0),
+        ("2024-12-31", "2026-02-20", 351000.0),
+    ]
+    assert {r[0] for r in rows} == {"2023-12-31", "2024-12-31", "2025-12-31", "2026-03-31"}
+    # Faktor-Eingang: je Periode genau ein TTM-Wert, jüngste Einreichung gewinnt, aufsteigend
+    facts = [
+        Fact(start, end, value, filed)
+        for start, end, value, filed in db.execute(
+            "SELECT period_start, period_end, value, filed FROM fundamentals"
+            " WHERE concept='us-gaap:Revenues'"
+        )
+    ]
+    series = ttm_series(facts)
+    assert [d for d, _ in series] == ["2023-12-31", "2024-12-31", "2025-12-31"]
+    assert dict(series)["2024-12-31"] == 351000.0
+    # Look-ahead: vor der Holding-Neueinreichung zählt der Wert der alten CIK
+    early = ttm_series([f for f in facts if f.filed <= "2025-12-31"])
+    assert dict(early)["2024-12-31"] == 350000.0
+
+
+def test_predecessor_form4_accession_counted_once(
+    make_config, config_data, edgar_secrets, db, clock
+) -> None:
+    fake = FakeXom()
+    _xom_with(make_config, config_data, edgar_secrets, db, clock, fake).run()
+    # dieselbe Accession steht in beiden submissions: nur einmal geladen
+    xml = [p for p in fake.paths() if p.endswith("000211543626000001/form4_c.xml")]
+    assert len(xml) == 1
+    assert db.execute("SELECT COUNT(*) FROM sec_filings_seen").fetchone()[0] == 3
+
+
+def test_failing_predecessor_gives_partial_and_keeps_others(
+    make_config, config_data, edgar_secrets, db, clock
+) -> None:
+    fake = FakeXom()
+    fake.failing = {f"CIK{XOM_OLD:010d}"}
+    result = _xom_with(make_config, config_data, edgar_secrets, db, clock, fake).run()
+    assert result.status == "partial"
+    assert sum(f"Vorgänger-CIK {XOM_OLD}" in e for e in result.errors) == 2  # Facts + Form 4
+    assert {r[0] for r in db.execute("SELECT period_end FROM fundamentals")} >= {"2026-03-31"}
+    assert db.execute("SELECT COUNT(*) FROM sec_filings_seen").fetchone()[0] == 1  # aktuelle CIK
+    # nächster Lauf (Vorgänger-Frist nie gesetzt) holt es nach
+    clock.now += timedelta(hours=6)
+    again = _xom_with(make_config, config_data, edgar_secrets, db, clock, FakeXom()).run()
+    assert again.status == "success"
+    assert db.execute("SELECT COUNT(*) FROM insider_trades").fetchone()[0] == 2
+
+
+def test_predecessor_run_is_idempotent_and_respects_refresh(
+    make_config, config_data, edgar_secrets, db, clock
+) -> None:
+    _xom_with(make_config, config_data, edgar_secrets, db, clock, FakeXom()).run()
+    before = (_rows(db), db.execute("SELECT COUNT(*) FROM insider_trades").fetchone()[0])
+    fake = FakeXom()
+    clock.now += timedelta(days=1)
+    result = _xom_with(make_config, config_data, edgar_secrets, db, clock, fake).run()
+    assert result.status == "success"
+    # keine großen companyfacts neu, nur die beiden Einreichungsindizes
+    assert sorted(fake.paths()) == sorted(
+        [f"/submissions/CIK{XOM_NEW:010d}.json", f"/submissions/CIK{XOM_OLD:010d}.json"]
+    )
+    assert (_rows(db), db.execute("SELECT COUNT(*) FROM insider_trades").fetchone()[0]) == before
+    # nach Ablauf der Frist wieder beide companyfacts, Ergebnis unverändert
+    fake = FakeXom()
+    clock.now += timedelta(days=4)
+    _xom_with(make_config, config_data, edgar_secrets, db, clock, fake).run()
+    assert sum("companyfacts" in p for p in fake.paths()) == 2
+    assert _rows(db) == before[0]
+
+
+def test_predecessor_equal_to_current_cik_is_ignored(
+    make_config, config_data, edgar_secrets, db, clock
+) -> None:
+    fake = FakeXom()
+    fetcher = _xom_with(
+        make_config, config_data, edgar_secrets, db, clock, fake, predecessors={"XOM": [XOM_NEW]}
+    )
+    assert fetcher.run().status == "success"
+    assert sum("companyfacts" in p for p in fake.paths()) == 1
