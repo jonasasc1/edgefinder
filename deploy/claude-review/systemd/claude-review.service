@@ -1,0 +1,57 @@
+# ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
+# Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
+[Unit]
+Description=edgefinder: Claude-Prüfagent (headless; nur Analyse; Netz nur zum lokalen Allowlist-Proxy)
+Documentation=file:///opt/edgefinder/deploy/claude-review/README.md
+ConditionPathExists=/opt/claude-review/bin/run.sh
+After=tinyproxy.service
+
+[Service]
+Type=oneshot
+User=claude-review
+Group=claude-review
+WorkingDirectory=/var/lib/claude-review
+RuntimeDirectory=claude-review
+RuntimeDirectoryMode=0755
+# Als root (Präfix „+“): nächste Anforderung validieren, journald-Auszug geschwärzt ins Paket, Ausgabeordner
+ExecStartPre=+/opt/claude-review/bin/prepare.py
+ExecStart=/opt/claude-review/bin/run.sh
+SyslogIdentifier=claude-review
+StandardOutput=journal
+StandardError=journal
+Nice=19
+IOSchedulingClass=idle
+CPUSchedulingPolicy=idle
+CPUQuota=50%
+MemoryMax=700M
+MemorySwapMax=0
+TasksMax=128
+RuntimeMaxSec=1200
+TimeoutStartSec=1320
+# Sandbox: kein Zugriff auf die App, die Daten oder andere Konten; Netz nur Loopback (Proxy)
+NoNewPrivileges=true
+CapabilityBoundingSet=
+ProtectSystem=strict
+ReadWritePaths=/var/lib/claude-review
+InaccessiblePaths=/var/lib/claude-review/inbox /opt/edgefinder /var/lib/edgefinder /home /root
+PrivateTmp=true
+PrivateDevices=true
+PrivateMounts=true
+ProtectHome=true
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_UNIX AF_INET
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+IPAddressDeny=any
+IPAddressAllow=localhost
+UMask=0022

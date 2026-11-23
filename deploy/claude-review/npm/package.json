@@ -1,0 +1,9 @@
+{
+  "name": "claude-review-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gepinnte Claude-Code-Installation fuer den Pruefagenten (nur npm ci, nie npm install)",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.330"
+  }
+}

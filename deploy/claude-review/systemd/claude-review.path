@@ -1,0 +1,11 @@
+# ERZEUGT von `edgefinder gen-systemd` aus config.yaml – nicht von Hand ändern.
+# Zeitpläne in config.yaml anpassen und die Dateien neu erzeugen.
+[Unit]
+Description=edgefinder: Claude-Prüfagent starten, sobald eine Anforderung in der Inbox liegt
+
+[Path]
+PathChanged=/var/lib/claude-review/inbox
+Unit=claude-review.service
+
+[Install]
+WantedBy=multi-user.target
