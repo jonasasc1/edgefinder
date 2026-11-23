@@ -493,7 +493,7 @@ class Builder:
             return set(INDEX_SCORE_CATEGORIES)
         driver = getattr(asset, "macro_driver", None)
         if driver == "safe_haven":
-            return {"inflation", "rates"}
+            return {"inflation"}
         if driver == "cyclical":
             return set(INDEX_SCORE_CATEGORIES)
         return set()
@@ -532,22 +532,7 @@ class Builder:
         strip = categories is not None and ind.category not in categories
         scored = None
         if not ind.info_only and not strip:
-            rated = series
-            if (
-                getattr(self.asset, "macro_driver", None) == "safe_haven"
-                and ind.category == "rates"
-            ):
-                # Edelmetalle: steigende Zinsen/Renditen/Dollar belasten (wie in der Engine)
-                rated = macro_factor.IndicatorData(
-                    series.key,
-                    series.label,
-                    series.category,
-                    series.transform,
-                    "bearish",
-                    series.series,
-                    window=series.window,
-                )
-            scored = macro_factor.indicator_score(rated, self.as_of, params)
+            scored = macro_factor.indicator_score(series, self.as_of, params)
         unit = UNIT_BY_KEY.get(key, "%")
         value = values[-1][1]
         text = None
@@ -686,11 +671,7 @@ class Builder:
         categories = self._score_categories()
         if categories is not None and category not in categories:
             return False
-        return (
-            isinstance(self.asset, ForexAsset)
-            or category in macro_inputs
-            or (category == "rates" and "dollar" in macro_inputs)
-        )
+        return isinstance(self.asset, ForexAsset) or category in macro_inputs
 
     def _core_sections(
         self,

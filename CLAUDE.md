@@ -321,8 +321,8 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
 - **Release-Kalender (Migration 0006 `macro_release_calendar(series_id, release_date, fetched_at)`):** der FRED-Fetcher holt nach den Beobachtungen je Kernzeilen-Serie (ohne Kategorie rates) `series/release` (ID in `source_state`)
   und `release/dates` (ab heute, `include_release_dates_with_no_data=true`), höchstens 1× je Tag und Serie (`source_state calendar:<serie>`), Fehler je Serie → `partial`. Stern (`soon`) = nächster Termin ≤ `SOON_DAYS` (2) Tage.
   Option `sources.fred.options.release_calendar: false` schaltet es ab. Nur Anzeige.
-- **Pillen außerhalb des Scores (Änderung):** Indizes (nur Wachstum/Arbeitsmarkt im Score) und Rohstoffe (Gold/Silber: Inflation + Zinsen/Dollar, WTI: Wachstum/Arbeitsmarkt) zeigen Zeilen anderer Kategorien ohne Pille/Gruppenlabel („nur Info“);
-  bei Edelmetallen sind Zins-Zeilen wie in der Engine gespiegelt (steigend = bearish). Die 2Y-Rendite steht in der Gruppe Inflation (nur Darstellung, Kategorie bleibt rates).
+- **Pillen außerhalb des Scores (Änderung):** Indizes (nur Wachstum/Arbeitsmarkt im Score) und Rohstoffe (Gold/Silber: nur Inflation, WTI/Kupfer: Wachstum/Arbeitsmarkt) zeigen Zeilen anderer Kategorien ohne Pille/Gruppenlabel („nur Info“);
+  Zins-/Dollar-Zeilen bei Edelmetallen sind seit Modell 2026-11-23 ebenfalls „nur Info“. Die 2Y-Rendite steht in der Gruppe Inflation (nur Darstellung, Kategorie bleibt rates).
 - **API:** Zeilen neu `expectation`, `surprise`, `display_only`, `substitute`, `members`; Abschnitte `kind: "core"` (`core-inflation|jobs|growth`, `rating` = Gruppenlabel aus `scoring.labels`, `collapsed`), die alten Kategorie-Abschnitte (`macro-*`, „… – weitere Reihen“) ohne Kernzeilen, `collapsed: true`.
 - **Frontend:** `ScorecardTables.tsx` (Spalten, mobil 2×2-Kennzahlen, „Weitere Indikatoren“ als `<details>`), `scorecardFormat.ts` (`formatExpectation`, `formatIndicatorSurprise`, `splitSections`), Glossar `expectation|macroSurprise|substitutePmi|nextRelease`.
   Screenshots: `node scripts/shots-scorecard.mjs` → `~/remote/edgefinder-shots/etappe-r/`.
@@ -349,7 +349,7 @@ config.yaml        Assets, Gewichtungen, Profile, Zeitpläne
     Richtung laut `higher_is`; Kategorie = Mittel; Gesamt = Mittel der Kategorien. Forex:
     Differenz Basis − Quote je Kategorie plus Zinskategorie (Leitzins, 2J, 10J: tanh(Differenz/2 PP)).
     Index: Wachstum + Arbeitsmarkt der eigenen Volkswirtschaft (Inflation/Zinsen nur Info in der Scorecard). Rohstoffe über `macro_driver`
-    (`safe_haven`: US-Inflation, Zinsen (Leitzins, Realrendite DFII10, 10J-Rendite, gespiegelt) und Dollar-Stärke (DTWEXBGS, gespiegelt) als eigene Kategorien; `cyclical`: US-Wachstum + Arbeitsmarkt).
+    (`safe_haven`: nur US-Inflation – Zinsen, Realrendite und Dollar-Index (DTWEXBGS) wurden auf Jonas' Wunsch am 2026-11-23 aus dem Score genommen, `model_version` 2026-11-23, Backfill/Eichung neu nötig; `cyclical`: US-Wachstum + Arbeitsmarkt).
     Serien älter als `max_age_days` entfallen.
   - **trend:** Abstand zum langsamen SMA, SMA-Kreuz und ROC, je durch Volatilität × √Horizont
     geteilt, tanh(z/2), Mittel der drei. **Umkehr-Modus (2026-11-18):** Swing-Profil, Indizes und Aktien

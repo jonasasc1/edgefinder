@@ -198,7 +198,7 @@ def _insert_outcome(db, asset, klass, day, score, ret_pct, h=10, profile="swing"
         "INSERT INTO signal_outcomes (asset_id, profile, signal_date, asset_class, score, label,"
         " direction, model_version, horizon_days, entry_date, entry_price, exit_date, exit_price,"
         " forward_return_pct, hit, evaluated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 100, ?, 100, ?, ?, 'x')",
-        (asset, profile, day, klass, score, label, direction, "2026-11-21", h, day,
+        (asset, profile, day, klass, score, label, direction, "2026-11-23", h, day,
          (date.fromisoformat(day) + timedelta(days=14)).isoformat(), ret_pct, hit),
     )  # fmt: skip
 
@@ -267,27 +267,27 @@ def test_factor_drift_counter_and_warning(config, db):
     for week, friday in enumerate(_fridays(12)):
         for k, asset in enumerate(assets):
             sub = (k - 2.5) / 3 + 0.01 * week  # Rangfolge je Woche gleich
-            sid = _score(db, asset, "swing", friday, 3.0, version="2026-11-21")
+            sid = _score(db, asset, "swing", friday, 3.0, version="2026-11-23")
             db.execute(
                 "INSERT INTO score_components VALUES (?, 'trend', ?, 1, 1, '', '{}')", (sid, sub)
             )
             noise = 0.4 * ((week * 7 + k * 3) % 5 - 2)  # Gegenteil des Backtests, mit Rauschen
             _insert_outcome(db, asset, "forex", friday.isoformat(), 3.0, -sub * 5 + noise)
     cal = {"factor_ic": {"swing": {"forex": {"trend": {"ic": 0.1, "ic_t": 2.0, "n": 900}}}}}
-    factors = live.build_factor_drift(db, config, cal, "2026-11-21")
+    factors = live.build_factor_drift(db, config, cal, "2026-11-23")
     trend = next(f for f in factors if f["factor"] == "trend")
     assert trend["status"] == "gegenlaeufig" and trend["ic"] < -0.9 and trend["weeks_against"] == 12
     assert trend["warn"] is True
     # ohne Backtest-Referenz: kein Vergleich, keine Warnung
-    other = live.build_factor_drift(db, config, {}, "2026-11-21")[0]
+    other = live.build_factor_drift(db, config, {}, "2026-11-23")[0]
     assert other["status"] == "kein_vergleich" and other["warn"] is False
 
 
 def test_factor_drift_too_early(config, db):
-    sid = _score(db, "EURUSD", "swing", date(2026, 11, 6), 3.0, version="2026-11-21")
+    sid = _score(db, "EURUSD", "swing", date(2026, 11, 6), 3.0, version="2026-11-23")
     db.execute("INSERT INTO score_components VALUES (?, 'trend', 0.3, 1, 1, '', '{}')", (sid,))
     _insert_outcome(db, "EURUSD", "forex", "2026-11-06", 3.0, 1.0)
-    assert live.build_factor_drift(db, config, {}, "2026-11-21")[0]["status"] == "zu_frueh"
+    assert live.build_factor_drift(db, config, {}, "2026-11-23")[0]["status"] == "zu_frueh"
 
 
 def test_trackrecord_header_numbers_when_empty(config, db):

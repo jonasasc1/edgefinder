@@ -13,8 +13,7 @@ genug Historie entfallen; fehlt eine ganze Kategorie, entfällt sie.
 * Indizes: Wachstum und Arbeitsmarkt der Volkswirtschaft des Index (Inflation nicht, ihre
   Wirkung auf Aktien ist uneindeutig).
 * Rohstoffe: `macro_driver` laut Konfiguration (safe_haven / cyclical) auf US-Daten. Edelmetalle:
-  Inflation, Zinsen (Leitzins, Realrendite 10J, Rendite 10J, gespiegelt) und Dollar-Stärke
-  (breiter Dollar-Index, gespiegelt).
+  nur US-Inflation (Zinsen/Rendite/Dollar gehen seit Modell 2026-11-23 nicht mehr in den Score ein).
 Teilscore Macro = Mittel der verfügbaren Kategorien.
 """
 
@@ -34,11 +33,7 @@ RATE_SCALE_PP = 2.0
 MIN_CHANGES = 24
 GROWTH, INFLATION, LABOR, RATES = "growth", "inflation", "labor", "rates"
 RATE_KEYS = ("policy_rate", "yield_2y", "yield_10y")
-DOLLAR = "dollar"
-DOLLAR_KEY = "dollar_index"
-SAFE_HAVEN_RATE_KEYS = ("policy_rate", "real_yield_10y", "yield_10y")
 CATEGORY_LABEL = {
-    DOLLAR: "Dollar",
     GROWTH: "Wachstum",
     INFLATION: "Inflation",
     LABOR: "Arbeitsmarkt",
@@ -300,26 +295,6 @@ def compute_forex(
     return _mean_result(parts, f"{base_ccy}/{quote_ccy}")
 
 
-def _flipped_score(
-    us: EconomyData, key: str, as_of: date, params: dict[str, Any]
-) -> tuple[IndicatorData, float, dict[str, Any]] | None:
-    """Indikator mit umgedrehter Richtung (steigend = bearish) bewerten, falls vorhanden."""
-    ind = us.indicators.get(key)
-    if ind is None or ind.info_only:
-        return None
-    flipped = IndicatorData(ind.key, ind.label, ind.category, ind.transform, "bearish", ind.series)
-    scored = indicator_score(flipped, as_of, params)
-    return None if scored is None else (ind, scored[0], scored[1])
-
-
-def _gold_effect(score: float) -> str:
-    if score > 0.15:
-        return "stützt Edelmetalle"
-    if score < -0.15:
-        return "belastet Edelmetalle"
-    return "neutral für Edelmetalle"
-
-
 def compute_commodity(
     driver: str | None, us: EconomyData, as_of: date, params: dict[str, Any]
 ) -> FactorResult:
@@ -328,38 +303,5 @@ def compute_commodity(
         return _mean_result(cyclical, "US-Konjunktur (zyklischer Rohstoff)")
     if driver == "safe_haven":
         parts = category_scores(us, as_of, params, (INFLATION,))
-        months = int(params.get("change_months", 3))
-        # Wie im Original-EdgeFinder: Leitzins/Realrendite und Dollar-Stärke. Alle drei
-        # Zins-Reihen und der Dollar wirken gegenläufig (steigend = bearish für Edelmetalle).
-        rate_scores: list[float] = []
-        rate_details: list[str] = []
-        rate_inputs: dict[str, Any] = {}
-        for key in SAFE_HAVEN_RATE_KEYS:
-            scored = _flipped_score(us, key, as_of, params)
-            if scored is None:
-                continue
-            ind, score, info = scored
-            rate_scores.append(score)
-            rate_inputs[key] = info
-            rate_details.append(
-                f"{ind.label} {de(info['value'], 'g')} % ({de(info['change'], '+g')} Punkte seit "
-                f"{months} Monaten): {_gold_effect(score)}"
-            )
-        if rate_scores:
-            parts[RATES] = CategoryScore(
-                RATES, sum(rate_scores) / len(rate_scores), rate_details, rate_inputs
-            )
-        scored = _flipped_score(us, DOLLAR_KEY, as_of, params)
-        if scored is not None:
-            ind, score, info = scored
-            parts[DOLLAR] = CategoryScore(
-                DOLLAR,
-                score,
-                [
-                    f"{ind.label} {de(info['value'], 'g')} ({de(info['change'], '+g')} seit "
-                    f"{months} Monaten): {_gold_effect(score)}"
-                ],
-                {DOLLAR_KEY: info},
-            )
-        return _mean_result(parts, "US-Zinsen, Realrendite, Dollar und Inflation (Edelmetall)")
+        return _mean_result(parts, "US-Inflation (Edelmetall)")
     return unavailable("Makro: für diesen Rohstoff ist kein `macro_driver` konfiguriert.")

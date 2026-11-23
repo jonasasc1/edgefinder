@@ -195,3 +195,16 @@ Hook `audit.py` (deny-by-default), `tinyproxy.conf`/`claude-allow.filter` (CONNE
 Durchsicht: Neue externe Aufrufe nur an die bestehende FRED-API (`series/release`, `release/dates`), Serien-IDs ausschließlich aus `config.yaml`, Release-ID als Zahl, Parameter über den HTTP-Client
 (Key per Parameter, `scrub` greift; Rohdaten enthalten keinen Key), Fehler je Serie → `partial`. SQL durchgehend parametrisiert (`DELETE … WHERE series_id = ? AND release_date >= ?`),
 keine f-String-SQL, keine HTML-Senken im Frontend. Die neuen Anzeige-Indikatoren (`display_only`) verändern keinen Score (Test + Vorher/Nachher-Vergleich EURUSD/GOLD/SPX/AAPL identisch).
+
+## Pflicht-Checks vor Deploy Nr. 10, Nachtrag (2026-11-23): Edelmetall-Score nur noch Inflation (Modell 2026-11-23)
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Lint/Tests | ruff check + format, pytest (alle grün), `gen-systemd --check` | grün |
+| Semgrep | `semgrep scan --config p/default --config p/secrets --metrics=off --severity ERROR .` | 0 Funde |
+| Gitleaks | `gitleaks git --redact .` (55 Commits) | 0 Funde |
+| pip-audit / npm audit | keine Abhängigkeitsänderung | 0 Funde |
+| /security-review | gesamter Diff dieser Änderung (7 Dateien, nur Löschen von Rechenlogik, Versionsstring, Tests, Doku) | kein Fund |
+
+Änderung auf Jonas' Wunsch: Zinsen, Realrendite, 10J-Rendite und Dollar-Index gehen bei Gold/Silber nicht mehr in den Score ein (nur noch US-Inflation; Zeilen bleiben „nur Info“).
+`scoring.model_version` = 2026-11-23, daher Backfill + Eichung nach dem Deploy neu (`maintain`).

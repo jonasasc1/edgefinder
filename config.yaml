@@ -404,7 +404,7 @@ scoring:
   schedule: ["*-*-* 07:30:00 Europe/Vienna", "*-*-* 23:45:00 Europe/Vienna"]
   # Version des Modells (Gewichte, Faktoren, Labels, Faktor-Parameter). Bei jeder solchen Änderung erhöhen:
   # Scores/Live-Auswertungen tragen sie mit, `edgefinder maintain` rechnet den Backfill dann komplett neu.
-  model_version: "2026-11-21"
+  model_version: "2026-11-23"
   labels:            # absteigend; erstes Label, dessen `min` erreicht wird
     - {min: 6.0,   label: "Stark bullish"}
     - {min: 2.0,   label: "Bullish"}

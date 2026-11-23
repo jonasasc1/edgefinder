@@ -267,34 +267,23 @@ def test_macro_commodity_drivers() -> None:
     us.indicators["yield_10y"] = _ind(
         "yield_10y", [float(i) + (i % 3) * 0.1 for i in range(100)] + [150.0], category="rates"
     )
-    assert macro_f.compute_commodity("safe_haven", us, AS_OF, MP).subscore < 0  # Renditen steigen
+    # Zinsen gehen nicht mehr in den Score von Edelmetallen ein
+    assert macro_f.compute_commodity("safe_haven", us, AS_OF, MP).subscore is None
     assert macro_f.compute_commodity(None, us, AS_OF, MP).subscore is None
 
 
-def test_macro_safe_haven_uses_real_yield_policy_rate_and_dollar() -> None:
+def test_macro_safe_haven_scores_only_inflation() -> None:
     rising = [float(i) + (i % 3) * 0.1 for i in range(100)] + [150.0]
-    falling = [-v for v in rising]
     us = macro_f.EconomyData("US", "USA")
-    us.indicators["real_yield_10y"] = _ind("real_yield_10y", falling, category="rates")
-    only_real = macro_f.compute_commodity("safe_haven", us, AS_OF, MP)
-    assert only_real.subscore > 0.5  # fallende Realrendite stützt Gold
-    assert set(only_real.inputs) == {"rates"}
-    assert "Realrendite" in only_real.reason and "stützt Edelmetalle" in only_real.reason
-
-    us.indicators["dollar_index"] = _ind("dollar_index", rising, category="rates")
-    both = macro_f.compute_commodity("safe_haven", us, AS_OF, MP)
-    assert set(both.inputs) == {"rates", "dollar", "dollar_index"} or "dollar" in both.inputs
-    assert both.inputs["dollar"]["score"] < 0  # starker Dollar belastet
-    assert both.subscore == pytest.approx(
-        (both.inputs["rates"]["score"] + both.inputs["dollar"]["score"]) / 2, abs=1e-3
-    )
-
+    us.indicators["real_yield_10y"] = _ind("real_yield_10y", rising, category="rates")
     us.indicators["policy_rate"] = _ind("policy_rate", rising, category="rates")
-    three = macro_f.compute_commodity("safe_haven", us, AS_OF, MP)
-    assert set(three.inputs["rates"]) >= {"policy_rate", "real_yield_10y", "score"}
-    assert "belastet Edelmetalle" in three.reason
-    # Zyklische Rohstoffe bleiben unberührt vom Dollar
-    assert macro_f.compute_commodity("cyclical", us, AS_OF, MP).subscore is None
+    us.indicators["dollar_index"] = _ind("dollar_index", rising, category="rates")
+    # Zinsen, Realrendite und Dollar-Index beeinflussen den Edelmetall-Score nicht
+    assert macro_f.compute_commodity("safe_haven", us, AS_OF, MP).subscore is None
+    us.indicators["cpi"] = _ind("cpi", rising, category="inflation")
+    res = macro_f.compute_commodity("safe_haven", us, AS_OF, MP)
+    assert res.subscore is not None and res.subscore > 0.5  # Inflation steigt
+    assert set(res.inputs) == {"inflation"}
 
 
 def test_macro_index_uses_growth_and_labor() -> None:

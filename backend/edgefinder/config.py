@@ -230,7 +230,7 @@ class ScoringConfig(_Model):
     schedule: str | list[str]
     # Version des Modells (Gewichte, Faktoren, Labels). Bei JEDER Änderung daran erhöhen: Scores und
     # Live-Auswertungen tragen sie mit, damit ein Umbau die Live-Bilanz nicht vermischt.
-    model_version: str = Field(default="2026-11-21", min_length=1, max_length=40)
+    model_version: str = Field(default="2026-11-23", min_length=1, max_length=40)
     labels: tuple[ScoreLabel, ...]
     # Scorecard (Detailseite): ab diesem |Teilscore| (−1…+1) gilt ein Signal als bullish/bearish.
     signal_threshold: float = Field(default=0.15, gt=0, lt=1)
