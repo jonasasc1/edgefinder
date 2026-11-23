@@ -151,6 +151,7 @@
       "Bash(sed)",
       "Read(//var/lib/claude-review/.claude/**)",
       "Read(//var/lib/claude-review/inbox/**)",
+      "Read(//var/lib/claude-review/staging/**)",
       "Read(//var/lib/edgefinder/**)",
       "Read(//opt/edgefinder/**)",
       "Read(//etc/**)",

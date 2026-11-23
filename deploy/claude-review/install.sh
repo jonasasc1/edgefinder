@@ -45,7 +45,7 @@ run() { if ((DRY)); then printf '   [dry-run] %s\n' "$(printf '%q ' "$@")"; else
 section "0. Was dieses Skript ändert"
 cat <<PLAN
    1. Benutzer/Gruppe $AGENT (System, keine Shell, kein sudo, Passwort gesperrt), Home $STATE
-   2. Verzeichnisse: $STATE (0751), inbox (edgefinder, 2770), runs (edgefinder:$AGENT, 2750), .claude (0700)
+   2. Verzeichnisse: $STATE (0751), inbox + staging (edgefinder), runs (root, 0755; Läufe legt prepare.py als root an), .claude (0700)
    3. apt: nur das Paket tinyproxy; /etc/tinyproxy/tinyproxy.conf + claude-allow.filter (Original als .orig)
    4. Claude Code $CLAUDE_VERSION per 'npm ci' (Lockfile mit Integrität) nach $PREFIX/node_modules (root-eigen)
    5. Python-Umgebung $PREFIX/venv (uv sync --frozen --no-install-project) für Tests des Agenten (optional)
@@ -92,9 +92,13 @@ fi
 run $SUDO install -d -o "$AGENT" -g "$AGENT" -m 0751 "$STATE"
 run $SUDO install -d -o "$AGENT" -g "$AGENT" -m 0700 "$STATE/.claude"
 run $SUDO install -d -o "$APP_USER" -g "$APP_USER" -m 2770 "$STATE/inbox"
-run $SUDO install -d -o "$APP_USER" -g "$AGENT" -m 2750 "$STATE/runs"
+# Zwischenlager des Webbenutzers: dort baut er das Eingabepaket; prepare.py (root) kopiert es per Deskriptor
+# nach runs/<id>/input. Der Agent kommt nicht heran (InaccessiblePaths).
+run $SUDO install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$STATE/staging"
+# runs/ gehört root (nicht edgefinder-schreibbar: Schutz gegen TOCTOU, Befund /security-review 2026-11-23);
+# lesbar für edgefinder (Anzeige der Ergebnisse) und claude-review.
+run $SUDO install -d -o root -g root -m 0755 "$STATE/runs"
 run $SUDO chmod 2770 "$STATE/inbox"   # install -d setzt setgid nicht zuverlässig
-run $SUDO chmod 2750 "$STATE/runs"
 info "Der Benutzer $AGENT ist in keiner weiteren Gruppe (insbesondere nicht in $APP_USER)."
 
 # --- 3. tinyproxy (Allowlist-Proxy) ------------------------------------------------------------

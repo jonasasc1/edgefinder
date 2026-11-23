@@ -587,12 +587,12 @@ Claude-Läufe starten **nur**, wenn Jonas dem Hauptagenten schreibt (kein Zeitpl
 - **Zweck/Phase 1:** headless Claude Code (`claude -p`, Abo-Login) auf „trading“ nur zum Prüfen/Analysieren (Datenzuverlässigkeit,
   Bilanz/Drift, Fehlerbild) und für **Vorschläge als Text** (`output/analysis.md`, `proposal-N.diff`). Nichts wird eingespielt.
 - **Ablauf:** Admin-Button → `POST /api/admin/claude` → Allowlist-Job `claude_review` (`claude_review.py`, nur Python-Dateioperationen,
-  kein subprocess): `review` neu rechnen, Eingabepaket nach `/var/lib/claude-review/runs/<id>/input/` (Schnappschuss der
+  kein subprocess): `review` neu rechnen, Eingabepaket nach `/var/lib/claude-review/staging/<id>/input/` (edgefinder-eigenes Zwischenlager; Schnappschuss der
   versionierten Textdateien ohne data/.env/node_modules/dist/.venv/Schlüssel, `fetch-runs.json`, `data-status.json`,
   `scores-stats.json`, Eichungs-Eckdaten, Bericht, `MANIFEST.json`; Secrets geschwärzt, E-Mail maskiert; `CLAUDE.md` heißt dort
   `CLAUDE.md.txt`), danach `inbox/<id>.json`. Lauf-ID = Admin-Auftrags-ID (nur Zahl).
 - **Ausführung:** `claude-review.path` (PathChanged auf die Inbox) → `claude-review.service` (oneshot, User `claude-review`): erst
-  `ExecStartPre=+prepare.py` (root: Anforderung validieren, journald-Auszug 24 h scrubben → `input/journal.txt`, `output/` und
+  `ExecStartPre=+prepare.py` (root: Anforderung validieren, Paket nach `runs/<id>/input` übernehmen, journald-Auszug 24 h scrubben → `input/journal.txt`, `output/` und
   Protokolldateien anlegen), dann `run.sh` (Wrapper, Lauf-ID nur validierte Zahl) → `claude -p <PROMPT.md> --output-format stream-json
   --verbose --max-turns N --settings /opt/claude-review/settings.json --strict-mcp-config --disable-slash-commands --no-session-persistence`.
   **Kein Timer.** Units werden aus `config.yaml` erzeugt (`edgefinder gen-systemd`, Ziel `deploy/claude-review/systemd/`); `sync-units.sh`
@@ -607,6 +607,14 @@ Claude-Läufe starten **nur**, wenn Jonas dem Hauptagenten schreibt (kein Zeitpl
   im venv; Deny für Netzwerk-/Admin-Tools, WebFetch/WebSearch/Task/Skill/mcp), als `/etc/claude-code/managed-settings.json` und per `--settings`
   (root-eigen, vom Agenten nicht änderbar). Zweite Sperre: Hook `audit.py` (PreToolUse deny-by-default für Werkzeuge/Pfade/Befehle).
   Keine DB-Kopie als Eingabe (Kennzahlen reichen; DB enthält Konten).
+- **Sicherheitsbefund TOCTOU (Medium, /security-review 2026-11-23, behoben):** `prepare.py` lief als root in einem edgefinder-eigenen
+  Lauf-Verzeichnis und rief `chown`/`chmod` auf Pfaden auf; ein kompromittierter Webprozess konnte die Datei/`output/`/`input` per
+  Symlink austauschen → Rechteausweitung edgefinder → root. Lösung: `runs/` gehört **root** (0755, install.sh; edgefinder darf dort nur
+  lesen); der Webprozess baut das Paket im Zwischenlager `staging/<id>/` (edgefinder-eigen), `prepare.py` legt `runs/<id>` als root an
+  und **kopiert** das Paket per `dir_fd`/`O_NOFOLLOW` (nur reguläre Dateien/Verzeichnisse, Namen `[A-Za-z0-9._+@=~,()[] -]`, keine Symlinks,
+  Limits `claude.max_package_mb`/`max_package_files` mit harten Obergrenzen); Besitzer root:claude-review, 0750/0640 (nach der Übergabe nicht
+  mehr änderbar). `chown`/`chmod` nur als `fchown`/`fchmod` am Deskriptor (Test prüft den Quelltext), `current` mit `O_EXCL|O_NOFOLLOW`.
+  Das Aufräumen alter Läufe (`retention_days`) macht deshalb `prepare.py` (root); `cleanup` löscht nur das Zwischenlager (> 2 Tage).
 - **Schutz:** ein aktiver Lauf (409), `claude.cooldown_minutes` 30, `claude.max_runs_per_day` 3 (rollierend 24 h), Paket ≤ `max_package_mb` 5 MB,
   `enabled`/`installed`-Prüfung. Aufbewahrung `retention_days` 90 (im `cleanup`-Lauf).
 - **Protokoll (lückenlos):** `journalctl -t claude-review` (Hook-Zeilen + Dienst-Ausgabe, vom Benutzer nicht änderbar), `runs/<id>/audit.jsonl`

@@ -6,6 +6,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 from datetime import UTC, datetime, timedelta
@@ -89,6 +90,7 @@ def _claude_config(
     base = tmp_path / "claude"
     (base / "runs").mkdir(parents=True)
     (base / "inbox").mkdir()
+    (base / "staging").mkdir()
     data = {**config_data, "storage": config_data["storage"]}
     data["storage"] = {
         "database": str(config.storage.database),
@@ -242,7 +244,7 @@ def test_package_contains_no_secrets_or_excluded_files(cconfig: Config) -> None:
     request = claude_review.build_package(conn, cconfig, 5)
     conn.close()
 
-    pkg = claude_review.run_dir(cconfig, 5) / "input"
+    pkg = claude_review.staging_dir(cconfig) / "5" / "input"
     names = {p.relative_to(pkg).as_posix() for p in pkg.rglob("*") if p.is_file()}
     assert {
         "MANIFEST.json",
@@ -299,6 +301,9 @@ def test_package_contains_no_secrets_or_excluded_files(cconfig: Config) -> None:
         "runtime_max_seconds",
         "journal_hours",
         "package_bytes",
+        "max_package_bytes",
+        "max_package_files",
+        "retention_days",
     }
     assert not list(claude_review.inbox_dir(cconfig).glob(".*"))
 
@@ -316,7 +321,7 @@ def test_package_size_limit_cleans_up(
     with pytest.raises(claude_review.PackageError, match="MB"):
         claude_review.build_package(conn, big, 9)
     conn.close()
-    assert not claude_review.run_dir(big, 9).exists()
+    assert not (claude_review.staging_dir(big) / "9").exists()
     assert not list(claude_review.inbox_dir(big).iterdir())
 
 
@@ -332,7 +337,7 @@ def test_empty_source_is_an_error(
     migrate(conn)
     with pytest.raises(claude_review.PackageError):
         claude_review.build_package(conn, cfg, 2)
-    assert not claude_review.run_dir(cfg, 2).exists()
+    assert not (claude_review.staging_dir(cfg) / "2").exists()
 
 
 def test_git_head_without_subprocess(tmp_path: Path) -> None:
@@ -360,7 +365,7 @@ def test_full_flow_post_then_runner_builds_package(cconfig: Config) -> None:
     job = admin_jobs.get_job(connect(cconfig.storage.database), job_id)
     assert job and job["status"] == "ok", job
     assert (claude_review.inbox_dir(cconfig) / f"{job_id}.json").is_file()
-    assert (claude_review.run_dir(cconfig, job_id) / "input" / "MANIFEST.json").is_file()
+    assert (claude_review.staging_dir(cconfig) / str(job_id) / "input" / "MANIFEST.json").is_file()
     # Lauf ist „wartet auf Dienst“, ein zweiter Start wird abgelehnt (aktiver Lauf)
     listing = client.get("/api/admin/claude/runs", headers=_as(ADMIN)).json()
     assert listing["runs"][0]["state"] == "queued"
@@ -1013,6 +1018,239 @@ def test_prepare_journal_is_scrubbed_and_limited(monkeypatch: pytest.MonkeyPatch
     assert not any(a for a in cmd if ";" in a or " " in a.strip())
 
 
+def _prep(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str) -> tuple[ModuleType, Path]:
+    """prepare.py im Testmodus (Basis/Runtime aus Umgebung, Benutzer = aktueller Benutzer, kein root)."""
+    base = tmp_path / "pbase"
+    for sub in ("inbox", "staging", "runs"):
+        (base / sub).mkdir(parents=True)
+    runtime = tmp_path / "pruntime"
+    runtime.mkdir()
+    monkeypatch.setenv("CLAUDE_REVIEW_BASE", str(base))
+    monkeypatch.setenv("CLAUDE_REVIEW_RUNTIME", str(runtime))
+    prep = _load(CR / "bin" / "prepare.py", name)
+    monkeypatch.setattr(prep, "journal_text", lambda hours: f"journal {hours}\n")
+    return prep, base
+
+
+def _stage(base: Path, run_id: int, files: dict[str, str] | None = None, **request: Any) -> Path:
+    inp = base / "staging" / str(run_id) / "input"
+    inp.mkdir(parents=True)
+    for rel, text in (files or {"a/b.txt": "hallo"}).items():
+        (inp / rel).parent.mkdir(parents=True, exist_ok=True)
+        (inp / rel).write_text(text, encoding="utf-8")
+    req = {
+        "id": run_id,
+        "created_at": "2026-11-23T10:00:00+00:00",
+        "max_turns": 5,
+        "runtime_max_seconds": 120,
+        "journal_hours": 2,
+        **request,
+    }
+    (base / "inbox" / f"{run_id}.json").write_text(json.dumps(req), encoding="utf-8")
+    return inp
+
+
+def test_prepare_takes_over_package_as_owner_only_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prep, base = _prep(tmp_path, monkeypatch, "claude_prepare_ok")
+    _stage(base, 3, {"a/b.txt": "hallo", ".gitignore": "x", "[id] (1).tsx": "y"})
+    assert prep.main() == 0
+    run = base / "runs" / "3"
+    assert (run / "input" / "a" / "b.txt").read_text(encoding="utf-8") == "hallo"
+    assert (run / "input" / "journal.txt").read_text(encoding="utf-8") == "journal 2\n"
+    assert (run / "input" / "a" / "b.txt").stat().st_mode & 0o777 == 0o640
+    assert (run / "input" / "a").stat().st_mode & 0o777 == 0o750
+    assert (run / "output").is_dir() and (run / "status.json").is_file()
+    assert json.loads((run / "request.json").read_text(encoding="utf-8"))["package_bytes"] == 7
+    assert (tmp_path / "pruntime" / "current").read_text(encoding="utf-8") == "3\n"
+    assert not (base / "inbox" / "3.json").exists()
+    # Eingabepaket ist eine Kopie: Änderungen am Zwischenlager erreichen den Lauf nicht mehr
+    (base / "staging" / "3" / "input" / "a" / "b.txt").write_text("böse", encoding="utf-8")
+    assert (run / "input" / "a" / "b.txt").read_text(encoding="utf-8") == "hallo"
+
+
+def test_prepare_has_no_path_based_chown_or_chmod() -> None:
+    """Befund TOCTOU: nur Deskriptor-Varianten, nie `os.chown(pfad)`/`os.chmod(pfad)`/`Path.chmod`."""
+    source = (CR / "bin" / "prepare.py").read_text(encoding="utf-8")
+    code = "\n".join(line.split("#")[0] for line in source.splitlines())
+    assert not re.search(r"(?<![A-Za-z_])(os\.)?(chown|chmod|lchown)\(", code)
+    assert not re.search(r"\.(chmod|chown|lchmod)\(", code)
+    assert "fchown(" in code and "fchmod(" in code
+    for forbidden in ("os.rename(", "os.replace(", "Path(entry.path)", "shutil.copy", "os.walk("):
+        assert forbidden not in code, forbidden
+
+
+def test_prepare_swapping_file_for_symlink_after_open_changes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prep, base = _prep(tmp_path, monkeypatch, "claude_prepare_race")
+    victim = tmp_path / "sudoers"
+    victim.write_text("root ALL\n", encoding="utf-8")
+    victim.chmod(0o600)
+    before = (victim.stat().st_mode, victim.stat().st_uid, victim.stat().st_gid)
+    target_dir = base / "runs"
+    real_fchmod, real_fchown = os.fchmod, os.fchown
+    swapped: list[bool] = []
+
+    def swap_then(real: Any) -> Any:
+        def wrapper(fd: int, *args: Any) -> Any:
+            if not swapped:  # Angreifer ersetzt die Datei genau zwischen open() und chown/chmod
+                link = target_dir / ".tmp-link"
+                link.symlink_to(victim)
+                link.replace(target_dir / "status.json")
+                swapped.append(True)
+            return real(fd, *args)
+
+        return wrapper
+
+    monkeypatch.setattr(prep.os, "fchown", swap_then(real_fchown))
+    monkeypatch.setattr(prep.os, "fchmod", real_fchmod)
+    dir_fd = prep.open_dir(target_dir)
+    try:
+        with pytest.raises(
+            FileExistsError
+        ):  # zweites create() trifft den Symlink: O_EXCL|O_NOFOLLOW
+            prep.create(dir_fd, "status.json", b"x", os.getuid(), os.getgid(), 0o644)
+            prep.create(dir_fd, "status.json", b"y", os.getuid(), os.getgid(), 0o644)
+    finally:
+        os.close(dir_fd)
+    assert swapped
+    assert (victim.stat().st_mode, victim.stat().st_uid, victim.stat().st_gid) == before
+    assert victim.read_text(encoding="utf-8") == "root ALL\n"
+
+
+def test_prepare_rejects_symlinked_intermediate_components(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prep, base = _prep(tmp_path, monkeypatch, "claude_prepare_links")
+    elsewhere = tmp_path / "elsewhere"
+    (elsewhere / "input").mkdir(parents=True)
+    (elsewhere / "input" / "geheim.txt").write_text("nicht kopieren", encoding="utf-8")
+    # 1) staging/<id> ist ein Symlink
+    _stage(base, 1)
+    shutil.rmtree(base / "staging" / "1")
+    (base / "staging" / "1").symlink_to(elsewhere)
+    assert prep.main() == 0
+    assert not (base / "runs" / "1").exists() and not (base / "inbox" / "1.json").exists()
+    # 2) staging/<id>/input ist ein Symlink
+    _stage(base, 2)
+    shutil.rmtree(base / "staging" / "2" / "input")
+    (base / "staging" / "2" / "input").symlink_to(elsewhere / "input")
+    assert prep.main() == 0
+    assert not (base / "runs" / "2").exists() and not (base / "inbox" / "2.json").exists()
+    # 3) runs/ ist ein Symlink (oder gehört nicht root): nichts wird geschrieben, Anforderung bleibt
+    _stage(base, 4)
+    shutil.rmtree(base / "runs")
+    (base / "runs").symlink_to(elsewhere)
+    assert prep.main() == 1
+    assert sorted(p.name for p in elsewhere.iterdir()) == ["input"]
+    assert (base / "inbox" / "4.json").exists()
+
+
+def test_prepare_rejects_symlinks_and_special_files_in_package(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prep, base = _prep(tmp_path, monkeypatch, "claude_prepare_pkg")
+    secret = tmp_path / "geheim"
+    secret.write_text("PASSWD", encoding="utf-8")
+    inp = _stage(base, 1)
+    (inp / "a" / "link.txt").symlink_to(secret)
+    assert prep.main() == 0
+    assert not (base / "runs" / "1").exists() and not (base / "inbox" / "1.json").exists()
+    inp = _stage(base, 2)
+    (inp / "dirlink").symlink_to(tmp_path)
+    assert prep.main() == 0 and not (base / "runs" / "2").exists()
+    inp = _stage(base, 3)
+    os.mkfifo(inp / "fifo")
+    assert prep.main() == 0 and not (base / "runs" / "3").exists()
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        {"ok.txt": "x", "bad;name.txt": "x"},
+        {"ok.txt": "x", "$(id).txt": "x"},
+        {"ok.txt": "x", "a\nb.txt": "x"},
+        {"ok.txt": "x", "journal.txt": "schon da"},
+    ],
+)
+def test_prepare_rejects_bad_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, files: dict[str, str]
+) -> None:
+    prep, base = _prep(tmp_path, monkeypatch, "claude_prepare_names")
+    _stage(base, 1, files)
+    assert prep.main() == 0
+    assert not (base / "runs" / "1").exists() and not (base / "inbox" / "1.json").exists()
+
+
+def test_prepare_enforces_size_and_file_limits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prep, base = _prep(tmp_path, monkeypatch, "claude_prepare_limits")
+    _stage(base, 1, {"a.txt": "x" * 100}, max_package_bytes=50)
+    assert prep.main() == 0 and not (base / "runs" / "1").exists()
+    _stage(base, 2, {f"f{i}.txt": "x" for i in range(5)}, max_package_files=4)
+    assert prep.main() == 0 and not (base / "runs" / "2").exists()
+    _stage(base, 3, {"a.txt": "x" * 100}, max_package_bytes=100, max_package_files=1)
+    assert prep.main() == 0 and (base / "runs" / "3" / "input" / "a.txt").is_file()
+    _stage(base, 4, max_package_bytes=prep.HARD_MAX_BYTES + 1)  # über der harten Grenze = ungültig
+    assert prep.main() == 0 and not (base / "runs" / "4").exists()
+    assert not (base / "inbox" / "4.json").exists()
+
+
+def test_prepare_discards_invalid_and_already_processed_requests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prep, base = _prep(tmp_path, monkeypatch, "claude_prepare_invalid")
+    assert prep.main() == 0  # nichts zu tun
+    _stage(base, 1)
+    (base / "inbox" / "1.json").write_text('{"id": 2}', encoding="utf-8")  # ID passt nicht
+    assert prep.main() == 0 and not (base / "inbox" / "1.json").exists()
+    assert not (base / "runs" / "1").exists()
+    _stage(base, 2, max_turns=0)
+    assert prep.main() == 0 and not (base / "runs" / "2").exists()
+    (base / "inbox" / "03.json").write_text("{}", encoding="utf-8")  # führende Null: nie beachtet
+    assert prep.main() == 0 and (base / "inbox" / "03.json").exists()
+    # Lauf existiert schon: unverändert lassen, Anforderung verwerfen
+    (base / "inbox" / "03.json").unlink()
+    _stage(base, 5)
+    (base / "runs" / "5").mkdir()
+    (base / "runs" / "5" / "marker").write_text("alt", encoding="utf-8")
+    assert prep.main() == 0
+    assert sorted(p.name for p in (base / "runs" / "5").iterdir()) == ["marker"]
+    assert not (base / "inbox" / "5.json").exists()
+
+
+def test_prepare_current_is_never_followed_through_symlinks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prep, base = _prep(tmp_path, monkeypatch, "claude_prepare_current")
+    victim = tmp_path / "victim"
+    victim.write_text("unberührt", encoding="utf-8")
+    (tmp_path / "pruntime" / "current").symlink_to(victim)
+    _stage(base, 8)
+    assert prep.main() == 0
+    assert victim.read_text(encoding="utf-8") == "unberührt"
+    current = tmp_path / "pruntime" / "current"
+    assert not current.is_symlink() and current.read_text(encoding="utf-8") == "8\n"
+
+
+def test_prepare_prunes_old_runs_but_not_the_new_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prep, base = _prep(tmp_path, monkeypatch, "claude_prepare_prune")
+    old, young = base / "runs" / "1", base / "runs" / "2"
+    for run in (old, young):
+        (run / "output").mkdir(parents=True)
+        (run / "request.json").write_text("{}", encoding="utf-8")
+    past = (datetime.now(UTC) - timedelta(days=30)).timestamp()
+    os.utime(old / "request.json", (past, past))
+    _stage(base, 3, retention_days=10)
+    assert prep.main() == 0
+    assert not old.exists() and young.exists() and (base / "runs" / "3").exists()
+
+
 @pytest.fixture
 def stub_env(tmp_path: Path) -> dict[str, Any]:
     """Attrappe für die Installation: APP mit Skripten und einem Stub-`claude`, BASE mit einem Lauf."""
@@ -1181,7 +1419,7 @@ def test_claude_units_match_config_and_are_sandboxed() -> None:
     ):
         assert line in service, line
     assert (
-        "InaccessiblePaths=/var/lib/claude-review/inbox /opt/edgefinder /var/lib/edgefinder"
+        "InaccessiblePaths=/var/lib/claude-review/inbox /var/lib/claude-review/staging /opt/edgefinder"
         in service
     )
     assert "AF_INET6" not in service and "MemoryDenyWriteExecute" not in service  # node braucht JIT
@@ -1196,12 +1434,15 @@ def test_admin_and_cleanup_units_can_write_claude_dirs() -> None:
         encoding="utf-8"
     )
     assert (
-        "ReadWritePaths=/var/lib/edgefinder -/var/lib/claude-review/inbox -/var/lib/claude-review/runs"
+        "ReadWritePaths=/var/lib/edgefinder -/var/lib/claude-review/inbox -/var/lib/claude-review/staging"
         in admin
     )
     cleanup = (REPO / "deploy" / "systemd" / "edgefinder-cleanup.service").read_text(
         encoding="utf-8"
     )
-    assert "-/var/lib/claude-review/runs" in cleanup and "inbox" not in cleanup
+    assert "-/var/lib/claude-review/staging" in cleanup and "inbox" not in cleanup
+    assert (
+        "claude-review/runs" not in admin + cleanup
+    )  # runs/ gehört root, nie edgefinder-schreibbar
     web = (REPO / "deploy" / "systemd" / "edgefinder.service").read_text(encoding="utf-8")
     assert "claude-review" not in web  # Webprozess schreibt dort nie

@@ -374,6 +374,7 @@ class ClaudeConfig(_Model):
     cooldown_minutes: int = Field(default=30, ge=0, le=1440)
     max_runs_per_day: int = Field(default=3, ge=1, le=20)
     max_package_mb: int = Field(default=5, ge=1, le=50)
+    max_package_files: int = Field(default=3000, ge=100, le=20000)
     max_turns: int = Field(default=40, ge=1, le=200)
     runtime_max_seconds: int = Field(default=1200, ge=60, le=7200)  # = RuntimeMaxSec der Unit
     retention_days: int = Field(default=90, ge=1, le=3650)

@@ -4,11 +4,14 @@
 Der Webprozess und der Admin-Runner starten **nie** Programme. Dieses Modul schreibt nur Dateien
 (feste Pfade unter `claude.base_dir`), und zwar:
 
+  staging/<id>/input/…         Eingabepaket (edgefinder-eigen, nur Zwischenlager)
+  staging/<id>/request.json    Parameter des Laufs (nur für die Anzeige „queued“)
   inbox/<id>.json              Anforderung (löst die systemd-`.path`-Unit `claude-review.path` aus)
-  runs/<id>/input/…            Eingabepaket (der Agent darf nur lesen)
-  runs/<id>/request.json       Parameter des Laufs
 
-Den Rest (journald-Auszug, `output/`, Protokolle, Status) erzeugt der getrennte Dienst
+`runs/` gehört root und ist für den Webprozess nur lesbar: `prepare.py` (root, `ExecStartPre=+`) übernimmt
+das Paket per Deskriptor-Operationen nach `runs/<id>/input` (root-eigen, für den Agenten nur lesbar).
+Grund: Sicherheitsbefund /security-review 2026-11-23 (TOCTOU edgefinder → root in einem edgefinder-eigenen
+Lauf-Verzeichnis). Den Rest (journald-Auszug, `output/`, Protokolle, Status) erzeugt der getrennte Dienst
 `claude-review.service` (Benutzer `claude-review`, Sandbox, Netz nur zum lokalen Allowlist-Proxy).
 Lauf-IDs sind ausschließlich Zahlen (= ID des Admin-Auftrags); es gibt keine Pfadparameter vom Client.
 """
@@ -79,6 +82,9 @@ SNAPSHOT_EXCLUDE_PATTERNS = (
     re.compile(r"(?i)^(id_[a-z0-9]+|deploy_key.*|.*\.secret)$"),
 )
 SNAPSHOT_MAX_FILE_BYTES = 600_000
+# Dateinamen im Paket = Prüfung von prepare.py (root); Unzulässiges wird schon hier übersprungen
+PACKAGE_NAME_RE = re.compile(r"[A-Za-z0-9._+@=~,()\[\] -]{1,128}")
+STAGING_KEEP_DAYS = 2  # Zwischenlager ist nach der Übernahme durch prepare.py nutzlos
 
 
 class PackageError(Exception):
@@ -95,6 +101,10 @@ def runs_dir(config: Config) -> Path:
     return config.claude.base_dir / "runs"
 
 
+def staging_dir(config: Config) -> Path:
+    return config.claude.base_dir / "staging"
+
+
 def inbox_dir(config: Config) -> Path:
     return config.claude.base_dir / "inbox"
 
@@ -107,8 +117,8 @@ def run_dir(config: Config, run_id: int) -> Path:
 
 
 def installed(config: Config) -> bool:
-    """Installiert = die beiden Arbeitsverzeichnisse existieren (legt `install.sh` an)."""
-    return runs_dir(config).is_dir() and inbox_dir(config).is_dir()
+    """Installiert = die Arbeitsverzeichnisse existieren (legt `install.sh` an)."""
+    return runs_dir(config).is_dir() and inbox_dir(config).is_dir() and staging_dir(config).is_dir()
 
 
 def _now() -> datetime:
@@ -176,7 +186,11 @@ def run_state(config: Config, run_id: int, now: datetime | None = None) -> dict[
     now = now or _now()
     base = run_dir(config, run_id)
     if not _safe_dir(base):
-        return {"state": "missing"}
+        # noch nicht von prepare.py (root) übernommen: Anforderung liegt im Zwischenlager
+        staged = _read_json(staging_dir(config) / str(run_id) / "request.json")
+        if staged is None or not _safe_dir(staging_dir(config) / str(run_id)):
+            return {"state": "missing"}
+        base = staging_dir(config) / str(run_id)
     request = _read_json(base / "request.json") or {}
     status = _read_json(base / "status.json")
     created = request.get("created_at")
@@ -439,11 +453,13 @@ def git_head(source: Path) -> str | None:
 class _Writer:
     """Schreibt Dateien ins Paket und zählt Bytes (Limit); alles mit Modus 0640."""
 
-    def __init__(self, root: Path, limit: int) -> None:
+    def __init__(self, root: Path, limit: int, max_entries: int = 20_000) -> None:
         self.root = root
         self.limit = limit
+        self.max_entries = max_entries  # Dateien + Verzeichnisse (so zählt prepare.py)
         self.total = 0
         self.files: dict[str, int] = {}
+        self.dirs: set[Path] = set()
 
     def write(self, name: str, text: str) -> None:
         data = text.encode("utf-8")
@@ -453,6 +469,11 @@ class _Writer:
                 f"Eingabepaket größer als {self.limit // (1024 * 1024)} MB (Limit claude.max_package_mb)."
             )
         target = self.root / name
+        self.dirs.update(p for p in Path(name).parents if p != Path())
+        if len(self.files) + 1 + len(self.dirs) > self.max_entries:
+            raise PackageError(
+                f"Eingabepaket hat mehr als {self.max_entries} Dateien (Limit claude.max_package_files)."
+            )
         target.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
         target.write_bytes(data)
         target.chmod(0o640)
@@ -583,13 +604,17 @@ def build_package(
     das halbfertige Verzeichnis entfernt; die Anforderung entsteht erst ganz am Ende (atomar).
     """
     now = now or _now()
-    base = run_dir(config, run_id)
-    if base.exists():
+    base = staging_dir(config) / str(run_id)
+    if base.exists() or run_dir(config, run_id).exists():
         raise PackageError(f"Lauf {run_id} existiert schon.")
-    runs_dir(config).mkdir(parents=True, exist_ok=True)
+    staging_dir(config).mkdir(parents=True, exist_ok=True)
     base.mkdir(mode=0o750)
     try:
-        writer = _Writer(base / "input", config.claude.max_package_mb * 1024 * 1024)
+        writer = _Writer(
+            base / "input",
+            config.claude.max_package_mb * 1024 * 1024,
+            config.claude.max_package_files,
+        )
         (base / "input").mkdir(mode=0o750)
         for name in (maintenance.REVIEW_NAME, maintenance.DRIFT_NAME):
             text = read_regular(config.data_dir / name, 2_000_000)
@@ -605,6 +630,9 @@ def build_package(
             text = read_regular(path, SNAPSHOT_MAX_FILE_BYTES)
             if text is None:
                 skipped += 1
+                continue
+            if not all(PACKAGE_NAME_RE.fullmatch(part) for part in Path(rel).parts):
+                skipped += 1  # prepare.py würde das ganze Paket wegen des Namens ablehnen
                 continue
             if Path(rel).name == "CLAUDE.md":
                 rel += ".txt"  # nicht als Anweisungsdatei ladbar (Daten, keine Anweisungen)
@@ -633,6 +661,10 @@ def build_package(
             "runtime_max_seconds": config.claude.runtime_max_seconds,
             "journal_hours": config.claude.journal_hours,
             "package_bytes": writer.total,
+            # Grenzen für prepare.py (root); dort zusätzlich harte Obergrenzen
+            "max_package_bytes": config.claude.max_package_mb * 1024 * 1024,
+            "max_package_files": config.claude.max_package_files,
+            "retention_days": config.claude.retention_days,
         }
         _write_atomic(base / "request.json", _json_text(request))
         inbox = inbox_dir(config)
@@ -683,13 +715,7 @@ def run_job(conn: sqlite3.Connection, config: Config) -> maintenance.Run:
     return run
 
 
-def cleanup_runs(config: Config, now: datetime | None = None, *, dry_run: bool = False) -> int:
-    """Läufe älter als `claude.retention_days` löschen (nach Änderungszeit von `request.json`)."""
-    now = now or _now()
-    root = runs_dir(config)
-    if not _safe_dir(root):
-        return 0
-    cutoff = now - timedelta(days=config.claude.retention_days)
+def _remove_old(root: Path, cutoff: datetime, *, dry_run: bool) -> int:
     removed = 0
     for entry in os.scandir(root):
         if not entry.is_dir(follow_symlinks=False) or not RUN_ID_RE.fullmatch(entry.name):
@@ -705,4 +731,23 @@ def cleanup_runs(config: Config, now: datetime | None = None, *, dry_run: bool =
             if not dry_run:
                 shutil.rmtree(entry.path, ignore_errors=True)
             removed += 1
+    return removed
+
+
+def cleanup_runs(config: Config, now: datetime | None = None, *, dry_run: bool = False) -> int:
+    """Zwischenlager (> 2 Tage) und Läufe älter als `claude.retention_days` löschen.
+
+    `runs/` gehört root: der Webbenutzer kann dort nicht löschen; das übernimmt `prepare.py` (root) beim
+    nächsten Lauf. Ist `runs/` nicht beschreibbar, wird es hier übersprungen.
+    """
+    now = now or _now()
+    removed = 0
+    staging = staging_dir(config)
+    if _safe_dir(staging):
+        removed += _remove_old(staging, now - timedelta(days=STAGING_KEEP_DAYS), dry_run=dry_run)
+    root = runs_dir(config)
+    if _safe_dir(root) and os.access(root, os.W_OK):
+        removed += _remove_old(
+            root, now - timedelta(days=config.claude.retention_days), dry_run=dry_run
+        )
     return removed

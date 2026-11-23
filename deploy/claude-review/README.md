@@ -24,6 +24,14 @@ Ergebnis, Vorschläge und Protokoll erscheinen dort; Download der `analysis.md`.
 `sudo journalctl -t claude-review --since today`; Dateien unter `/var/lib/claude-review/runs/<id>/` (`output/analysis.md`, `audit.jsonl`,
 `transcript.jsonl`, `status.json`).
 
+## 4a. Sicherheit der Paketübergabe (Befund 2026-11-23, behoben)
+`prepare.py` läuft als root. Früher arbeitete es in einem Verzeichnis, das dem Web-Benutzer gehört, und rief `chown`/`chmod` auf Pfaden auf
+(TOCTOU: Austausch durch einen Symlink → root ändert beliebige Dateien). Jetzt: `runs/` gehört root (0755); der Webprozess schreibt das
+Paket nur nach `staging/<id>/` (edgefinder-eigen); `prepare.py` kopiert es als root per Deskriptoren (keine Symlinks, nur reguläre
+Dateien, geprüfte Namen, Größen-/Anzahl-Limit) nach `runs/<id>/input` (root:claude-review, nur lesbar) und nutzt `fchown`/`fchmod`.
+`install.sh` setzt die Rechte (erneut ausführen, falls schon installiert: `runs/` muss root gehören, sonst bricht `prepare.py` ab).
+Alte Läufe räumt `prepare.py` auf (Aufbewahrung aus der Anforderung), das Zwischenlager der `cleanup`-Lauf.
+
 ## 5. Notaus
 - Läufe verhindern: `claude.enabled: false` deployen, oder `sudo systemctl disable --now claude-review.path`.
 - Netz kappen: `sudo systemctl disable --now tinyproxy`.

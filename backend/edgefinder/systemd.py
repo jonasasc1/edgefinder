@@ -42,6 +42,10 @@ class Layout:
         return f"{self.claude_state}/inbox"
 
     @property
+    def claude_staging(self) -> str:
+        return f"{self.claude_state}/staging"
+
+    @property
     def claude_runs(self) -> str:
         return f"{self.claude_state}/runs"
 
@@ -186,7 +190,7 @@ def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
             "edgefinder: alte Rohdaten und Claude-Läufe löschen",
             "cleanup",
             layout,
-            (f"-{layout.claude_runs}",),
+            (f"-{layout.claude_staging}",),
         ),
         "edgefinder-evaluate.service": _job_service(
             "edgefinder: Live-Signale auswerten", "evaluate", layout
@@ -199,7 +203,7 @@ def generate(config: Config, layout: Layout | None = None) -> dict[str, str]:
             "edgefinder: Admin-Aufträge abarbeiten",
             "admin run",
             layout,
-            (f"-{layout.claude_inbox}", f"-{layout.claude_runs}"),
+            (f"-{layout.claude_inbox}", f"-{layout.claude_staging}"),
         ),
     }
     files["edgefinder-adminjobs.path"] = _admin_path(layout)
@@ -279,7 +283,7 @@ NoNewPrivileges=true
 CapabilityBoundingSet=
 ProtectSystem=strict
 ReadWritePaths={layout.claude_state}
-InaccessiblePaths={layout.claude_inbox} {layout.app_dir} {layout.state_dir} /home /root
+InaccessiblePaths={layout.claude_inbox} {layout.claude_staging} {layout.app_dir} {layout.state_dir} /home /root
 PrivateTmp=true
 PrivateDevices=true
 PrivateMounts=true
